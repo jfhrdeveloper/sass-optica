@@ -73,8 +73,56 @@ implementado — quedan anotadas como ideas a evaluar, en orden de valor:
 9. Permisos granulares por empleado (en vez de 3 roles fijos) — visto en Finegym, pero
    **no se recomienda adoptar**: contradice el modelo de roles ya fijado en el brief
    (administrador/encargado/trabajador), evaluar solo si el usuario lo pide explícitamente.
+10. **Feature-gating freemium tipo "candado visible"** (OkVet, visto en Hosp./Amb. y Marketing):
+    la función premium se muestra COMPLETA (no se oculta), con un banner naranja fijo
+    *"Funcionalidad no disponible en el plan actual. Disponible en el plan Pro. La información
+    registrada continuará disponible sólo en modo lectura"* + botón de upgrade ("Quitar
+    restricción"). Deja ver el valor de lo premium en vez de esconderlo — probablemente más
+    efectivo para nuestro plan Pro (facturación SUNAT, etc.) que ocultar el módulo entero.
+11. **Nav superior con dropdowns por hover** (OkVet: cada tab del header — Administración,
+    Consultorio, Solicitudes — despliega sub-secciones al pasar el mouse, en vez de navegar
+    directo). Alternativa al sidebar de Finegym que ya adoptamos; **no se recomienda cambiar**
+    nuestro sidebar por esto (el sidebar agrupado ya es más simple/accesible en mobile), solo
+    queda anotado como referencia de que ambos patrones son comunes en el rubro.
+12. **Onboarding vía tooltip contextual apuntando a UNA acción** (OkVet: globo "Primera historia
+    clínica — Crea tu primer registro..." señalando el botón exacto) + un indicador de progreso
+    numerado (1-2-3-4) persistente en el header — alternativa/complemento al checklist de
+    Finegym (ítem 1): en vez de listar las 6 tareas, mostrar una a la vez apuntando a la acción.
+13. Ideas de menor prioridad vistas en OkVet: módulo de "Campañas de correo" (marketing por
+    email con métricas de destinatarios/enviados/fallidos/desuscritos — evaluar si aplica para
+    recordatorios de control a pacientes), banner de changelog/novedades fijo en el dashboard
+    ("¡Tenemos nuevas actualizaciones! ... Ver más").
+
+**Nota operativa del research (no es UX, es proceso):** el login de OkVet exige captcha —
+no se puede automatizar con Playwright sin intervención humana. El patrón que funcionó: abrir
+Chromium en modo visible (`headless: false`) con el formulario ya prellenado, el usuario
+resuelve el captcha y cierra cualquier modal bloqueante a mano, y el script detecta el cambio
+de URL / la desaparición del modal para continuar solo. Script de referencia:
+`okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-24 (7) — Deep dive en el dashboard de OkVet (login manual + recorrido automático)
+- **Qué cambió:** se completó el research de OkVet que había quedado a medias (Fase (6)): el
+  login real de OkVet exige captcha, así que se resolvió con un patrón híbrido — Chromium en
+  modo visible (`headless: false`), formulario prellenado por script, el usuario resuelve el
+  captcha y cierra manualmente un modal bloqueante de SweetAlert2 ("¿Desea recibir las
+  notificaciones...?") que interceptaba todos los clicks posteriores, y el script detecta ambos
+  eventos (cambio de URL, modal desaparecido) para continuar solo. Con eso se recorrieron 8 de
+  9 tabs del header (Dashboard, Administración, Agenda, Consultorio, Ventas, Hosp./Amb.,
+  Solicitudes, Marketing — Informes quedó bloqueado por un tooltip de onboarding). Hallazgos
+  nuevos añadidos a la sección "Ideas de UX" arriba (ítems 10-13): feature-gating freemium con
+  "candado visible" (banner + módulo en modo lectura en vez de ocultarlo), nav superior con
+  dropdowns por hover, onboarding vía tooltip apuntando a una sola acción + stepper numérico en
+  el header, módulo de campañas de email marketing. Confirmado también: cada tab del header de
+  OkVet es un dropdown con sub-secciones (Consultorio → Consultorio/Sala de espera; Solicitudes
+  → historias clínicas/agendamiento/órdenes; Administración → Usuarios/Planes y suscripción).
+  Nada de esto se implementó — sigue siendo research, no código.
+- **Por qué:** cerrar el research de competencia que había quedado incompleto por el bloqueo
+  técnico del captcha + modal, para tener el cuadro completo antes de decidir qué implementar.
+- **Pendiente:** decidir con el usuario cuál de los 13 ítems de la sección "Ideas de UX" se
+  implementa primero (la de mayor valor sigue siendo el checklist/tooltip de onboarding,
+  ítems 1 y 12 combinados).
 
 ### 2026-07-24 (6) — Playwright real + research profundo de competencia (OkVet/Finegym)
 - **Qué cambió:** `chromium-cli` (referenciado por la skill `run`) no existe como paquete
