@@ -43,8 +43,14 @@ Diseña primero para móvil y escala hacia arriba.
 - **Tipografía:** responsiva (escala por breakpoint o `clamp()`), nunca tamaños fijos.
 
 ## Componentes UI
-- Botones (variantes y estados): _(pendiente — a definir al construir la landing/dashboard)_
-- Formularios e inputs: _(pendiente)_
+- Botones: `.btn-primary` (sólido, acción principal) / `.btn-outline` (secundaria) — definidas en `globals.css`.
+- Inputs de texto/número/fecha: clase `.input`.
+- **Dropdowns (`<select>`): SIEMPRE clase `.select`, nunca `.input`.** Un `<select>` nativo
+  dibuja su propia flecha pegada al borde del recuadro si no se le da espacio propio — `.select`
+  apaga el `appearance` nativo del navegador y dibuja una flecha (chevron) propia con
+  `padding-right` suficiente para que no quede pegada. Ver `globals.css`.
+- **Inputs numéricos sin flechas arriba/abajo:** ya aplicado globalmente en `globals.css`
+  (`input[type="number"]` sin spinners) — no hace falta nada por componente.
 - Modales / overlays: _(pendiente)_
 - Tablas / listas: _(pendiente)_
 - **Clases globales reutilizables:** centralizar tipografía y botones recurrentes

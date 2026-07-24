@@ -40,6 +40,19 @@ body {
   color: var(--foreground);
 }
 
+/* Inputs numéricos sin flechas arriba/abajo (regla ya anotada en
+   docs/style-guide.md, hardening web) — el ingreso es siempre manual
+   (cantidad, precio, stock), las flechas del navegador no aportan y ocupan
+   espacio. Cubre Chrome/Safari/Edge (::-webkit-*) y Firefox (moz-appearance). */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ================= CLASES REUTILIZABLES =================
    Centralizadas acá por la regla de docs/style-guide.md: "no redeclarar los
    mismos estilos en cada componente". */
@@ -61,6 +74,19 @@ body {
     @apply rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900
            placeholder:text-slate-400 focus:border-primary focus:outline-none
            focus:ring-2 focus:ring-primary/20;
+  }
+  /* Todo <select> del proyecto usa esta clase (nunca `.input` sola en un
+     select) — regla de diseño: la flecha nativa del navegador queda pegada
+     al borde del recuadro si no se le da su propio espacio. Se apaga el
+     `appearance` nativo y se dibuja una flecha propia (chevron SVG) con
+     padding-right suficiente para que respire dentro del recuadro. */
+  .select {
+    @apply rounded-lg border border-slate-300 py-2 pl-3 pr-9 text-sm text-slate-900
+           focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
+           appearance-none bg-no-repeat cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-position: right 0.65rem center;
+    background-size: 16px;
   }
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;

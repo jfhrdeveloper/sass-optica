@@ -64,13 +64,13 @@ export default function VentasPage() {
 
       <div className="card mt-4 p-4">
         <h2 className="font-medium">Nueva venta</h2>
-        <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="input mt-2 w-full text-sm">
+        <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select mt-2 w-full text-sm">
           <option value="">Sin cliente</option>
           {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
         </select>
 
         <div className="mt-2 flex flex-wrap gap-2">
-          <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="input text-sm">
+          <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select text-sm">
             <option value="">Producto…</option>
             {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} — S/ {p.precioVenta.toFixed(2)}</option>)}
           </select>
@@ -95,7 +95,7 @@ export default function VentasPage() {
         )}
 
         <div className="mt-3 flex items-center justify-between text-sm">
-          <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="input text-sm">
+          <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="select text-sm">
             <option value="efectivo">Efectivo</option>
             <option value="tarjeta">Tarjeta</option>
             <option value="yape">Yape</option>

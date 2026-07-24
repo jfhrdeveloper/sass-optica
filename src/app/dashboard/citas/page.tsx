@@ -67,13 +67,13 @@ export default function CitasPage() {
       </div>
 
       <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-        <select required value={form.clienteId ?? ""} onChange={(e) => setForm({ ...form, clienteId: e.target.value })} className="input text-sm">
+        <select required value={form.clienteId ?? ""} onChange={(e) => setForm({ ...form, clienteId: e.target.value })} className="select text-sm">
           <option value="">Cliente…</option>
           {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
         </select>
         <input type="datetime-local" required value={form.fechaHora?.slice(0, 16) ?? ""} onChange={(e) => setForm({ ...form, fechaHora: e.target.value })} className="input text-sm" />
         <input placeholder="Motivo" value={form.motivo ?? ""} onChange={(e) => setForm({ ...form, motivo: e.target.value })} className="input text-sm" />
-        <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="input text-sm">
+        <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="select text-sm">
           {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <div className="col-span-full flex gap-2">

@@ -56,7 +56,7 @@ export default function ProductosPage() {
 
       <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
         <input placeholder="Nombre" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input text-sm" />
-        <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="input text-sm">
+        <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
           {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <input placeholder="Marca" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="input text-sm" />

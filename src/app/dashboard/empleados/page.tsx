@@ -61,7 +61,7 @@ export default function EmpleadosPage() {
         <input placeholder="Nombres" required value={nombres} onChange={(e) => setNombres(e.target.value)} className="input text-sm" />
         <input placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="input text-sm" />
         <input placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input text-sm" />
-        <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="input text-sm">
+        <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="select text-sm">
           <option value="trabajador">Trabajador</option>
           <option value="encargado">Encargado</option>
         </select>

@@ -39,7 +39,7 @@ export default function GastosPage() {
       <p className="mt-1 text-sm text-slate-500">Total este mes: S/ {totalMes.toFixed(2)}</p>
 
       <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-        <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="input text-sm">
+        <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
           {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
