@@ -106,23 +106,23 @@ export default function RegistroPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-8">
-      <h1 className="text-xl font-semibold">Prueba gratis 30 días</h1>
-      <p className="mt-1 text-sm text-neutral-600">Sin tarjeta de crédito · Cancela cuando quieras</p>
+      <h1 className="text-xl font-semibold text-slate-900">Prueba gratis 30 días</h1>
+      <p className="mt-1 text-sm text-slate-500">Sin tarjeta de crédito · Cancela cuando quieras</p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium" htmlFor="nombreNegocio">Nombre de tu óptica</label>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="nombreNegocio">Nombre de tu óptica</label>
           <input
             id="nombreNegocio" required value={nombreNegocio}
             onChange={(ev) => setNombreNegocio(ev.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="input mt-1 w-full"
           />
         </div>
 
         {slug && (
-          <div className="rounded border bg-neutral-50 px-3 py-2 text-sm">
+          <div className="card bg-slate-50 px-3 py-2 text-sm">
             <div className="flex items-center justify-between gap-2">
-              <span className="truncate">
+              <span className="truncate text-slate-700">
                 {slug}.{rootDomain}
               </span>
               <span>
@@ -133,7 +133,7 @@ export default function RegistroPage() {
             </div>
             {mensajeSlug && <p className="mt-1 text-red-600">{mensajeSlug}</p>}
 
-            <div className="mt-2 flex gap-4 text-xs text-neutral-600">
+            <div className="mt-2 flex gap-4 text-xs text-slate-500">
               <label className="flex items-center gap-1">
                 <input type="radio" checked={formato === "guiones"} onChange={() => setFormato("guiones")} />
                 con-guiones
@@ -147,35 +147,35 @@ export default function RegistroPage() {
         )}
 
         <div>
-          <label className="block text-sm font-medium" htmlFor="nombres">Tu nombre</label>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="nombres">Tu nombre</label>
           <input
             id="nombres" required value={nombres}
             onChange={(ev) => setNombres(ev.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="input mt-1 w-full"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium" htmlFor="apellidos">Tus apellidos</label>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="apellidos">Tus apellidos</label>
           <input
             id="apellidos" value={apellidos}
             onChange={(ev) => setApellidos(ev.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="input mt-1 w-full"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium" htmlFor="email">Email</label>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="email">Email</label>
           <input
             id="email" type="email" required autoComplete="email" value={email}
             onChange={(ev) => setEmail(ev.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="input mt-1 w-full"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium" htmlFor="password">Contraseña</label>
+          <label className="block text-sm font-medium text-slate-700" htmlFor="password">Contraseña</label>
           <input
             id="password" type="password" required minLength={8} autoComplete="new-password" value={password}
             onChange={(ev) => setPassword(ev.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="input mt-1 w-full"
           />
         </div>
 
@@ -184,7 +184,7 @@ export default function RegistroPage() {
         <button
           type="submit"
           disabled={enviando || estado !== "disponible"}
-          className="w-full rounded bg-black px-3 py-2 text-white disabled:opacity-50"
+          className="btn-primary w-full"
         >
           {enviando ? "Creando tu cuenta…" : "Crear mi cuenta"}
         </button>

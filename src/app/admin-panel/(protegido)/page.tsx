@@ -24,23 +24,23 @@ export default async function AdminPanelPage() {
 
   return (
     <main>
-      <h1 className="text-xl font-semibold">Panel del SaaS</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Panel del SaaS</h1>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded border p-4"><div className="text-2xl font-semibold">{total}</div><div className="text-sm text-neutral-600">Negocios</div></div>
-        <div className="rounded border p-4"><div className="text-2xl font-semibold">{trials}</div><div className="text-sm text-neutral-600">En trial</div></div>
-        <div className="rounded border p-4"><div className="text-2xl font-semibold">{activas}</div><div className="text-sm text-neutral-600">Pagando</div></div>
-        <div className="rounded border p-4"><div className="text-2xl font-semibold">S/ {mrr.toFixed(2)}</div><div className="text-sm text-neutral-600">MRR estimado</div></div>
+        <div className="card p-4"><div className="text-2xl font-semibold text-slate-900">{total}</div><div className="text-sm text-slate-500">Negocios</div></div>
+        <div className="card p-4"><div className="text-2xl font-semibold text-slate-900">{trials}</div><div className="text-sm text-slate-500">En trial</div></div>
+        <div className="card p-4"><div className="text-2xl font-semibold text-slate-900">{activas}</div><div className="text-sm text-slate-500">Pagando</div></div>
+        <div className="card p-4"><div className="text-2xl font-semibold text-accent">S/ {mrr.toFixed(2)}</div><div className="text-sm text-slate-500">MRR estimado</div></div>
       </div>
       {vencidas > 0 && (
-        <p className="mt-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+        <p className="badge badge-warning mt-4 px-3 py-1.5">
           {vencidas} negocio(s) con el trial vencido sin pagar.
         </p>
       )}
 
       <table className="mt-8 w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-neutral-500">
+          <tr className="border-b border-slate-200 text-left text-slate-400">
             <th className="py-2">Negocio</th><th>Subdominio</th><th>Plan</th><th>Estado</th><th>Trial hasta</th>
           </tr>
         </thead>
@@ -48,7 +48,7 @@ export default async function AdminPanelPage() {
           {(negocios ?? []).map((n) => {
             const s = porNegocio.get(n.id);
             return (
-              <tr key={n.id} className="border-b">
+              <tr key={n.id} className="border-b border-slate-100">
                 <td className="py-2">{n.nombre}{!n.activo && " (inactivo)"}</td>
                 <td>{n.subdominio}</td>
                 <td>{s?.plan ?? "—"}</td>
@@ -57,7 +57,7 @@ export default async function AdminPanelPage() {
               </tr>
             );
           })}
-          {total === 0 && <tr><td colSpan={5} className="py-6 text-center text-neutral-500">Sin negocios registrados todavía.</td></tr>}
+          {total === 0 && <tr><td colSpan={5} className="py-6 text-center text-slate-400">Sin negocios registrados todavía.</td></tr>}
         </tbody>
       </table>
     </main>

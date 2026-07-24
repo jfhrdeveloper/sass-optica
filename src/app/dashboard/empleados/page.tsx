@@ -53,19 +53,19 @@ export default function EmpleadosPage() {
   return (
     <main>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Empleados</h1>
-        <Link href="/dashboard" className="text-sm underline">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900">Empleados</h1>
+        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
       </div>
 
-      <form onSubmit={invitar} className="mt-4 grid grid-cols-2 gap-2 rounded border p-4 sm:grid-cols-4">
-        <input placeholder="Nombres" required value={nombres} onChange={(e) => setNombres(e.target.value)} className="rounded border px-2 py-1" />
-        <input placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="rounded border px-2 py-1" />
-        <input placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="rounded border px-2 py-1" />
-        <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="rounded border px-2 py-1">
+      <form onSubmit={invitar} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+        <input placeholder="Nombres" required value={nombres} onChange={(e) => setNombres(e.target.value)} className="input text-sm" />
+        <input placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="input text-sm" />
+        <input placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input text-sm" />
+        <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="input text-sm">
           <option value="trabajador">Trabajador</option>
           <option value="encargado">Encargado</option>
         </select>
-        <button type="submit" disabled={enviando} className="col-span-full rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50">
+        <button type="submit" disabled={enviando} className="btn-primary col-span-full">
           {enviando ? "Enviando…" : "Invitar empleado"}
         </button>
         {mensaje && <p className="col-span-full text-sm">{mensaje}</p>}
@@ -73,13 +73,13 @@ export default function EmpleadosPage() {
 
       <table className="mt-4 w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-neutral-500">
+          <tr className="border-b border-slate-200 text-left text-slate-400">
             <th className="py-2">Nombre</th><th>Email</th><th>Rol</th><th />
           </tr>
         </thead>
         <tbody>
           {empleados.map((e) => (
-            <tr key={e.id} className="border-b">
+            <tr key={e.id} className="border-b border-slate-100">
               <td className="py-2">{e.nombres} {e.apellidos}</td>
               <td>{e.email ?? "—"}</td>
               <td>{e.rol}</td>

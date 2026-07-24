@@ -42,39 +42,39 @@ export default function ClientesPage() {
   return (
     <main>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Clientes</h1>
-        <Link href="/dashboard" className="text-sm underline">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900">Clientes</h1>
+        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
       </div>
 
-      <form onSubmit={onSubmit} className="mt-4 grid grid-cols-2 gap-2 rounded border p-4 sm:grid-cols-3">
-        <input placeholder="Nombres" required value={form.nombres ?? ""} onChange={(e) => setForm({ ...form, nombres: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Apellidos" value={form.apellidos ?? ""} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="DNI" value={form.documentoNumero ?? ""} onChange={(e) => setForm({ ...form, documentoNumero: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Teléfono" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Email" type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Fecha de nacimiento" type="date" value={form.fechaNacimiento ?? ""} onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })} className="rounded border px-2 py-1" />
+      <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
+        <input placeholder="Nombres" required value={form.nombres ?? ""} onChange={(e) => setForm({ ...form, nombres: e.target.value })} className="input text-sm" />
+        <input placeholder="Apellidos" value={form.apellidos ?? ""} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className="input text-sm" />
+        <input placeholder="DNI" value={form.documentoNumero ?? ""} onChange={(e) => setForm({ ...form, documentoNumero: e.target.value })} className="input text-sm" />
+        <input placeholder="Teléfono" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input text-sm" />
+        <input placeholder="Email" type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input text-sm" />
+        <input placeholder="Fecha de nacimiento" type="date" value={form.fechaNacimiento ?? ""} onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })} className="input text-sm" />
         <div className="col-span-full flex gap-2">
-          <button type="submit" disabled={guardando} className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50">
+          <button type="submit" disabled={guardando} className="btn-primary">
             {editandoId ? "Guardar cambios" : "Agregar cliente"}
           </button>
-          {editandoId && <button type="button" onClick={cancelar} className="text-sm underline">Cancelar</button>}
+          {editandoId && <button type="button" onClick={cancelar} className="text-sm font-medium text-primary hover:underline">Cancelar</button>}
         </div>
       </form>
 
       <input
         placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-        className="mt-4 w-full rounded border px-3 py-2 text-sm"
+        className="input mt-4 w-full text-sm"
       />
 
       <table className="mt-4 w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-neutral-500">
+          <tr className="border-b border-slate-200 text-left text-slate-400">
             <th className="py-2">Nombre</th><th>Documento</th><th>Teléfono</th><th />
           </tr>
         </thead>
         <tbody>
           {filtrados.map((c) => (
-            <tr key={c.id} className="border-b">
+            <tr key={c.id} className="border-b border-slate-100">
               <td className="py-2">{c.nombres} {c.apellidos}</td>
               <td>{c.documentoNumero ?? "—"}</td>
               <td>{c.telefono ?? "—"}</td>
@@ -85,7 +85,7 @@ export default function ClientesPage() {
             </tr>
           ))}
           {filtrados.length === 0 && (
-            <tr><td colSpan={4} className="py-6 text-center text-neutral-500">Sin clientes todavía.</td></tr>
+            <tr><td colSpan={4} className="py-6 text-center text-slate-400">Sin clientes todavía.</td></tr>
           )}
         </tbody>
       </table>

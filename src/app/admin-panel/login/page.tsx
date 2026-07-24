@@ -30,20 +30,20 @@ export default function AdminLoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center">
-      <h1 className="text-xl font-semibold">Panel del SaaS</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Panel del SaaS</h1>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <input
           type="email" placeholder="Email" required autoComplete="email"
           value={email} onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded border px-3 py-2"
+          className="input w-full"
         />
         <input
           type="password" placeholder="Contraseña" required autoComplete="current-password"
           value={password} onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded border px-3 py-2"
+          className="input w-full"
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={enviando} className="w-full rounded bg-black px-3 py-2 text-white disabled:opacity-50">
+        <button type="submit" disabled={enviando} className="btn-primary w-full">
           {enviando ? "Ingresando…" : "Ingresar"}
         </button>
       </form>

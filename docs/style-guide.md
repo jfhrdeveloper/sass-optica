@@ -3,15 +3,23 @@
 > Fuente única de verdad para estilo visual y convenciones de código. No duplicar en CLAUDE.md.
 
 ## Tipografía
-- Familia(s): _(pendiente — marca/branding aún sin definir; usar `next/font` cuando se elija)_
-- Escala / tamaños: _(pendiente)_
-- Pesos y usos: _(pendiente)_
+- Familia(s): **Geist** (sans) / **Geist Mono** — ya instaladas vía `next/font/google` en `src/app/layout.tsx`. Coincide con el estilo sans-serif geométrico moderno de todas las referencias de competidores analizadas (ver `diseno-referencia/`), no hizo falta cambiarla.
+- Escala / tamaños: escala por defecto de Tailwind (`text-sm`/`base`/`xl`/`2xl`/`4xl`...); headline de landing en `text-4xl`/`text-5xl`.
+- Pesos y usos: `font-semibold` para títulos y montos, `font-medium` para labels/botones, texto de cuerpo sin peso extra.
 
 ## Paleta
-- Primario / secundario / acento: _(pendiente — definir junto con la skill `ui-ux-pro-max` al diseñar la landing)_
-- Estados (éxito / aviso / error / info): _(pendiente)_
-- Modo oscuro: _(pendiente — decidir si el dashboard lo soporta desde el MVP)_
-- **Regla:** nunca redefinir colores ad-hoc en componentes; importar de la fuente canónica (tokens en `globals.css` / `tailwind` theme).
+Derivada del análisis de 44 imágenes de referencia (mockups genéricos + anuncios reales de
+competidores del rubro: HCMedic, Dentalink, OkVet, CitaPro) — ver `diseno-referencia/` y la
+entrada de bitácora correspondiente en `pending-task.md`. Tokens definidos en
+`src/app/globals.css` (`@theme inline`), consumibles como utilidades Tailwind
+(`bg-primary`, `text-primary`, `bg-primary-light`, `bg-accent-light`, etc.).
+
+- **Primario:** azul `#2563EB` (`--color-primary`) — estándar del rubro salud/clínicas en LatAm, genera confianza. Hover/sidebar activo: `#1E40AF` (`--color-primary-dark`). Fondo suave: `#EFF6FF` (`--color-primary-light`).
+- **Acento:** verde `#16A34A` (`--color-accent`) — estados positivos (ventas, stock ok, indicadores +%). Fondo suave: `#F0FDF4` (`--color-accent-light`).
+- **Neutrales:** escala `slate-*` de Tailwind tal cual (texto `slate-900`/`slate-500`/`slate-400`, bordes `slate-200`/`slate-100`).
+- **Estados (badges):** éxito → `.badge-success` (verde), aviso → `.badge-warning` (ámbar), error → `.badge-danger` (rojo), neutral → `.badge-neutral` (slate). Clases ya definidas en `globals.css`.
+- **Modo oscuro:** desactivado a propósito (ver `globals.css`) — el análisis de referencias mostró que el rubro casi no lo usa como default, y no hay componentes con variantes `dark:` reales todavía. Revisar si se pide soportarlo de verdad más adelante.
+- **Regla:** nunca redefinir estos colores ad-hoc en componentes; usar las clases reutilizables (`.btn-primary`, `.btn-outline`, `.card`, `.input`, `.badge-*`) definidas en `globals.css`, o las utilidades Tailwind del theme (`bg-primary`, etc.) — nunca `bg-black`/`bg-blue-600` sueltos.
 
 ## Espaciado y breakpoints
 - Escala de espaciado: la de Tailwind por defecto.

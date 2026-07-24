@@ -50,42 +50,42 @@ export default function ProductosPage() {
   return (
     <main>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Productos y stock</h1>
-        <Link href="/dashboard" className="text-sm underline">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900">Productos y stock</h1>
+        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
       </div>
 
-      <form onSubmit={onSubmit} className="mt-4 grid grid-cols-2 gap-2 rounded border p-4 sm:grid-cols-4">
-        <input placeholder="Nombre" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="rounded border px-2 py-1" />
-        <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="rounded border px-2 py-1">
+      <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+        <input placeholder="Nombre" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input text-sm" />
+        <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="input text-sm">
           {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <input placeholder="Marca" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Código" value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Precio venta (S/)" type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="rounded border px-2 py-1" />
-        <input placeholder="Precio costo (S/)" type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="rounded border px-2 py-1" />
+        <input placeholder="Marca" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="input text-sm" />
+        <input placeholder="Código" value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input text-sm" />
+        <input placeholder="Precio venta (S/)" type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input text-sm" />
+        <input placeholder="Precio costo (S/)" type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input text-sm" />
         {!editandoId && (
           <>
-            <input placeholder="Stock inicial" type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="rounded border px-2 py-1" />
-            <input placeholder="Stock mínimo" type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="rounded border px-2 py-1" />
+            <input placeholder="Stock inicial" type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="input text-sm" />
+            <input placeholder="Stock mínimo" type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="input text-sm" />
           </>
         )}
         <div className="col-span-full flex gap-2">
-          <button type="submit" disabled={guardando} className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50">
+          <button type="submit" disabled={guardando} className="btn-primary">
             {editandoId ? "Guardar cambios" : "Agregar producto"}
           </button>
-          {editandoId && <button type="button" onClick={cancelar} className="text-sm underline">Cancelar</button>}
+          {editandoId && <button type="button" onClick={cancelar} className="text-sm font-medium text-primary hover:underline">Cancelar</button>}
         </div>
       </form>
 
       <table className="mt-4 w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-neutral-500">
+          <tr className="border-b border-slate-200 text-left text-slate-400">
             <th className="py-2">Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th />
           </tr>
         </thead>
         <tbody>
           {productos.map((p) => (
-            <tr key={p.id} className="border-b">
+            <tr key={p.id} className="border-b border-slate-100">
               <td className="py-2">{p.nombre} {p.marca ? `(${p.marca})` : ""}</td>
               <td>{p.categoria}</td>
               <td>S/ {p.precioVenta.toFixed(2)}</td>
@@ -97,7 +97,7 @@ export default function ProductosPage() {
             </tr>
           ))}
           {productos.length === 0 && (
-            <tr><td colSpan={5} className="py-6 text-center text-neutral-500">Sin productos todavía.</td></tr>
+            <tr><td colSpan={5} className="py-6 text-center text-slate-400">Sin productos todavía.</td></tr>
           )}
         </tbody>
       </table>

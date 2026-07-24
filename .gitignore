@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# imágenes de referencia de diseño (capturas de terceros/WhatsApp, no assets
+# propios del proyecto — sin licencia clara para versionar)
+/diseno-referencia
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

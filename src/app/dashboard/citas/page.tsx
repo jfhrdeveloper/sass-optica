@@ -62,35 +62,35 @@ export default function CitasPage() {
   return (
     <main>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Citas</h1>
-        <Link href="/dashboard" className="text-sm underline">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900">Citas</h1>
+        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
       </div>
 
-      <form onSubmit={onSubmit} className="mt-4 grid grid-cols-2 gap-2 rounded border p-4 sm:grid-cols-4">
-        <select required value={form.clienteId ?? ""} onChange={(e) => setForm({ ...form, clienteId: e.target.value })} className="rounded border px-2 py-1">
+      <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+        <select required value={form.clienteId ?? ""} onChange={(e) => setForm({ ...form, clienteId: e.target.value })} className="input text-sm">
           <option value="">Cliente…</option>
           {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
         </select>
-        <input type="datetime-local" required value={form.fechaHora?.slice(0, 16) ?? ""} onChange={(e) => setForm({ ...form, fechaHora: e.target.value })} className="rounded border px-2 py-1" />
-        <input placeholder="Motivo" value={form.motivo ?? ""} onChange={(e) => setForm({ ...form, motivo: e.target.value })} className="rounded border px-2 py-1" />
-        <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="rounded border px-2 py-1">
+        <input type="datetime-local" required value={form.fechaHora?.slice(0, 16) ?? ""} onChange={(e) => setForm({ ...form, fechaHora: e.target.value })} className="input text-sm" />
+        <input placeholder="Motivo" value={form.motivo ?? ""} onChange={(e) => setForm({ ...form, motivo: e.target.value })} className="input text-sm" />
+        <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="input text-sm">
           {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <div className="col-span-full flex gap-2">
-          <button type="submit" disabled={guardando} className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50">
+          <button type="submit" disabled={guardando} className="btn-primary">
             {editandoId ? "Guardar cambios" : "Agendar cita"}
           </button>
-          {editandoId && <button type="button" onClick={cancelar} className="text-sm underline">Cancelar</button>}
+          {editandoId && <button type="button" onClick={cancelar} className="text-sm font-medium text-primary hover:underline">Cancelar</button>}
         </div>
       </form>
 
       <div className="mt-4 space-y-2">
         {ordenadas.map((c) => (
-          <div key={c.id} className="rounded border p-3 text-sm">
+          <div key={c.id} className="card p-3 text-sm">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">{nombreCliente(c.clienteId)}</div>
-                <div className="text-neutral-600">{new Date(c.fechaHora).toLocaleString("es-PE")} · {c.estado} {c.motivo ? `· ${c.motivo}` : ""}</div>
+                <div className="text-slate-500">{new Date(c.fechaHora).toLocaleString("es-PE")} · {c.estado} {c.motivo ? `· ${c.motivo}` : ""}</div>
               </div>
               <div className="space-x-2 whitespace-nowrap">
                 <button onClick={() => setRecetaAbierta(recetaAbierta === c.id ? null : c.id)} className="underline">Receta</button>
@@ -102,22 +102,22 @@ export default function CitasPage() {
             {recetaAbierta === c.id && (
               <div className="mt-3 grid grid-cols-4 gap-2 border-t pt-3 text-xs">
                 <span className="col-span-full font-medium">OD (ojo derecho)</span>
-                <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, odEsfera: e.target.value })} className="rounded border px-2 py-1" />
-                <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, odCilindro: e.target.value })} className="rounded border px-2 py-1" />
-                <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, odEje: e.target.value })} className="rounded border px-2 py-1" />
+                <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, odEsfera: e.target.value })} className="input text-sm" />
+                <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, odCilindro: e.target.value })} className="input text-sm" />
+                <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, odEje: e.target.value })} className="input text-sm" />
                 <span className="col-span-full mt-1 font-medium">OI (ojo izquierdo)</span>
-                <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, oiEsfera: e.target.value })} className="rounded border px-2 py-1" />
-                <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, oiCilindro: e.target.value })} className="rounded border px-2 py-1" />
-                <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, oiEje: e.target.value })} className="rounded border px-2 py-1" />
-                <input placeholder="DIP (mm)" onChange={(e) => setReceta({ ...receta, dip: e.target.value })} className="rounded border px-2 py-1" />
-                <button onClick={() => guardarReceta(c.id, c.clienteId)} className="col-span-full rounded bg-black px-3 py-1 text-white">
+                <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, oiEsfera: e.target.value })} className="input text-sm" />
+                <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, oiCilindro: e.target.value })} className="input text-sm" />
+                <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, oiEje: e.target.value })} className="input text-sm" />
+                <input placeholder="DIP (mm)" onChange={(e) => setReceta({ ...receta, dip: e.target.value })} className="input text-sm" />
+                <button onClick={() => guardarReceta(c.id, c.clienteId)} className="btn-primary col-span-full text-sm">
                   Guardar receta
                 </button>
               </div>
             )}
           </div>
         ))}
-        {ordenadas.length === 0 && <p className="py-6 text-center text-sm text-neutral-500">Sin citas todavía.</p>}
+        {ordenadas.length === 0 && <p className="py-6 text-center text-sm text-slate-400">Sin citas todavía.</p>}
       </div>
     </main>
   );

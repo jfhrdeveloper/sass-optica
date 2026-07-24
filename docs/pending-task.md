@@ -32,8 +32,9 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
 ## Pendientes activos (no bloquean, pero quedan abiertos)
 - [ ] Decidir permisos exactos de `gastos` para el rol `encargado` (hoy: solo `administrador`)
 - [ ] Definir nombre de marca, dominio final y precio del plan Pro en soles (ver brief §12)
-- [ ] Diseñar la landing real (paleta, tipografía, capturas reales) con la skill `ui-ux-pro-max`
-      — hoy tiene copy/estructura completos pero placeholders visuales (`[ mockup... ]`)
+- [x] Paleta/tipografía/estilo de componentes definidos (ver `docs/style-guide.md` y bitácora
+      2026-07-24 (4)) — sigue faltando: logo real, nombre de marca final, y capturas reales
+      reemplazando los placeholders `[ mockup/captura ]` de la landing
 - [ ] `addVenta` en `DataProvider.tsx` hace 2 escrituras secuenciales (venta + ítems), no una
       transacción real — aceptable para el volumen de una óptica pyme, revisar si se vuelve
       un problema real (ítems huérfanos si la 2ª escritura falla)
@@ -42,6 +43,39 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       Suscripciones/Planes de Culqi, no solo Cargos
 
 ## Bitácora de sesiones
+
+### 2026-07-24 (5) — Diseño real: paleta, sidebar y modo mock de verificación
+- **Qué cambió:**
+  1. **Modo mock temporal** (`src/lib/mock/`): correo/contraseña fijos (`demo@optica.pe` /
+     `demo1234`) que activan el dashboard con datos falsos sin tocar Supabase — para que el
+     usuario pudiera verificar visualmente el sistema antes de crear el proyecto real (que
+     decidió posponer). Gateado por `NEXT_PUBLIC_MOCK_MODE=true` en `.env.local` (nunca en
+     `.env.example` como `true`). Ramas `if (mock)` agregadas en `SessionProvider`,
+     `DataProvider` (estado inicial + todas las mutaciones operan en memoria) y
+     `dashboard/layout.tsx` (gate por cookie en vez de header). Bug encontrado de paso:
+     `createBrowserClient` explota en el constructor si la URL/key vienen vacías —
+     `src/lib/supabase/client.ts` ahora usa placeholders no vacíos como fallback.
+  2. **Diseño real**: el usuario puso 44 imágenes de referencia en `diseno-referencia/`
+     (mockups genéricos de UI-kits + anuncios reales de competidores del rubro: HCMedic,
+     Dentalink, OkVet, CitaPro). Un fork las analizó todas y devolvió un brief condensado:
+     azul primario (`#2563EB`) + verde de acento (`#16A34A`), tipografía Geist (ya instalada,
+     no hubo que cambiarla), sidebar blanco con secciones agrupadas, cards `rounded-xl` con
+     sombra suave, badges tipo píldora por estado.
+  3. Aplicado a todo el proyecto: `globals.css` con tokens de tema (`@theme inline`) + clases
+     reutilizables (`.btn-primary`, `.btn-outline`, `.card`, `.input`, `.badge-*`) siguiendo
+     la regla anti-duplicación de `docs/style-guide.md`. `DashboardNav` reescrito como sidebar
+     fijo con `lucide-react` (secciones Atención/Comercial/Administración). Landing (`src/app/
+     page.tsx`) rediseñada con la nueva paleta. Todas las páginas de `/dashboard/*` y
+     `admin-panel` migradas de `bg-black`/`rounded border` sueltos a las clases nuevas.
+     `docs/style-guide.md` actualizado con los valores reales (ya no placeholders).
+  - `npm run build` y `npm run lint` limpios. Verificado con `curl` (sin `chromium-cli`
+    disponible en este entorno) que las clases de marca se renderizan en el HTML real.
+- **Por qué:** el usuario quería verificar el login/dashboard sin comprometerse todavía a
+  crear infraestructura Supabase real, y luego aplicar un diseño real en vez de Tailwind
+  genérico sin marca.
+- **Pendiente:** el modo mock es temporal — se debe quitar (`src/lib/mock/` + las ramas
+  `isMockMode()`) en cuanto haya un proyecto Supabase real. Falta reemplazar los placeholders
+  `[ mockup/captura ]` de la landing por capturas reales, y definir nombre de marca/logo.
 
 ### 2026-07-24 (3) — Fases 3 a 6: MVP completo (dominio, landing, Culqi, panel admin)
 - **Qué cambió:** a pedido explícito de "haz todas las fases de una vez", se construyeron las

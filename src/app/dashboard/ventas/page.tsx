@@ -58,24 +58,24 @@ export default function VentasPage() {
   return (
     <main>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Ventas</h1>
-        <Link href="/dashboard" className="text-sm underline">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900">Ventas</h1>
+        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
       </div>
 
-      <div className="mt-4 rounded border p-4">
+      <div className="card mt-4 p-4">
         <h2 className="font-medium">Nueva venta</h2>
-        <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="mt-2 w-full rounded border px-2 py-1 text-sm">
+        <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="input mt-2 w-full text-sm">
           <option value="">Sin cliente</option>
           {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
         </select>
 
         <div className="mt-2 flex flex-wrap gap-2">
-          <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="rounded border px-2 py-1 text-sm">
+          <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="input text-sm">
             <option value="">Producto…</option>
             {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} — S/ {p.precioVenta.toFixed(2)}</option>)}
           </select>
-          <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="w-20 rounded border px-2 py-1 text-sm" />
-          <button type="button" onClick={agregarItem} disabled={!productoId} className="rounded border px-3 py-1 text-sm disabled:opacity-50">
+          <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+          <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline px-3 py-1 text-sm disabled:opacity-50">
             Agregar ítem
           </button>
         </div>
@@ -95,7 +95,7 @@ export default function VentasPage() {
         )}
 
         <div className="mt-3 flex items-center justify-between text-sm">
-          <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="rounded border px-2 py-1">
+          <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="input text-sm">
             <option value="efectivo">Efectivo</option>
             <option value="tarjeta">Tarjeta</option>
             <option value="yape">Yape</option>
@@ -107,7 +107,7 @@ export default function VentasPage() {
 
         <button
           onClick={confirmarVenta} disabled={guardando || items.length === 0}
-          className="mt-3 w-full rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-50"
+          className="btn-primary mt-3 w-full"
         >
           {guardando ? "Guardando…" : "Confirmar venta"}
         </button>
@@ -115,7 +115,7 @@ export default function VentasPage() {
 
       <table className="mt-6 w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-neutral-500">
+          <tr className="border-b border-slate-200 text-left text-slate-400">
             <th className="py-2">Fecha</th><th>Cliente</th><th>Método</th><th>Total</th>
           </tr>
         </thead>
@@ -127,14 +127,14 @@ export default function VentasPage() {
               <td>{v.metodoPago}</td>
               <td>
                 S/ {v.total.toFixed(2)}
-                <div className="text-xs text-neutral-500">
+                <div className="text-xs text-slate-400">
                   {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
                 </div>
               </td>
             </tr>
           ))}
           {ordenadas.length === 0 && (
-            <tr><td colSpan={4} className="py-6 text-center text-neutral-500">Sin ventas todavía.</td></tr>
+            <tr><td colSpan={4} className="py-6 text-center text-slate-400">Sin ventas todavía.</td></tr>
           )}
         </tbody>
       </table>

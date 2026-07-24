@@ -15,11 +15,11 @@ export default function FacturacionPage() {
   return (
     <main>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Facturación</h1>
-        <Link href="/dashboard" className="text-sm underline">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900">Facturación</h1>
+        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
       </div>
 
-      <div className="mt-4 rounded border p-4 text-sm">
+      <div className="card mt-4 p-4 text-sm">
         <p>Plan actual: <span className="font-medium">{suscripcion?.plan ?? "—"}</span></p>
         <p>Estado: <span className="font-medium">{suscripcion?.estado ?? "—"}</span></p>
         {suscripcion?.estado === "trial" && <p>Prueba gratuita hasta el {suscripcion.trialFin}.</p>}
@@ -27,7 +27,7 @@ export default function FacturacionPage() {
       </div>
 
       {suscripcion?.estado === "vencida" && (
-        <p className="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm">
+        <p className="badge badge-danger mt-4 px-3 py-1.5">
           Tu prueba gratuita venció. {esAdmin ? "Activa el plan Pro para seguir usando el sistema." : "Pide al administrador de tu negocio que active el plan Pro."}
         </p>
       )}
@@ -35,7 +35,7 @@ export default function FacturacionPage() {
       {esAdmin ? (
         <div className="mt-6">
           <h2 className="font-medium">Activar plan Pro</h2>
-          <p className="mt-1 text-sm text-neutral-600">
+          <p className="mt-1 text-sm text-slate-500">
             Incluye facturación electrónica SUNAT y empleados ilimitados. Pago con tarjeta o Yape.
           </p>
           <div className="mt-3">
@@ -47,7 +47,7 @@ export default function FacturacionPage() {
           </div>
         </div>
       ) : (
-        <p className="mt-6 text-sm text-neutral-600">
+        <p className="mt-6 text-sm text-slate-500">
           Solo el administrador de tu negocio puede gestionar la facturación.
         </p>
       )}
