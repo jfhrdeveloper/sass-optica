@@ -16,6 +16,10 @@ export default function VentasPage() {
   const [cantidad, setCantidad] = useState(1);
   const [guardando, setGuardando] = useState(false);
 
+  const [filtroMetodo, setFiltroMetodo] = useState("todos");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+
   const total = useMemo(() => items.reduce((acc, it) => acc + it.subtotal, 0), [items]);
   const subtotal = total / (1 + IGV);
   const igv = total - subtotal;
@@ -53,13 +57,17 @@ export default function VentasPage() {
     return c ? `${c.nombres} ${c.apellidos}` : "—";
   };
 
-  const ordenadas = [...ventas].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const ordenadas = [...ventas]
+    .filter((v) => filtroMetodo === "todos" || v.metodoPago === filtroMetodo)
+    .filter((v) => !desde || v.fecha.slice(0, 10) >= desde)
+    .filter((v) => !hasta || v.fecha.slice(0, 10) <= hasta)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   return (
     <main>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Ventas</h1>
-        <Link href="/dashboard" className="text-sm font-medium text-primary hover:underline">← Inicio</Link>
+      <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ventas</h1>
       </div>
 
       <div className="card mt-4 p-4">
@@ -87,7 +95,7 @@ export default function VentasPage() {
                 <span>{it.cantidad}× {it.descripcion}</span>
                 <span>
                   S/ {it.subtotal.toFixed(2)}{" "}
-                  <button onClick={() => quitarItem(i)} className="text-red-600 underline">quitar</button>
+                  <button onClick={() => quitarItem(i)} className="link-danger">quitar</button>
                 </span>
               </li>
             ))}
@@ -113,28 +121,43 @@ export default function VentasPage() {
         </button>
       </div>
 
-      <table className="mt-6 w-full text-sm">
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select text-sm">
+          <option value="todos">Todos los métodos</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="yape">Yape</option>
+          <option value="plin">Plin</option>
+          <option value="transferencia">Transferencia</option>
+        </select>
+        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
+        <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
+        <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+      </div>
+
+      <table className="mt-3 w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-400">
+          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
             <th className="py-2">Fecha</th><th>Cliente</th><th>Método</th><th>Total</th>
           </tr>
         </thead>
         <tbody>
           {ordenadas.map((v) => (
-            <tr key={v.id} className="border-b align-top">
-              <td className="py-2">{new Date(v.fecha).toLocaleString("es-PE")}</td>
+            <tr key={v.id} className="border-b align-top transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
+              {/* suppressHydrationWarning: mismo falso positivo de Intl que en citas/page.tsx. */}
+              <td className="py-2" suppressHydrationWarning>{new Date(v.fecha).toLocaleString("es-PE", { timeZone: "America/Lima" })}</td>
               <td>{nombreCliente(v.clienteId)}</td>
               <td>{v.metodoPago}</td>
               <td>
                 S/ {v.total.toFixed(2)}
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-400 dark:text-slate-500">
                   {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
                 </div>
               </td>
             </tr>
           ))}
           {ordenadas.length === 0 && (
-            <tr><td colSpan={4} className="py-6 text-center text-slate-400">Sin ventas todavía.</td></tr>
+            <tr><td colSpan={4} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin ventas todavía.</td></tr>
           )}
         </tbody>
       </table>
