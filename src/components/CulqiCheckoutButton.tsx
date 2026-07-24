@@ -92,7 +92,7 @@ export function CulqiCheckoutButton({ montoCentimos, tituloNegocio, onExito }: P
 
   if (!publicKey) {
     return (
-      <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+      <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
         Culqi no está configurado todavía (falta <code>NEXT_PUBLIC_CULQI_PUBLIC_KEY</code>).
       </p>
     );
@@ -108,7 +108,7 @@ export function CulqiCheckoutButton({ montoCentimos, tituloNegocio, onExito }: P
       >
         {procesando ? "Procesando…" : `Pagar S/ ${(montoCentimos / 100).toFixed(2)}`}
       </button>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </>
   );
 }
