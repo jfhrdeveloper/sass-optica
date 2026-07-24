@@ -23,75 +23,82 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
 - [ ] Activar cuenta Culqi real (24-48h) y confirmar el shape exacto de su API de cargos/webhooks
       contra la documentación oficial — `/api/pagos/culqi/cargo` y `/api/webhooks/culqi` están
       escritos con la mejor información disponible pero SIN haber sido probados contra Culqi real
-- [ ] Authentication → URL Configuration en Supabase: añadir `<origin>/auth/confirm` y
+- [ ] Authentication → URL Configuration en Supabase: añadir `<origin>/auth/confirm`,
+      `<origin>/auth/callback` (nuevo, ver bitácora 2026-07-24 (11)) y
       `<origin>/login/nueva-clave` a las Redirect URLs (local y prod)
+- [ ] Habilitar el proveedor Google en Supabase (Authentication → Providers): pegar Client ID/
+      Secret de un proyecto en Google Cloud Console, con `https://<proyecto>.supabase.co/auth/v1/callback`
+      whitelisteado ahí. El código (botones "Continuar/Registrarse con Google", `/auth/callback`,
+      `/registro/completar`) ya está escrito y compila, pero sin este paso manual Supabase
+      rechaza el `signInWithOAuth({ provider: "google" })` — mismo tipo de pendiente que Culqi.
 - [ ] Probar el flujo completo con subdominios reales (`[slug].dominio.pe`) — en `localhost` la
       cookie de sesión NO comparte dominio entre root y subdominios (ver `cookie-domain.ts`),
       revisar si esto complica probar el flujo login→subdominio en dev local
 
 ## Pendientes activos (no bloquean, pero quedan abiertos)
-- [ ] Decidir permisos exactos de `gastos` para el rol `encargado` (hoy: solo `administrador`)
-- [ ] Definir nombre de marca, dominio final y precio del plan Pro en soles (ver brief §12)
+- [x] Decidir permisos exactos de `gastos` para el rol `encargado` — resuelto de forma más
+      general de lo pedido: permisos granulares delegables por empleado (`empleados.permisos`),
+      ver bitácora 2026-07-24 (8). `gastos` sigue siendo admin-only por defecto, pero el
+      administrador ahora puede delegarlo puntualmente sin cambiar el rol fijo.
+- [ ] Definir nombre de marca, dominio final y precio del plan Pro en soles (ver brief §12) —
+      el precio ahora se resuelve por WhatsApp en la landing (ver bitácora (8)), pero el
+      **número de WhatsApp sigue siendo un placeholder** (`WHATSAPP_NUMERO` en `src/app/page.tsx`)
 - [x] Paleta/tipografía/estilo de componentes definidos (ver `docs/style-guide.md` y bitácora
-      2026-07-24 (4)) — sigue faltando: logo real, nombre de marca final, y capturas reales
-      reemplazando los placeholders `[ mockup/captura ]` de la landing
+      2026-07-24 (4)) — sigue faltando: logo real (ya hay UI para subirlo en Ajustes), nombre de
+      marca final, y capturas reales reemplazando los placeholders `[ mockup/captura ]` de la landing
 - [ ] `addVenta` en `DataProvider.tsx` hace 2 escrituras secuenciales (venta + ítems), no una
       transacción real — aceptable para el volumen de una óptica pyme, revisar si se vuelve
       un problema real (ítems huérfanos si la 2ª escritura falla)
 - [ ] Suscripción Culqi real (renovación automática) no está implementada — hoy es un cargo
       único que activa 30 días; para cobro recurrente automático hace falta la API de
       Suscripciones/Planes de Culqi, no solo Cargos
+- [ ] Campañas de email (`/dashboard/marketing`) son SOLO scaffold — no hay proveedor de email
+      conectado (Resend/Postmark vía Marketplace de Vercel); "Enviar" no manda correos reales
+      todavía, ver bitácora (8)
 
-## Ideas de UX de research de competencia (OkVet / Finegym — sin implementar todavía)
+## Ideas de UX de research de competencia (OkVet / Finegym) — ✅ LAS 13 IMPLEMENTADAS
 Research hecho en vivo contra las apps reales (landing + señal de cuenta creada + dashboard
-logueado de Finegym vía Playwright, y análisis de landing de OkVet). Nada de esto está
-implementado — quedan anotadas como ideas a evaluar, en orden de valor:
+logueado de Finegym vía Playwright, y análisis de landing de OkVet). A pedido explícito del
+usuario, las 13 ideas se implementaron en la sesión 2026-07-24 (8) — **incluidos los ítems 9 y
+11, que originalmente se habían marcado como "no recomendados"** (ver el detalle de cada uno y
+el porqué del cambio de criterio en la nota de cada ítem):
 
-1. **Checklist de onboarding en el dashboard** (Finegym: "Guía de configuración", 0 de 6 tareas
-   — Añade tu primer miembro / Crea un plan / Crea un tipo de clase / Programa tu primera clase
-   / Invita a tu personal / Sube el logo). Coincide con "Onboarding dentro del producto" que el
-   brief original ya marcaba como importante — es la idea de mayor valor de todo este research.
-2. **Panel lateral deslizante para las altas** (Miembros/Personal/Productos/Facturas en Finegym),
-   en vez de nuestro formulario inline actual en cada página de `/dashboard/*`.
-3. **Flujos de alta en 2 pasos** cuando el formulario es largo (datos básicos → paso de
-   confirmación/config adicional), en vez de una sola pantalla larga.
-4. **Filtros como selects independientes en la cabecera de cada listado** (Estado, Plan,
-   Personal, Rango de fechas) — hoy solo `clientes` tiene buscador de texto; `citas`,
-   `productos`, `ventas`, `gastos` no tienen ningún filtro.
-5. **Estado Activo/Borrador en productos** antes de publicarlos (relevante si el catálogo se
-   carga por adelantado antes de vender).
-6. **"Zona de peligro"** al final de una futura página de Ajustes del negocio, con estilo de
-   advertencia, para acciones destructivas (ej. eliminar negocio) — hoy no existe página de
-   Ajustes en absoluto.
-7. **Precio del plan Pro oculto tras un botón de WhatsApp** en vez de publicar un número (patrón
-   OkVet) — alternativa a bloquear el lanzamiento de la landing por no tener el precio definido
-   (ver pendiente "definir precio del plan Pro en soles" arriba).
-8. Ideas de menor prioridad / evaluar si aplican al rubro óptica: módulo de descuentos/cupones
-   (código, monto, vigencia, límite de usos — no está en el brief original), personalización de
-   marca (logo + color) en Ajustes, umbral de "cliente en riesgo" por inactividad (adaptable a
-   "paciente sin control hace X meses").
-9. Permisos granulares por empleado (en vez de 3 roles fijos) — visto en Finegym, pero
-   **no se recomienda adoptar**: contradice el modelo de roles ya fijado en el brief
-   (administrador/encargado/trabajador), evaluar solo si el usuario lo pide explícitamente.
-10. **Feature-gating freemium tipo "candado visible"** (OkVet, visto en Hosp./Amb. y Marketing):
-    la función premium se muestra COMPLETA (no se oculta), con un banner naranja fijo
-    *"Funcionalidad no disponible en el plan actual. Disponible en el plan Pro. La información
-    registrada continuará disponible sólo en modo lectura"* + botón de upgrade ("Quitar
-    restricción"). Deja ver el valor de lo premium en vez de esconderlo — probablemente más
-    efectivo para nuestro plan Pro (facturación SUNAT, etc.) que ocultar el módulo entero.
-11. **Nav superior con dropdowns por hover** (OkVet: cada tab del header — Administración,
-    Consultorio, Solicitudes — despliega sub-secciones al pasar el mouse, en vez de navegar
-    directo). Alternativa al sidebar de Finegym que ya adoptamos; **no se recomienda cambiar**
-    nuestro sidebar por esto (el sidebar agrupado ya es más simple/accesible en mobile), solo
-    queda anotado como referencia de que ambos patrones son comunes en el rubro.
-12. **Onboarding vía tooltip contextual apuntando a UNA acción** (OkVet: globo "Primera historia
-    clínica — Crea tu primer registro..." señalando el botón exacto) + un indicador de progreso
-    numerado (1-2-3-4) persistente en el header — alternativa/complemento al checklist de
-    Finegym (ítem 1): en vez de listar las 6 tareas, mostrar una a la vez apuntando a la acción.
-13. Ideas de menor prioridad vistas en OkVet: módulo de "Campañas de correo" (marketing por
-    email con métricas de destinatarios/enviados/fallidos/desuscritos — evaluar si aplica para
-    recordatorios de control a pacientes), banner de changelog/novedades fijo en el dashboard
-    ("¡Tenemos nuevas actualizaciones! ... Ver más").
+1. ✅ **Checklist de onboarding en el dashboard** — `OnboardingChecklist.tsx`, 6 tareas derivadas
+   de datos reales (sin campo nuevo de "onboarding completo" en la DB), visible en `/dashboard`.
+2. ✅ **Panel lateral deslizante para las altas** — `SlideOver.tsx`, reemplaza el formulario
+   inline en clientes/citas/productos/gastos(alta)/empleados/descuentos/marketing.
+3. ✅ **Flujos de alta en 2 pasos** — `Stepper.tsx` + wizard de 2 pasos en clientes y productos
+   (los formularios más largos); el resto no lo necesitaba por ser corto.
+4. ✅ **Filtros como selects en la cabecera** — citas (estado + rango fechas), productos
+   (categoría + estado), ventas (método de pago + rango fechas), gastos (categoría + rango
+   fechas), clientes (en riesgo / al día).
+5. ✅ **Estado Activo/Borrador en productos** — el campo `activo` ya existía en el schema; ahora
+   tiene badge clickeable + filtro en la UI.
+6. ✅ **"Zona de peligro"** — nueva página `/dashboard/ajustes`, con "Desactivar negocio"
+   (`negocios.activo=false`, reversible por soporte) en vez de un DELETE real.
+7. ✅ **Precio del plan Pro por botón de WhatsApp** — landing (`src/app/page.tsx`),
+   `WHATSAPP_NUMERO` sigue siendo placeholder (ver pendiente arriba).
+8. ✅ Descuentos/cupones (`/dashboard/descuentos`, tabla `descuentos`), personalización de marca
+   — logo + color primario — en Ajustes (aplicado vía CSS var en `HydrationGate.tsx`), badge
+   "En riesgo" en clientes (sin cita hace más de 180 días, solo si ya tiene historial).
+9. ✅ Permisos granulares por empleado — **implementado como capa ADITIVA sobre los 3 roles
+   fijos, no como reemplazo** (columna `empleados.permisos` jsonb, claves `gastos`/
+   `descuentos`/`marketing`; gestión de empleados/ajustes sigue siendo SIEMPRE exclusiva del
+   `administrador`, nunca delegable). Esto evita la razón original por la que no se recomendaba
+   (tirar abajo el modelo de roles del brief) mientras cubre el caso de uso real: un
+   administrador delegando un módulo puntual sin ascender a nadie de rol.
+10. ✅ **Feature-gating "candado visible"** — `FeatureGateBanner.tsx`, aplicado al módulo de
+    facturación SUNAT en `/dashboard/facturacion` (banner + formulario visible en modo lectura).
+11. ✅ Nav superior con dropdowns por hover — **`TopNav.tsx` reemplazó el sidebar** (`DashboardNav`
+    fue eliminado). Colapsa a menú plano en mobile. Cambio de criterio respecto a la
+    recomendación original: el usuario pidió explícitamente el reemplazo pese a la advertencia
+    de que el sidebar agrupado era más simple en mobile — a vigilar cómo se comporta en pantallas
+    angostas reales.
+12. ✅ Onboarding vía tooltip + stepper — `CoachTooltip.tsx`, complementa el checklist (ítem 1)
+    apuntando a una sola acción a la vez, cierre persistido por negocio en localStorage.
+13. ✅ Campañas de email (`/dashboard/marketing`, tabla `campanias_email`) — **scaffold sin envío
+    real** (falta conectar un proveedor de email, ver pendiente arriba) + banner de changelog
+    (`ChangelogBanner.tsx`) en el dashboard.
 
 **Nota operativa del research (no es UX, es proceso):** el login de OkVet exige captcha —
 no se puede automatizar con Playwright sin intervención humana. El patrón que funcionó: abrir
@@ -101,6 +108,201 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-24 (11) — Registro: espaciado del stepper + login/registro con Google
+- **Qué cambió:** dos pedidos puntuales del usuario sobre el wizard de registro:
+  1. **Espaciado del stepper**: en `RegistroForm` (`AuthPage.tsx`), el indicador de
+     paso 1/2 quedaba pegado al subtítulo del formulario — a diferencia de los otros usos de
+     `Stepper` (dentro de un `SlideOver`, que ya trae su propio padding de header), acá no había
+     nada dando aire entre el `<p>` de subtítulo y el stepper. Se agregó un wrapper `mt-6`
+     alrededor del `<Stepper>`, sin tocar el componente compartido (no afecta a
+     clientes/productos).
+  2. **"Continuar/Registrarse con Google"**: faltaba por completo la opción de entrar o crear
+     cuenta con Google — todo el flujo de auth dependía exclusivamente de email+contraseña.
+     Implementado de punta a punta:
+     - Botón con logo de Google (SVG inline, no hay ícono de marca en `lucide-react`) +
+       divisor "o continúa/regístrate con tu email" en `LoginForm` y en el paso 1 de
+       `RegistroForm` (`AuthPage.tsx`), llamando a `supabase.auth.signInWithOAuth({ provider:
+       "google" })`. En modo mock, en vez de intentar el redirect real (no hay Supabase real
+       detrás), muestra un mensaje — mismo criterio que el reset de contraseña en mock.
+     - `/auth/callback/route.ts` (nuevo): completa el intercambio PKCE (`exchangeCodeForSession`)
+       — contraparte de `/auth/confirm`, que es para el flujo `token_hash` (invitación/reset),
+       no sirve para OAuth porque ese `code_verifier` solo lo tiene el navegador que inició el
+       flujo. Decide el destino: si la cuenta de Google ya tiene `empleados.negocio_id`, al
+       `next` pedido (típicamente `/login`, que el `proxy.ts` ya resuelve al subdominio); si no
+       (cuenta de Google nueva — `handle_new_user()` en el schema ya le creó una fila `empleados`
+       mínima con `negocio_id NULL`), a `/registro/completar`.
+     - `/registro/completar` (página nueva) + `CompletarRegistroForm.tsx` + `/api/registro/completar`
+       (endpoint nuevo): contraparte de `/api/registro` para cuentas de Google — el `auth.user`
+       YA existe (lo creó Supabase al autenticar), así que este endpoint NUNCA crea un usuario de
+       Auth ni pide contraseña, solo crea negocio+suscripción y completa la fila `empleados` ya
+       existente (mismo criterio de atomicidad con rollback manual que `/api/registro`, usando
+       `service_role`). El nombre se toma del perfil de Google (`user_metadata.full_name`) con
+       fallback si no viene.
+     - `proxy.ts`: el bloque que ya redirigía "sesión + /login → subdominio" ahora también cubre
+       el caso "sesión sin negocio todavía" (típicamente Google recién autenticado) → redirige a
+       `/registro/completar` en vez de dejar ver el form de login de nuevo con una sesión activa
+       sin destino.
+  - `npm run build`/`lint`/`tsc --noEmit` limpios. Verificado con `curl` (sin navegador real
+    disponible) que ambos botones y el nuevo espaciado renderizan en el HTML servido de
+    `/login` y `/registro`.
+- **Por qué:** pedido explícito del usuario ("falta la opción de iniciar sesión o registrarse
+  con google" + "los pasos 1 y 2 están muy pegados arriba").
+- **Pendiente:** el proveedor Google no está habilitado en el proyecto Supabase (no existe
+  proyecto real todavía, ver "Pendientes activos" arriba) — hace falta el paso manual en el
+  Dashboard de Supabase (Client ID/Secret de Google Cloud Console) antes de que el botón
+  funcione contra credenciales reales; ya está documentado como pendiente activo. No se probó
+  visualmente con un navegador real esta sesión (sin Playwright/Chromium en este entorno),
+  solo `curl` + inspección de HTML — recomendable una pasada visual real antes de dar el
+  flujo por cerrado, sobre todo el cross-fade entre los dos formularios con los botones nuevos.
+
+### 2026-07-24 (10) — Proveedores, Cotizaciones e Informes (research de un 2º competidor: sistema de facturación SUNAT)
+- **Qué cambió:** el usuario mostró el sidebar de un sistema de facturación electrónica peruano
+  (Dashboard de ventas, Documentos → Cotizaciones/Ventas-recibos-facturas/Notas crédito/
+  Documentos soporte, Ingresos y Egresos, Inventario → Productos y servicios/Categorías/Salidas
+  y reservas/Ordenes de compra/Compras, Proveedores, Clientes, Configuración de facturación) y
+  pidió extraer lo valioso e implementarlo todo. De ese research se priorizaron 3 gaps reales
+  (el resto se descartó o se difirió — ver abajo) y se implementaron de punta a punta:
+  1. **Proveedores** (`/dashboard/proveedores`): CRUD completo (nombre/RUC/contacto/teléfono/
+     email/dirección/notas/activo). Tabla `proveedores` nueva en el schema, con la misma RLS
+     compartida (`current_tenant()` / `puede_gestionar()`) que clientes/productos/ventas.
+     Selector de proveedor agregado en los formularios de **Productos** y **Gastos**
+     (`proveedor_id` nuevo en ambas tablas, `on delete set null` — borrar un proveedor no
+     rompe productos/gastos ya vinculados).
+  2. **Cotizaciones** (`/dashboard/cotizaciones`): mismo constructor de ítems que Ventas
+     (selector de producto + cantidad), pero **sin tocar stock ni caja** — es un documento
+     previo. Tablas `cotizaciones`+`cotizacion_items` nuevas, con `estado`
+     (pendiente/aceptada/rechazada/vencida) y `vigencia_hasta`. Botón "Convertir a venta"
+     (`convertirCotizacionAVenta` en `DataProvider.tsx`) crea la Venta real recién en ese
+     momento (ahí sí descuenta stock vía `addVenta`) y enlaza `cotizaciones.venta_id` +
+     `estado='aceptada'` — la cotización queda trazable a la venta que generó.
+  3. **Informes / Ingresos y Egresos** (`/dashboard/informes`): tarjetas resumen (ingresos,
+     egresos, balance) + filtro de rango de fechas + libro combinado de Ventas+Gastos
+     ordenado por fecha con saldo corriente (columna `saldo` acumulada). No es contabilidad
+     formal, es una vista rápida para el dueño. Gateado por el mismo permiso granular
+     `'gastos'` que la página de Gastos (expone datos financieros).
+  - **Descartado/diferido a propósito** (no se implementó, con criterio explícito):
+    - *Notas crédito* / *Documentos soporte* → quedan para la fase de integración SUNAT real
+      (brief §9, ya en el roadmap), no tiene sentido modelarlos sin un OSE detrás.
+    - *Categorías* (de inventario) y *Salidas y reservas* → baja prioridad, `productos.categoria`
+      ya cubre una clasificación simple y "salidas" ya existe como tipo de movimiento en
+      `movimientos_stock`.
+  - **Cambios de infraestructura compartida:** `addVenta` en `DataProvider.tsx` cambió su
+    return type de `Promise<void>` a `Promise<string | null>` (devuelve el id de la venta
+    creada) — cambio compatible hacia atrás, los llamadores existentes (página de Ventas)
+    ignoran el valor de retorno; `convertirCotizacionAVenta` es el único que lo necesita.
+    `TABLAS_DOMINIO` y el `Promise.all` de carga inicial en `DataProvider.tsx` ganaron las 3
+    tablas nuevas (con su suscripción Realtime automática, mismo patrón que el resto).
+  - `npm run build`/`npm run lint`/`tsc --noEmit` limpios. Verificado en modo mock vía `curl`
+    con la cookie `mock_session=1` (sin Playwright disponible en este entorno esta sesión): las
+    3 rutas devuelven 200, los datos mock (`MOCK_PROVEEDORES`/`MOCK_COTIZACIONES`/
+    `MOCK_COTIZACION_ITEMS` en `mock-data.ts`) se renderizan, sin marcadores de error/hydration
+    en el HTML servido.
+- **Por qué:** el usuario pidió explícitamente "implementa todo" tras confirmar que valía la
+  pena extraer Proveedores/Cotizaciones/Informes del research del segundo competidor.
+- **Pendiente:** ídem que el resto del proyecto — nada de esto se ha probado contra Supabase
+  real todavía (sigue en modo mock). No se verificó visualmente con un navegador real esta
+  sesión (solo `curl` + inspección del HTML) porque no había Playwright/Chromium instalado en
+  este entorno — recomendable una pasada visual real (clic en "Convertir a venta", editar un
+  proveedor, filtrar Informes por rango de fechas) antes de dar el trabajo por cerrado.
+
+### 2026-07-24 (9) — Sidebar de vuelta + modo oscuro real + tipografía Poppins
+- **Qué cambió:** a pedido del usuario, se revirtió parcialmente la sesión (8) y se sumó una
+  feature nueva:
+  1. **Sidebar de vuelta**: `TopNav` (nav superior con dropdowns, ítem 11 de la sesión (8)) se
+     retiró y se restauró `DashboardNav` (sidebar fijo), ahora con los ítems nuevos que TopNav
+     había ganado (Ajustes/Descuentos/Marketing, con el mismo filtro por rol/permiso granular)
+     y el toggle de tema en su cabecera. `dashboard/layout.tsx` volvió al layout `ml-60`.
+  2. **Modo oscuro real** (no solo `prefers-color-scheme`, togglable a mano): `@custom-variant
+     dark` (Tailwind v4) + toggle manual vía clase `.dark` en `<html>`, persistido en
+     `localStorage` (clave `tema`) con fallback a la preferencia del SO. Script inline en
+     `layout.tsx` `<head>` aplica la clase ANTES del primer paint (evita flash). Nuevo
+     `ThemeToggle.tsx` (ícono sol/luna). Tokens de marca (`--background`, `--foreground`,
+     `--color-primary-light`, `--color-accent-light`) redefinidos bajo `.dark` en
+     `globals.css` — como `body` y los badges ya leían esas variables, gran parte de la
+     superficie se adaptó sola. Las clases reutilizables (`.card`, `.input`, `.select`,
+     `.btn-outline`, `.badge-*`) ganaron su propia variante `dark:`. El resto (encabezados,
+     texto muted, bordes, hover de filas, "Zona de peligro" en rojo, `FeatureGateBanner` en
+     ámbar) se hizo con una pasada sistemática por todas las páginas del dashboard + landing +
+     login/registro + admin-panel.
+  3. **Tipografía de títulos**: se agregó Poppins (600/700/800) vía `next/font/google` como
+     `--font-heading`, aplicada centralizadamente a `h1`/`h2`/`h3` (+ clase `.font-display` para
+     el nombre de marca en el sidebar/landing, que no son un heading real) en `globals.css` — un
+     solo punto de aplicación, no hubo que tocar cada página.
+  - **Bug propio encontrado en el camino:** el primer intento de pasada automática (script
+    de reemplazo con regex) duplicaba `dark:text-slate-400 dark:text-slate-500` en 22 lugares
+    porque el lookbehind negativo solo excluía el prefijo `hover:`, no `dark:` — la regla
+    `text-slate-400` volvía a matchear dentro del `dark:text-slate-400` que la regla anterior
+    (`text-slate-500`) acababa de insertar. Corregido con una segunda pasada que colapsa el
+    duplicado exacto; verificado que no quedó ninguna instancia.
+  - `npm run build`/`npm run lint` limpios. Verificado con Playwright: sidebar restaurado,
+    toggle claro↔oscuro, persistencia tras recargar (`localStorage` + script anti-flash),
+    landing en oscuro (visitantes con el SO en oscuro la ven así por defecto, sin haber tocado
+    el toggle nunca), 0 errores de consola/red en la pasada final.
+- **Por qué:** el usuario pidió explícitamente revertir el nav superior por el sidebar, sumar
+  un modo oscuro real (no solo decorativo) y una tipografía de títulos más pesada.
+- **Pendiente:** el modo oscuro no se probó en dispositivos táctiles/móviles reales, solo en el
+  viewport de escritorio de Playwright. La paleta oscura es una primera pasada razonable, no un
+  research de contraste exhaustivo (WCAG) — revisar si el usuario pide afinar algún color puntual.
+
+### 2026-07-24 (8) — Implementación de las 13 ideas de UX + pulido de diseño
+- **Qué cambió:** a pedido explícito del usuario ("implementa todo lo que has dicho"), se
+  implementaron las 13 ideas de UX del research de OkVet/Finegym (sesiones (6)-(7)) — ver el
+  detalle marcado ✅ ítem por ítem en la sección "Ideas de UX" arriba — más una pasada de pulido
+  de diseño. Resumen de lo construido:
+  1. **Schema** (`docs/supabase-schema.sql`): `negocios.color_primario`, `empleados.permisos`
+     (jsonb, aditivo sobre el rol fijo — nunca reemplaza `administrador`), tablas nuevas
+     `descuentos` y `campanias_email` con su RLS (mismo patrón `negocio_id = current_tenant()`),
+     helper `tiene_permiso(clave)`, `gastos_admin_all` ahora acepta también el permiso granular.
+  2. **DataProvider/mappers/mock-data**: tipos y CRUD para `Descuento`/`CampaniaEmail`, campos
+     nuevos en `Negocio`/`Empleado`.
+  3. **Componentes compartidos nuevos**: `SlideOver` (panel lateral), `Stepper` (alta en 2
+     pasos), `OnboardingChecklist`, `CoachTooltip`, `FeatureGateBanner` ("candado visible"),
+     `ChangelogBanner`, `TopNav` (nav superior con dropdowns — **reemplaza y borra
+     `DashboardNav`**, el sidebar fijo anterior).
+  4. **`proxy.ts`**: gatea `/dashboard/{gastos,descuentos,marketing}` por permiso granular
+     además de rol; `/dashboard/{empleados,ajustes}` siguen siendo admin-estricto, nunca
+     delegables.
+  5. **Páginas rehechas**: clientes (slide-over 2 pasos + badge/filtro "en riesgo", sin cita
+     hace &gt;180 días), citas (slide-over + filtros estado/fecha), productos (slide-over 2
+     pasos + badge Activo/Borrador clickeable + filtros), ventas/gastos (filtros método-o-
+     categoría + rango de fechas), empleados (slide-over + editor de permisos granulares por
+     fila expandible).
+  6. **Páginas nuevas**: `/dashboard/ajustes` (datos del negocio, logo + color de marca vía
+     CSS var en `HydrationGate.tsx`, Zona de Peligro = desactivar negocio con
+     `negocios.activo=false`, reversible — nunca un DELETE real), `/dashboard/descuentos`
+     (CRUD de cupones), `/dashboard/marketing` (campañas de email — **scaffold sin envío real**,
+     falta conectar un proveedor).
+  7. **Landing**: precio del plan Pro reemplazado por botón de WhatsApp (`WHATSAPP_NUMERO`
+     placeholder). **Facturación**: módulo SUNAT visible en modo lectura + `FeatureGateBanner`.
+  8. **Pulido de diseño**: transición de entrada por página (`.page-enter` en
+     `dashboard/layout.tsx`), `.card` con `transition-shadow`, hover consistente en filas de
+     tabla y badges clickeables.
+  - **2 bugs reales encontrados y corregidos durante la verificación con Playwright** (no per-
+    ceptibles solo con `npm run build`/`lint`, hacía falta levantar el dashboard de verdad):
+    a) `ChangelogBanner`/`CoachTooltip` leían `window.localStorage` en el initializer de
+       `useState` para evitar el lint `set-state-in-effect` — pero en modo mock
+       `DataProvider`/`SessionProvider` arrancan con `ready=true` de forma síncrona, así que
+       estos componentes SÍ se renderizan durante el SSR, donde `window` no existe
+       (`ReferenceError: window is not defined`, tumbaba `/dashboard` con 500 real). Solucionado
+       volviendo al patrón efecto+setState con un `eslint-disable-next-line` puntual y
+       justificado — es la excepción legítima que la regla del proyecto no puede detectar
+       (sincronizar con un API del navegador ausente en el servidor).
+    b) `toLocaleString("es-PE")` sin `timeZone` explícito en citas/ventas (código YA existente,
+       no introducido en esta sesión) causaba un hydration mismatch real por diferencias de
+       Unicode whitespace entre el ICU de Node (SSR) y el del navegador. Se agregó
+       `timeZone: "America/Lima"` + `suppressHydrationWarning` en el nodo puntual (el texto
+       visible es idéntico, es un falso positivo conocido de React con `Intl`).
+  - `npm run build` y `npm run lint` limpios. Verificado de punta a punta con Playwright
+    (`headless`) contra el dashboard en modo mock: login, las 12 rutas del dashboard, 0 errores
+    de consola/hydration/red en la pasada final.
+- **Por qué:** el usuario pidió explícitamente implementar TODAS las ideas del research
+  (incluidos los ítems 9 y 11, que se habían marcado como "no recomendados" en la sesión (7)) y
+  además mejorar el diseño general, no solo un subconjunto priorizado.
+- **Pendiente:** `WHATSAPP_NUMERO` sigue siendo placeholder; campañas de email son scaffold sin
+  proveedor conectado; nada de esto se ha probado contra Supabase real todavía (sigue en modo
+  mock) — ver "Pendientes activos" arriba. El cambio de sidebar a `TopNav` (ítem 11) no se ha
+  probado en un dispositivo móvil real, solo en el viewport de escritorio de Playwright.
 
 ### 2026-07-24 (7) — Deep dive en el dashboard de OkVet (login manual + recorrido automático)
 - **Qué cambió:** se completó el research de OkVet que había quedado a medias (Fase (6)): el
