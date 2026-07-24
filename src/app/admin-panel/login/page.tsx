@@ -30,7 +30,7 @@ export default function AdminLoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center">
-      <h1 className="text-xl font-semibold text-slate-900">Panel del SaaS</h1>
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Panel del SaaS</h1>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <input
           type="email" placeholder="Email" required autoComplete="email"
@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
           value={password} onChange={(e) => setPassword(e.target.value)}
           className="input w-full"
         />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <button type="submit" disabled={enviando} className="btn-primary w-full">
           {enviando ? "Ingresando…" : "Ingresar"}
         </button>

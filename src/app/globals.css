@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Modo oscuro por CLASE (no por `prefers-color-scheme` del sistema): el
+   toggle manual (ver ThemeToggle.tsx) agrega/quita `.dark` en <html>. Esta
+   directiva le dice a Tailwind v4 que genere los `dark:` en base a esa clase
+   — sin esto, Tailwind v4 usa por defecto la media query del SO, que no se
+   puede togglear a mano. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ================= TOKENS DE MARCA =================
    Paleta derivada del análisis de referencias de competidores del rubro
    (HCMedic, Dentalink, OkVet, CitaPro) — azul primario (confianza, estándar
@@ -18,6 +25,19 @@
   --color-accent-light: #f0fdf4; /* green-50 */
 }
 
+/* Overrides de los mismos tokens bajo `.dark` — el resto del árbol de
+   componentes (`bg-primary-light`, `bg-accent-light`, `body`) no necesita
+   ningún cambio porque ya lee estas variables, no colores hardcodeados. Los
+   "light" tintados se vuelven un tinte translúcido en vez de un pastel
+   sólido (un pastel bg-blue-50 sobre fondo oscuro se ve "lavado"/roto). */
+.dark {
+  --background: #020617; /* slate-950 */
+  --foreground: #f1f5f9; /* slate-100 */
+
+  --color-primary-light: rgba(37, 99, 235, 0.18);
+  --color-accent-light: rgba(22, 163, 74, 0.18);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -28,16 +48,57 @@
   --color-accent-light: var(--color-accent-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-poppins);
 }
 
-/* Sin dark mode automático por ahora: el análisis de referencias mostró que
-   el rubro casi no lo usa como default, y ningún componente tiene todavía
-   variantes `dark:` reales — invertir solo el fondo/texto base se vería
-   roto. Decisión a revisar si el usuario pide soportarlo de verdad. */
+/* Transición sutil de entrada para el contenido de cada página del
+   dashboard — un solo punto de aplicación (dashboard/layout.tsx envuelve
+   {children} con .page-enter) en vez de repetirlo en cada page.tsx. */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Transición suave al alternar claro/oscuro (ThemeToggle.tsx agrega/quita
+   `.dark` en <html>) — sin esto el cambio de color es instantáneo y se
+   siente brusco en toda la pantalla de golpe. Selector universal a
+   propósito: es la única forma de cubrir fondos, bordes y texto de
+   TODOS los componentes sin agregarle `transition-colors` a cada uno.
+
+   IMPORTANTE — por qué va dentro de `@layer base`: Tailwind v4 envuelve sus
+   utilidades en cascade layers (theme/base/components/utilities). Una regla
+   FUERA de cualquier `@layer` le gana a CUALQUIER regla dentro de un layer,
+   sin importar la especificidad — es como funcionan los cascade layers en
+   CSS, no un detalle de Tailwind. Esta regla estuvo suelta (sin `@layer`)
+   y por eso pisaba en silencio CUALQUIER `transition-*` de Tailwind en TODA
+   la app (`.transition-transform`, `.transition-opacity`, `.transition-shadow`
+   del `.card`, etc. — todos quedaban forzados a transicionar solo
+   background/border/color/fill/stroke, sin importar qué pidiera la clase
+   específica del componente). Puesta en `@layer base` (la capa más baja de
+   Tailwind), cualquier utilidad de `@layer utilities` (como `transition-transform`)
+   vuelve a ganarle correctamente — esta regla queda como el default para los
+   elementos que no piden nada más específico. */
+@layer base {
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: ease;
+    transition-duration: 0.2s;
+  }
+}
+
+/* Tipografía de títulos: Poppins (más pesada/geométrica que Geist a
+   propósito, para que h1/h2/h3 destaquen del cuerpo de texto). `.font-display`
+   es para casos que no son un heading real (ej. el nombre de marca en el
+   sidebar) pero deben verse igual. */
+h1, h2, h3, .font-display {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 /* Inputs numéricos sin flechas arriba/abajo (regla ya anotada en
@@ -55,7 +116,9 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* ================= CLASES REUTILIZABLES =================
    Centralizadas acá por la regla de docs/style-guide.md: "no redeclarar los
-   mismos estilos en cada componente". */
+   mismos estilos en cada componente". Cada una trae su propia variante
+   `dark:` — así una página que usa `.card`/`.input`/`.select`/`.badge-*` ya
+   queda dark-mode-ready sin tocar nada más. */
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2
@@ -65,25 +128,34 @@ input[type="number"]::-webkit-inner-spin-button {
   .btn-outline {
     @apply inline-flex items-center justify-center rounded-lg border border-slate-300
            bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors
-           hover:bg-slate-50 disabled:opacity-50;
+           hover:bg-slate-50 disabled:opacity-50
+           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
   }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow duration-150
+           dark:border-slate-800 dark:bg-slate-900;
+  }
+  .page-enter {
+    animation: fade-in 0.25s ease-out;
   }
   .input {
     @apply rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900
            placeholder:text-slate-400 focus:border-primary focus:outline-none
-           focus:ring-2 focus:ring-primary/20;
+           focus:ring-2 focus:ring-primary/20
+           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500;
   }
   /* Todo <select> del proyecto usa esta clase (nunca `.input` sola en un
      select) — regla de diseño: la flecha nativa del navegador queda pegada
      al borde del recuadro si no se le da su propio espacio. Se apaga el
      `appearance` nativo y se dibuja una flecha propia (chevron SVG) con
-     padding-right suficiente para que respire dentro del recuadro. */
+     padding-right suficiente para que respire dentro del recuadro. El SVG
+     del chevron queda fijo en slate-400: es legible en los dos temas, no
+     hace falta una segunda versión para dark. */
   .select {
     @apply rounded-lg border border-slate-300 py-2 pl-3 pr-9 text-sm text-slate-900
            focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
-           appearance-none bg-no-repeat cursor-pointer;
+           appearance-none bg-no-repeat cursor-pointer
+           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
     background-position: right 0.65rem center;
     background-size: 16px;
@@ -92,10 +164,44 @@ input[type="number"]::-webkit-inner-spin-button {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
   .badge-success { @apply bg-accent-light text-accent; }
-  .badge-warning { @apply bg-amber-50 text-amber-700; }
-  .badge-danger  { @apply bg-red-50 text-red-700; }
-  .badge-neutral { @apply bg-slate-100 text-slate-600; }
+  .badge-warning { @apply bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400; }
+  .badge-danger  { @apply bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400; }
+  .badge-neutral { @apply bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300; }
   .nav-section-label {
-    @apply px-3 text-xs font-semibold uppercase tracking-wide text-slate-400;
+    @apply px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500;
+  }
+  /* Enlaces de texto (acciones de tabla, "← Inicio", links de auth): antes
+     `hover:underline` en cada componente — se ve más plano/anticuado que un
+     cambio de color, y el sitio ya transiciona `color` globalmente (ver la
+     regla de `@layer base` arriba), así que el hover queda suave gratis.
+     3 variantes por contexto de color: primario (navegación/acciones
+     neutras), danger (eliminar) y muted (cancelar/descartar). */
+  .link {
+    @apply text-primary transition-colors hover:text-primary-dark;
+  }
+  .link-danger {
+    @apply text-red-600 transition-colors hover:text-red-700
+           dark:text-red-400 dark:hover:text-red-300;
+  }
+  .link-muted {
+    @apply text-slate-500 transition-colors hover:text-slate-700
+           dark:text-slate-400 dark:hover:text-slate-200;
+  }
+  /* Checkbox propio (reemplaza el nativo del navegador, que se ve distinto
+     por SO y no sigue la paleta de marca): `appearance-none` + cuadrado
+     redondeado + el check se dibuja con un SVG de fondo que solo aparece
+     `checked` (evita depender de pseudo-elementos por navegador). */
+  .checkbox {
+    @apply h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border
+           border-slate-300 bg-white transition-colors
+           checked:border-primary checked:bg-primary
+           focus:outline-none focus:ring-2 focus:ring-primary/30
+           dark:border-slate-600 dark:bg-slate-800;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 12px;
+  }
+  .checkbox:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
   }
 }
