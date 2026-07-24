@@ -4,6 +4,9 @@ import Link from "next/link";
 import { Users, CalendarDays, PackageX, ShoppingCart } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { CoachTooltip } from "@/components/CoachTooltip";
+import { ChangelogBanner } from "@/components/ChangelogBanner";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -24,8 +27,8 @@ export default function DashboardPage() {
 
   return (
     <main>
-      <h1 className="text-xl font-semibold text-slate-900">Hola, {empleado?.nombres || "—"}</h1>
-      <p className="text-sm text-slate-500">{negocio?.nombre} · rol {empleado?.rol}</p>
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Hola, {empleado?.nombres || "—"}</h1>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{negocio?.nombre} · rol {empleado?.rol}</p>
 
       {suscripcion?.estado === "trial" && (
         <p className="badge badge-warning mt-4 px-3 py-1.5">
@@ -34,9 +37,13 @@ export default function DashboardPage() {
       )}
       {suscripcion?.estado === "vencida" && (
         <p className="badge badge-danger mt-4 px-3 py-1.5">
-          Tu prueba gratuita venció. <Link href="/dashboard/facturacion" className="ml-1 underline">Activa tu plan</Link>
+          Tu prueba gratuita venció. <Link href="/dashboard/facturacion" className="ml-1 font-semibold transition-colors hover:text-red-900 dark:hover:text-red-200">Activa tu plan</Link>
         </p>
       )}
+
+      <ChangelogBanner negocioId={negocio?.id} />
+      <OnboardingChecklist />
+      <CoachTooltip />
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {STATS.map((s, i) => {
@@ -46,14 +53,14 @@ export default function DashboardPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light text-primary">
                 <Icon size={18} />
               </div>
-              <div className="text-2xl font-semibold text-slate-900">{valores[i]}</div>
-              <div className="text-sm text-slate-500">{s.label}</div>
+              <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{valores[i]}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{s.label}</div>
             </Link>
           );
         })}
       </div>
 
-      <dl className="mt-8 space-y-1 text-xs text-slate-400">
+      <dl className="mt-8 space-y-1 text-xs text-slate-400 dark:text-slate-500">
         <div>Negocio: {negocio?.nombre} ({negocio?.subdominio})</div>
         <div>Plan: {suscripcion?.plan ?? "—"} · Estado: {suscripcion?.estado ?? "—"}</div>
       </dl>
