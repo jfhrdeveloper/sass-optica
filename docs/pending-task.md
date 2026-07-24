@@ -42,7 +42,65 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       único que activa 30 días; para cobro recurrente automático hace falta la API de
       Suscripciones/Planes de Culqi, no solo Cargos
 
+## Ideas de UX de research de competencia (OkVet / Finegym — sin implementar todavía)
+Research hecho en vivo contra las apps reales (landing + señal de cuenta creada + dashboard
+logueado de Finegym vía Playwright, y análisis de landing de OkVet). Nada de esto está
+implementado — quedan anotadas como ideas a evaluar, en orden de valor:
+
+1. **Checklist de onboarding en el dashboard** (Finegym: "Guía de configuración", 0 de 6 tareas
+   — Añade tu primer miembro / Crea un plan / Crea un tipo de clase / Programa tu primera clase
+   / Invita a tu personal / Sube el logo). Coincide con "Onboarding dentro del producto" que el
+   brief original ya marcaba como importante — es la idea de mayor valor de todo este research.
+2. **Panel lateral deslizante para las altas** (Miembros/Personal/Productos/Facturas en Finegym),
+   en vez de nuestro formulario inline actual en cada página de `/dashboard/*`.
+3. **Flujos de alta en 2 pasos** cuando el formulario es largo (datos básicos → paso de
+   confirmación/config adicional), en vez de una sola pantalla larga.
+4. **Filtros como selects independientes en la cabecera de cada listado** (Estado, Plan,
+   Personal, Rango de fechas) — hoy solo `clientes` tiene buscador de texto; `citas`,
+   `productos`, `ventas`, `gastos` no tienen ningún filtro.
+5. **Estado Activo/Borrador en productos** antes de publicarlos (relevante si el catálogo se
+   carga por adelantado antes de vender).
+6. **"Zona de peligro"** al final de una futura página de Ajustes del negocio, con estilo de
+   advertencia, para acciones destructivas (ej. eliminar negocio) — hoy no existe página de
+   Ajustes en absoluto.
+7. **Precio del plan Pro oculto tras un botón de WhatsApp** en vez de publicar un número (patrón
+   OkVet) — alternativa a bloquear el lanzamiento de la landing por no tener el precio definido
+   (ver pendiente "definir precio del plan Pro en soles" arriba).
+8. Ideas de menor prioridad / evaluar si aplican al rubro óptica: módulo de descuentos/cupones
+   (código, monto, vigencia, límite de usos — no está en el brief original), personalización de
+   marca (logo + color) en Ajustes, umbral de "cliente en riesgo" por inactividad (adaptable a
+   "paciente sin control hace X meses").
+9. Permisos granulares por empleado (en vez de 3 roles fijos) — visto en Finegym, pero
+   **no se recomienda adoptar**: contradice el modelo de roles ya fijado en el brief
+   (administrador/encargado/trabajador), evaluar solo si el usuario lo pide explícitamente.
+
 ## Bitácora de sesiones
+
+### 2026-07-24 (6) — Playwright real + research profundo de competencia (OkVet/Finegym)
+- **Qué cambió:** `chromium-cli` (referenciado por la skill `run`) no existe como paquete
+  público — se instaló la alternativa real: `playwright` global (`npm install -g playwright`,
+  fuera del `package.json` del proyecto a propósito) + binario de Chromium
+  (`npx playwright install chromium`). Script reutilizable en el scratchpad de la sesión
+  (`screenshot.js`: navega + captura, acepta cookies). Nota operativa: como `playwright` se
+  instaló global (no local al proyecto), hay que exportar
+  `NODE_PATH=/c/Users/usuario/AppData/Roaming/npm/node_modules` al invocar `node` o el
+  `require("playwright")` falla con `MODULE_NOT_FOUND`.
+- Con esa herramienta se hizo research profundo de dos competidores reales (rubro
+  clínicas/gestión de negocio de servicios): se navegó la landing de Finegym, se completó su
+  wizard de registro (paso 1 llegó a funcionar; el correo de prueba dado por el usuario ya
+  estaba registrado, así que no se pudo completar el alta con ese email exacto), se inició
+  sesión de verdad en su dashboard con esa cuenta ya existente, y se exploraron a fondo las 12
+  secciones del sidebar (Miembros, Planes, Personal, Calendario, Citas, Clases, Registros,
+  Productos, Descuentos, Pagos, Informes, Ajustes) — listados, filtros, y los modales/paneles
+  de alta que se pudieron abrir sin datos reales. Resultado completo: ver la sección "Ideas de
+  UX de research de competencia" arriba — queda **todo sin implementar todavía**, a la espera
+  de que el usuario priorice qué adoptar.
+- **Por qué:** el usuario quería robar patrones de UX de un competidor maduro del mismo tipo de
+  negocio (gestión de un local de servicios con miembros/citas/pagos) para mejorar el dashboard
+  de la óptica, y confirmar que Playwright realmente podía automatizar un login/exploración real
+  (no solo lectura de texto vía `WebFetch`).
+- **Pendiente:** nada de la sección de ideas de UX se implementó — decidir con el usuario cuál
+  atacar primero (la de mayor valor identificada: el checklist de onboarding).
 
 ### 2026-07-24 (5) — Diseño real: paleta, sidebar y modo mock de verificación
 - **Qué cambió:**
