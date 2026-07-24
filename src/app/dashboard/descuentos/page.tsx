@@ -8,6 +8,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { formatearFechaPE } from "@/lib/date";
 
 const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, activo: true };
 
@@ -82,7 +83,9 @@ export default function DescuentosPage() {
                     {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
                   </td>
                   <td className="table-cell text-slate-500 dark:text-slate-400">
-                    {d.vigenciaDesde || d.vigenciaHasta ? `${d.vigenciaDesde ?? "—"} → ${d.vigenciaHasta ?? "—"}` : "Sin límite"}
+                    {d.vigenciaDesde || d.vigenciaHasta
+                      ? `${d.vigenciaDesde ? formatearFechaPE(d.vigenciaDesde) : "—"} → ${d.vigenciaHasta ? formatearFechaPE(d.vigenciaHasta) : "—"}`
+                      : "Sin límite"}
                   </td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
                   <td className="table-cell">

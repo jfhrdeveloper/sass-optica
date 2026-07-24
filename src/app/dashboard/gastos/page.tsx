@@ -7,6 +7,7 @@ import { useData, type Gasto } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { formatearFechaPE } from "@/lib/date";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
 const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };
@@ -98,7 +99,7 @@ export default function GastosPage() {
             <tbody>
               {visibles.map((g) => (
                 <tr key={g.id} className="table-row">
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{g.fecha}</td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(g.fecha)}</td>
                   <td className="table-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Receipt size={16} /></span>

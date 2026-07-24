@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useData } from "@/components/providers/DataProvider";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { formatearFechaPE } from "@/lib/date";
 
 type Movimiento = { fecha: string; tipo: "ingreso" | "egreso"; concepto: string; monto: number };
 
@@ -94,7 +95,7 @@ export default function InformesPage() {
             <tbody>
               {visibles.map((m, i) => (
                 <tr key={i} className="table-row">
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{m.fecha}</td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(m.fecha)}</td>
                   <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{m.concepto}</td>
                   <td className="table-cell">
                     <span className={`badge ${m.tipo === "ingreso" ? "badge-success" : "badge-danger"}`}>

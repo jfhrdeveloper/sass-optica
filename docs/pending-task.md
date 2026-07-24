@@ -40,9 +40,10 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       general de lo pedido: permisos granulares delegables por empleado (`empleados.permisos`),
       ver bitácora 2026-07-24 (8). `gastos` sigue siendo admin-only por defecto, pero el
       administrador ahora puede delegarlo puntualmente sin cambiar el rol fijo.
-- [ ] Definir nombre de marca, dominio final y precio del plan Pro en soles (ver brief §12) —
-      el precio ahora se resuelve por WhatsApp en la landing (ver bitácora (8)), pero el
-      **número de WhatsApp sigue siendo un placeholder** (`WHATSAPP_NUMERO` en `src/app/page.tsx`)
+- [x] Precio de los planes definido en soles — Básico S/89.90/mes (S/899.00/año) y Premium
+      S/149.90/mes (S/1,499.00/año, = facturación SUNAT), ver bitácora 2026-07-24 (12).
+      El patrón "precio oculto tras WhatsApp" (bitácora (8)) quedó retirado — ya no depende
+      de `WHATSAPP_NUMERO`. Sigue pendiente: nombre de marca y dominio final (brief §12).
 - [x] Paleta/tipografía/estilo de componentes definidos (ver `docs/style-guide.md` y bitácora
       2026-07-24 (4)) — sigue faltando: logo real (ya hay UI para subirlo en Ajustes), nombre de
       marca final, y capturas reales reemplazando los placeholders `[ mockup/captura ]` de la landing
@@ -108,6 +109,57 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-24 (12) — Rediseño de tablas del dashboard, toasts/paginación/switch/focus-ring, formato de fecha PE y precios reales
+- **Qué cambió:** a pedido explícito del usuario ("la lista se ve horrible" en clientes/stock/
+  descuentos), se rediseñaron las 10 páginas de listado del dashboard y se sumaron 4 mejoras de
+  UX detectadas contra referencias reales (namethatui.com), más un fix de formato de fecha y la
+  tabla de precios real de la landing:
+  1. **Patrón único de tabla/lista**: clases nuevas en `globals.css` (`.table-card`,
+     `.table-filter-bar`, `.table-head-cell`, `.table-row`, `.table-cell`, `.row-avatar`,
+     `.row-icon-btn`, `.table-empty`) aplicadas a Clientes, Productos, Descuentos, Citas
+     (vista Lista), Ventas, Gastos, Proveedores, Cotizaciones, Empleados e Informes — tabla
+     dentro de `.card`, fila con ícono/avatar + nombre en negrita + subtexto, cabecera con
+     fondo sutil, acciones con íconos en vez de texto plano.
+  2. **Toast/snackbar** (`ToastProvider.tsx`, nuevo, envuelve `Providers.tsx`): confirmación
+     tras crear/guardar/eliminar en las 10 páginas, auto-descarta a los 3.5s, `role="status"`.
+  3. **Paginación** (`Pagination.tsx` + hook `usePaginado`, 10 filas por página): aplicada a
+     las 10 listas, se oculta sola si hay una sola página.
+  4. **Switch real**: nueva clase `.switch` reemplaza el patrón "click al badge de estado"
+     (poco descubrible) en Productos (Activo/Borrador), Proveedores y Descuentos
+     (Activo/Inactivo).
+  5. **Focus-visible**: `.row-icon-btn` y `.badge` ganaron `focus-visible:ring` — antes solo
+     `.input`/`.select` lo tenían, los botones de ícono nuevos no tenían ningún indicador de
+     foco por teclado.
+  6. **Formato de fecha peruano (DD-MM-AAAA)**: `src/lib/date.ts` (`formatearFechaPE`) — varias
+     tablas mostraban la fecha ISO cruda tal cual venía de la DB (`2026-07-24`, lectura
+     año-mes-día). Corregido en Gastos, Cotizaciones (fecha + vigencia), Descuentos (vigencia)
+     e Informes. A propósito NO pasa por `new Date(iso)`: ese constructor interpreta un string
+     "solo fecha" como medianoche UTC, y en America/Lima (UTC-5) eso corre la fecha un día para
+     atrás al formatear en local — se manipula el string directamente (split por `-`), sin
+     conversión de zona horaria de por medio.
+  7. **Precios reales en la landing** (`PreciosSection.tsx`, nuevo, reemplaza el botón "Preguntar
+     precio por WhatsApp"): 3 columnas — Prueba gratuita (30 días), Básico S/89.90/mes
+     (S/899.00/año), Premium S/149.90/mes (S/1,499.00/año, = facturación SUNAT) — con toggle
+     Mensual/Anual (segmented control, anual = mensual × 10, "2 meses gratis") y una franja de
+     confianza ("sin cuota de instalación · sin límite de clientes ni productos · sin
+     permanencia"), patrón tomado del research de Finegym. `WHATSAPP_NUMERO`/`WHATSAPP_MENSAJE`
+     retirados de `src/app/page.tsx` (ya no se usaban en ningún otro lado). El resto de la
+     landing (hero, problema→solución, `FuncionesShowcase` con pestañas —ya existía de la
+     sesión (3)—, cómo funciona, FAQ, CTA final, footer) se dejó intacto a pedido explícito.
+  - `npm run build`/`npm run lint` limpios. Verificado con Playwright: switch, toast, focus
+    ring (anillo azul visible en `row-icon-btn` al navegar con Tab) y el toggle mensual/anual
+    de precios, en modo mock.
+- **Por qué:** pedido explícito del usuario sobre el diseño de las listas + 4 gaps de UX
+  identificados al comparar contra namethatui.com (macOS/web) que el usuario pidió implementar
+  todos ("podemos implementar todo lo que falta"); el formato de fecha, porque Perú usa
+  DD-MM-AAAA y varias tablas mostraban el ISO crudo (año primero); los precios, porque el
+  usuario decidió los montos exactos y pidió cerrar el pendiente de "precio por WhatsApp".
+- **Pendiente:** el modelo de negocio sigue siendo trial 30 días → plan pago (no freemium para
+  siempre) — los 2 planes pagos (Básico/Premium) no están conectados a Culqi todavía (sigue
+  pendiente activar Culqi real, ver arriba); el checkout real deberá mapear el plan elegido en
+  la landing al plan correcto en `suscripciones`. No se probó el flujo completo de selección de
+  plan → checkout, solo la landing visual.
 
 ### 2026-07-24 (11) — Registro: espaciado del stepper + login/registro con Google
 - **Qué cambió:** dos pedidos puntuales del usuario sobre el wizard de registro:

@@ -1,15 +1,8 @@
 import Link from "next/link";
-import { ShieldCheck, Smartphone, Ban, MessageCircle } from "lucide-react";
+import { ShieldCheck, Smartphone, Ban } from "lucide-react";
 import { FuncionesShowcase } from "@/components/FuncionesShowcase";
+import { PreciosSection } from "@/components/PreciosSection";
 import { ThemeToggle } from "@/components/ThemeToggle";
-
-/* Placeholder — reemplazar por el número real de soporte antes de publicar
-   (ver pendiente "definir número de WhatsApp real" en docs/pending-task.md).
-   Patrón "precio oculto tras WhatsApp" (idea de UX #7, OkVet): evita
-   bloquear el lanzamiento de la landing por no tener el precio del plan Pro
-   definido en soles todavía (brief §12). */
-const WHATSAPP_NUMERO = "51999999999";
-const WHATSAPP_MENSAJE = encodeURIComponent("Hola, quiero saber el precio del plan Pro de SaaS Óptica.");
 
 /* Landing pública (dominio raíz), estructura de 10 secciones del brief §3.
    Paleta y estilo tomados del análisis de diseno-referencia/ (competidores
@@ -27,7 +20,7 @@ const FAQ = [
   { q: "¿Necesito instalar algo?", a: "No. Funciona desde el navegador, en tu computadora, tablet o celular." },
   { q: "¿Puedo cancelar cuando quiera?", a: "Sí, sin permanencia ni penalidad." },
   { q: "¿Mis datos están seguros?", a: "Sí. Cada óptica tiene su información completamente separada de las demás. Nadie de otro negocio puede verla." },
-  { q: "¿Emiten factura electrónica?", a: "Sí, es una función del plan Pro (SUNAT)." },
+  { q: "¿Emiten factura electrónica?", a: "Sí, es una función del plan Premium (SUNAT)." },
 ];
 
 export default function LandingPage() {
@@ -131,37 +124,10 @@ export default function LandingPage() {
       <section id="precios" className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
         <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Precios</h2>
         <p className="mx-auto mt-1 max-w-md text-center text-sm text-slate-500 dark:text-slate-400">
-          Empieza gratis. Para el plan Pro, escríbenos y te pasamos el precio al toque.
+          Prueba gratis 30 días. Sin tarjeta de crédito, sin compromiso.
         </p>
-        <div className="mx-auto mt-8 grid max-w-2xl gap-6 sm:grid-cols-2">
-          <div className="card p-6">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Trial</h3>
-            <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">Gratis <span className="text-sm font-normal text-slate-400 dark:text-slate-500">/ 30 días</span></p>
-            <ul className="mt-4 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
-              <li>Clientes, citas y recetas</li>
-              <li>Ventas e inventario</li>
-              <li>Gastos y caja</li>
-              <li>Hasta 3 empleados</li>
-            </ul>
-            <Link href="/registro" className="btn-outline mt-4 block text-center">Empezar gratis</Link>
-          </div>
-          <div className="card border-primary bg-primary p-6 text-white">
-            <h3 className="font-semibold">Pro</h3>
-            <p className="mt-1 text-2xl font-semibold">Consulta el precio <span className="text-sm font-normal text-blue-200">por WhatsApp</span></p>
-            <ul className="mt-4 space-y-1.5 text-sm text-blue-100">
-              <li>Todo lo del plan Trial</li>
-              <li>Facturación electrónica SUNAT</li>
-              <li>Empleados ilimitados</li>
-              <li>Soporte prioritario</li>
-            </ul>
-            <a
-              href={`https://wa.me/${WHATSAPP_NUMERO}?text=${WHATSAPP_MENSAJE}`}
-              target="_blank" rel="noopener noreferrer"
-              className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-center text-sm font-medium text-primary hover:bg-blue-50"
-            >
-              <MessageCircle size={16} /> Preguntar precio por WhatsApp
-            </a>
-          </div>
+        <div className="mt-8">
+          <PreciosSection />
         </div>
       </section>
 
