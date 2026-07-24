@@ -19,12 +19,15 @@ import {
   rowToEmpleado, empleadoToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
   rowToCliente, clienteToRow, rowToCita, citaToRow, rowToReceta, recetaToRow,
   rowToProducto, productoToRow, rowToMovimientoStock, rowToVenta, ventaToRow,
-  rowToVentaItem, rowToGasto, gastoToRow,
+  rowToVentaItem, rowToGasto, gastoToRow, rowToDescuento, descuentoToRow,
+  rowToCampania, campaniaToRow, rowToProveedor, proveedorToRow,
+  rowToCotizacion, cotizacionToRow, rowToCotizacionItem,
 } from "@/lib/data/mappers";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import {
   MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_GASTOS,
+  MOCK_DESCUENTOS, MOCK_CAMPANIAS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
 } from "@/lib/mock/mock-data";
 
 /* ================= TIPOS: capa de auth/tenant ================= */
@@ -39,6 +42,11 @@ export interface Empleado {
   email?:        string;
   telefono?:     string;
   avatarBase64?: string;
+  /* Permisos granulares aditivos por encima del rol fijo — ver columna
+     `permisos` en supabase-schema.sql. Claves: 'gastos' | 'descuentos' |
+     'marketing'. Nunca incluye gestión de empleados/ajustes, eso queda
+     siempre exclusivo de `administrador`. */
+  permisos:      Record<string, boolean>;
   activo:        boolean;
 }
 
@@ -50,6 +58,7 @@ export interface Negocio {
   telefono?:  string;
   direccion?: string;
   logoUrl?:   string;
+  colorPrimario?: string;
   activo:     boolean;
 }
 
@@ -87,7 +96,7 @@ export interface Receta {
 }
 
 export interface Producto {
-  id: string; negocioId: string; codigo?: string; nombre: string; categoria: string;
+  id: string; negocioId: string; proveedorId?: string; codigo?: string; nombre: string; categoria: string;
   marca?: string; descripcion?: string; precioVenta: number; precioCosto: number;
   imagenUrl?: string; activo: boolean;
   stockActual: number; stockMinimo: number;
@@ -110,8 +119,47 @@ export interface VentaItem {
 }
 
 export interface Gasto {
-  id: string; negocioId: string; categoria: string;
+  id: string; negocioId: string; proveedorId?: string; categoria: string;
   descripcion?: string; monto: number; fecha: string;
+}
+
+export interface Proveedor {
+  id: string; negocioId: string; nombre: string; ruc?: string;
+  contacto?: string; telefono?: string; email?: string; direccion?: string;
+  notas?: string; activo: boolean;
+}
+
+/* Documento previo a la venta (idea de UX tomada de research de
+   competencia): mismo shape que Venta+VentaItem pero SIN tocar stock ni
+   caja — solo se refleja en el negocio de verdad cuando se "convierte" en
+   una Venta real (ver convertirCotizacionAVenta más abajo). */
+export interface Cotizacion {
+  id: string; negocioId: string; clienteId?: string; ventaId?: string;
+  fecha: string; vigenciaHasta?: string;
+  subtotal: number; igv: number; total: number;
+  estado: "pendiente" | "aceptada" | "rechazada" | "vencida";
+  notas?: string;
+}
+
+export interface CotizacionItem {
+  id: string; cotizacionId: string; productoId?: string;
+  descripcion: string; cantidad: number; precioUnitario: number; subtotal: number;
+}
+
+export interface Descuento {
+  id: string; negocioId: string; codigo: string;
+  tipo: "porcentaje" | "monto"; valor: number;
+  vigenciaDesde?: string; vigenciaHasta?: string;
+  limiteUsos?: number; usos: number; activo: boolean;
+}
+
+/* Scaffold de campañas de email — sin envío real, ver comentario en el
+   schema. `enviados/fallidos/desuscritos` quedan en 0 hasta integrar un
+   proveedor de email real (Resend/Postmark vía Marketplace de Vercel). */
+export interface CampaniaEmail {
+  id: string; negocioId: string; nombre: string; asunto: string; cuerpo: string;
+  estado: "borrador" | "enviada";
+  enviados: number; fallidos: number; desuscritos: number;
 }
 
 interface DataCtx {
@@ -126,6 +174,11 @@ interface DataCtx {
   ventas:           Venta[];
   ventaItems:       VentaItem[];
   gastos:           Gasto[];
+  descuentos:       Descuento[];
+  campanias:        CampaniaEmail[];
+  proveedores:      Proveedor[];
+  cotizaciones:     Cotizacion[];
+  cotizacionItems:  CotizacionItem[];
   ready:            boolean;
   /* CRUD (la mutación va a Supabase; Realtime re-fetchea). */
   updateEmpleado: (id: string, patch: Partial<Empleado>) => Promise<void>;
@@ -140,9 +193,22 @@ interface DataCtx {
   addProducto:    (p: Partial<Producto>, stockInicial: number, stockMinimo: number) => Promise<void>;
   updateProducto: (id: string, patch: Partial<Producto>) => Promise<void>;
   ajustarStock:   (productoId: string, tipo: string, cantidad: number, motivo?: string) => Promise<void>;
-  addVenta:       (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => Promise<void>;
+  addVenta:       (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => Promise<string | null>;
   addGasto:       (g: Partial<Gasto>) => Promise<void>;
   deleteGasto:    (id: string) => Promise<void>;
+  addDescuento:    (d: Partial<Descuento>) => Promise<void>;
+  updateDescuento: (id: string, patch: Partial<Descuento>) => Promise<void>;
+  deleteDescuento: (id: string) => Promise<void>;
+  addCampania:     (c: Partial<CampaniaEmail>) => Promise<void>;
+  updateCampania:  (id: string, patch: Partial<CampaniaEmail>) => Promise<void>;
+  deleteCampania:  (id: string) => Promise<void>;
+  addProveedor:    (p: Partial<Proveedor>) => Promise<void>;
+  updateProveedor: (id: string, patch: Partial<Proveedor>) => Promise<void>;
+  deleteProveedor: (id: string) => Promise<void>;
+  addCotizacion:    (c: Partial<Cotizacion>, items: Array<Omit<CotizacionItem, "id" | "cotizacionId">>) => Promise<void>;
+  updateCotizacion: (id: string, patch: Partial<Cotizacion>) => Promise<void>;
+  deleteCotizacion: (id: string) => Promise<void>;
+  convertirCotizacionAVenta: (cotizacionId: string) => Promise<void>;
 }
 
 const Ctx = createContext<DataCtx | null>(null);
@@ -150,6 +216,8 @@ const Ctx = createContext<DataCtx | null>(null);
 const TABLAS_DOMINIO = [
   "clientes", "citas", "recetas", "productos", "inventario",
   "movimientos_stock", "ventas", "venta_items", "gastos",
+  "descuentos", "campanias_email",
+  "proveedores", "cotizaciones", "cotizacion_items",
 ] as const;
 
 /* ================= PROVIDER ================= */
@@ -167,6 +235,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [ventas, setVentas]           = useState<Venta[]>(mock ? MOCK_VENTAS : []);
   const [ventaItems, setVentaItems]   = useState<VentaItem[]>(mock ? MOCK_VENTA_ITEMS : []);
   const [gastos, setGastos]           = useState<Gasto[]>(mock ? MOCK_GASTOS : []);
+  const [descuentos, setDescuentos]   = useState<Descuento[]>(mock ? MOCK_DESCUENTOS : []);
+  const [campanias, setCampanias]     = useState<CampaniaEmail[]>(mock ? MOCK_CAMPANIAS : []);
+  const [proveedores, setProveedores] = useState<Proveedor[]>(mock ? MOCK_PROVEEDORES : []);
+  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>(mock ? MOCK_COTIZACIONES : []);
+  const [cotizacionItems, setCotizacionItems] = useState<CotizacionItem[]>(mock ? MOCK_COTIZACION_ITEMS : []);
   const [ready, setReady]             = useState(mock);
 
   /* ====== Carga inicial (todas las tablas en paralelo) + Realtime ======
@@ -182,7 +255,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let activo = true;
 
     async function cargar() {
-      const [e, n, s, cl, ci, re, pr, inv, ms, ve, vi, ga] = await Promise.all([
+      const [e, n, s, cl, ci, re, pr, inv, ms, ve, vi, ga, de, ca, pv, co, coi] = await Promise.all([
         supabase.from("empleados").select("*"),
         supabase.from("negocios").select("*"),
         supabase.from("suscripciones").select("*"),
@@ -195,6 +268,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabase.from("ventas").select("*"),
         supabase.from("venta_items").select("*"),
         supabase.from("gastos").select("*"),
+        supabase.from("descuentos").select("*"),
+        supabase.from("campanias_email").select("*"),
+        supabase.from("proveedores").select("*"),
+        supabase.from("cotizaciones").select("*"),
+        supabase.from("cotizacion_items").select("*"),
       ]);
       if (!activo) return;
 
@@ -223,6 +301,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVentas((ve.data ?? []).map(rowToVenta));
       setVentaItems((vi.data ?? []).map(rowToVentaItem));
       setGastos((ga.data ?? []).map(rowToGasto));
+      setDescuentos((de.data ?? []).map(rowToDescuento));
+      setCampanias((ca.data ?? []).map(rowToCampania));
+      setProveedores((pv.data ?? []).map(rowToProveedor));
+      setCotizaciones((co.data ?? []).map(rowToCotizacion));
+      setCotizacionItems((coi.data ?? []).map(rowToCotizacionItem));
       setReady(true);
     }
 
@@ -347,7 +430,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
      ítems; aceptable para el volumen de una óptica pyme, a revisar si se
      vuelve un problema real. */
   const addVenta = useCallback(async (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => {
-    if (!negocio) return;
+    if (!negocio) return null;
     if (mock) {
       const ventaId = crypto.randomUUID();
       setVentas((prev) => [...prev, {
@@ -358,10 +441,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       for (const it of items) {
         if (it.productoId) await ajustarStock(it.productoId, "salida", it.cantidad, `Venta ${ventaId}`);
       }
-      return;
+      return ventaId;
     }
     const { data } = await supabase.from("ventas").insert({ ...ventaToRow(v), negocio_id: negocio.id }).select("id").single();
-    if (!data) return;
+    if (!data) return null;
     const ventaId = String(data.id);
     if (items.length > 0) {
       await supabase.from("venta_items").insert(
@@ -378,6 +461,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await ajustarStock(it.productoId, "salida", it.cantidad, `Venta ${ventaId}`);
       }
     }
+    return ventaId;
   }, [supabase, negocio, ajustarStock, mock]);
 
   const addGasto = useCallback(async (g: Partial<Gasto>) => {
@@ -393,14 +477,121 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabase.from("gastos").delete().eq("id", id);
   }, [supabase, mock]);
 
+  const addDescuento = useCallback(async (d: Partial<Descuento>) => {
+    if (!negocio) return;
+    if (mock) {
+      setDescuentos((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, codigo: "", tipo: "porcentaje", valor: 0, usos: 0, activo: true, ...d }]);
+      return;
+    }
+    await supabase.from("descuentos").insert({ ...descuentoToRow(d), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+  const updateDescuento = useCallback(async (id: string, patch: Partial<Descuento>) => {
+    if (mock) { setDescuentos((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))); return; }
+    await supabase.from("descuentos").update(descuentoToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+  const deleteDescuento = useCallback(async (id: string) => {
+    if (mock) { setDescuentos((prev) => prev.filter((d) => d.id !== id)); return; }
+    await supabase.from("descuentos").delete().eq("id", id);
+  }, [supabase, mock]);
+
+  const addCampania = useCallback(async (c: Partial<CampaniaEmail>) => {
+    if (!negocio) return;
+    if (mock) {
+      setCampanias((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", asunto: "", cuerpo: "", estado: "borrador", enviados: 0, fallidos: 0, desuscritos: 0, ...c }]);
+      return;
+    }
+    await supabase.from("campanias_email").insert({ ...campaniaToRow(c), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+  const updateCampania = useCallback(async (id: string, patch: Partial<CampaniaEmail>) => {
+    if (mock) { setCampanias((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); return; }
+    await supabase.from("campanias_email").update(campaniaToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+  const deleteCampania = useCallback(async (id: string) => {
+    if (mock) { setCampanias((prev) => prev.filter((c) => c.id !== id)); return; }
+    await supabase.from("campanias_email").delete().eq("id", id);
+  }, [supabase, mock]);
+
+  const addProveedor = useCallback(async (p: Partial<Proveedor>) => {
+    if (!negocio) return;
+    if (mock) {
+      setProveedores((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", activo: true, ...p }]);
+      return;
+    }
+    await supabase.from("proveedores").insert({ ...proveedorToRow(p), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+  const updateProveedor = useCallback(async (id: string, patch: Partial<Proveedor>) => {
+    if (mock) { setProveedores((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))); return; }
+    await supabase.from("proveedores").update(proveedorToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+  const deleteProveedor = useCallback(async (id: string) => {
+    if (mock) { setProveedores((prev) => prev.filter((p) => p.id !== id)); return; }
+    await supabase.from("proveedores").delete().eq("id", id);
+  }, [supabase, mock]);
+
+  /* Cotización: mismo patrón de dos escrituras que addVenta, pero SIN pasar
+     por ajustarStock — es un documento previo, todavía no compromete
+     inventario ni caja (ver convertirCotizacionAVenta). */
+  const addCotizacion = useCallback(async (c: Partial<Cotizacion>, items: Array<Omit<CotizacionItem, "id" | "cotizacionId">>) => {
+    if (!negocio) return;
+    if (mock) {
+      const cotizacionId = crypto.randomUUID();
+      setCotizaciones((prev) => [...prev, {
+        id: cotizacionId, negocioId: negocio.id, fecha: new Date().toISOString().slice(0, 10),
+        subtotal: 0, igv: 0, total: 0, estado: "pendiente", ...c,
+      }]);
+      setCotizacionItems((prev) => [...prev, ...items.map((it) => ({ ...it, id: crypto.randomUUID(), cotizacionId }))]);
+      return;
+    }
+    const { data } = await supabase.from("cotizaciones").insert({ ...cotizacionToRow(c), negocio_id: negocio.id }).select("id").single();
+    if (!data) return;
+    const cotizacionId = String(data.id);
+    if (items.length > 0) {
+      await supabase.from("cotizacion_items").insert(
+        items.map((it) => ({
+          cotizacion_id: cotizacionId, producto_id: it.productoId || null,
+          descripcion: it.descripcion, cantidad: it.cantidad,
+          precio_unitario: it.precioUnitario, subtotal: it.subtotal,
+        })),
+      );
+    }
+  }, [supabase, negocio, mock]);
+  const updateCotizacion = useCallback(async (id: string, patch: Partial<Cotizacion>) => {
+    if (mock) { setCotizaciones((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); return; }
+    await supabase.from("cotizaciones").update(cotizacionToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+  const deleteCotizacion = useCallback(async (id: string) => {
+    if (mock) { setCotizaciones((prev) => prev.filter((c) => c.id !== id)); return; }
+    await supabase.from("cotizaciones").delete().eq("id", id);
+  }, [supabase, mock]);
+
+  /* Convierte una cotización aceptada en una Venta real: recién ahí se
+     descuenta stock y se registra en caja (ver addVenta). La cotización
+     queda enlazada vía ventaId para no perder la trazabilidad. */
+  const convertirCotizacionAVenta = useCallback(async (cotizacionId: string) => {
+    const cot = cotizaciones.find((c) => c.id === cotizacionId);
+    if (!cot) return;
+    const items = cotizacionItems.filter((it) => it.cotizacionId === cotizacionId);
+    const ventaId = await addVenta(
+      { clienteId: cot.clienteId, subtotal: cot.subtotal, igv: cot.igv, total: cot.total, notas: cot.notas },
+      items.map((it) => ({ productoId: it.productoId, descripcion: it.descripcion, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.subtotal })),
+    );
+    if (!ventaId) return;
+    await updateCotizacion(cotizacionId, { estado: "aceptada", ventaId });
+  }, [cotizaciones, cotizacionItems, addVenta, updateCotizacion]);
+
   const value: DataCtx = {
     empleados, negocio, suscripcion, clientes, citas, recetas, productos,
-    movimientosStock, ventas, ventaItems, gastos, ready,
+    movimientosStock, ventas, ventaItems, gastos, descuentos, campanias,
+    proveedores, cotizaciones, cotizacionItems, ready,
     updateEmpleado, updateNegocio,
     addCliente, updateCliente, deleteCliente,
     addCita, updateCita, deleteCita,
     addReceta, addProducto, updateProducto, ajustarStock,
     addVenta, addGasto, deleteGasto,
+    addDescuento, updateDescuento, deleteDescuento,
+    addCampania, updateCampania, deleteCampania,
+    addProveedor, updateProveedor, deleteProveedor,
+    addCotizacion, updateCotizacion, deleteCotizacion, convertirCotizacionAVenta,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

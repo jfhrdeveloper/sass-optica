@@ -9,6 +9,7 @@
 import type {
   Empleado, Negocio, Rol, Suscripcion,
   Cliente, Cita, Receta, Producto, MovimientoStock, Venta, VentaItem, Gasto,
+  Descuento, CampaniaEmail, Proveedor, Cotizacion, CotizacionItem,
 } from "@/components/providers/DataProvider";
 
 /* ====== Empleados ====== */
@@ -22,6 +23,7 @@ export function rowToEmpleado(r: Record<string, unknown>): Empleado {
     email:         r.email ? String(r.email) : undefined,
     telefono:      r.telefono ? String(r.telefono) : undefined,
     avatarBase64:  r.avatar_base64 ? String(r.avatar_base64) : undefined,
+    permisos:      (r.permisos as Record<string, boolean>) ?? {},
     activo:        Boolean(r.activo ?? true),
   };
 }
@@ -33,6 +35,7 @@ export function empleadoToRow(e: Partial<Empleado>): Record<string, unknown> {
   if (e.email          !== undefined) out.email           = e.email;
   if (e.telefono       !== undefined) out.telefono        = e.telefono;
   if (e.avatarBase64  !== undefined) out.avatar_base64   = e.avatarBase64;
+  if (e.permisos       !== undefined) out.permisos         = e.permisos;
   if (e.activo         !== undefined) out.activo          = e.activo;
   return out;
 }
@@ -47,6 +50,7 @@ export function rowToNegocio(r: Record<string, unknown>): Negocio {
     telefono:    r.telefono ? String(r.telefono) : undefined,
     direccion:   r.direccion ? String(r.direccion) : undefined,
     logoUrl:     r.logo_url ? String(r.logo_url) : undefined,
+    colorPrimario: r.color_primario ? String(r.color_primario) : undefined,
     activo:      Boolean(r.activo ?? true),
   };
 }
@@ -57,6 +61,8 @@ export function negocioToRow(n: Partial<Negocio>): Record<string, unknown> {
   if (n.telefono  !== undefined) out.telefono  = n.telefono;
   if (n.direccion !== undefined) out.direccion = n.direccion;
   if (n.logoUrl   !== undefined) out.logo_url  = n.logoUrl;
+  if (n.colorPrimario !== undefined) out.color_primario = n.colorPrimario || null;
+  if (n.activo    !== undefined) out.activo    = n.activo;
   return out;
 }
 
@@ -151,6 +157,7 @@ export function recetaToRow(r: Partial<Receta>): Record<string, unknown> {
 export function rowToProducto(r: Record<string, unknown>): Producto {
   return {
     id: String(r.id), negocioId: String(r.negocio_id),
+    proveedorId: r.proveedor_id ? String(r.proveedor_id) : undefined,
     codigo: r.codigo ? String(r.codigo) : undefined,
     nombre: String(r.nombre ?? ""), categoria: String(r.categoria ?? "montura"),
     marca: r.marca ? String(r.marca) : undefined,
@@ -163,6 +170,7 @@ export function rowToProducto(r: Record<string, unknown>): Producto {
 }
 export function productoToRow(p: Partial<Producto>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  if (p.proveedorId   !== undefined) out.proveedor_id  = p.proveedorId || null;
   if (p.codigo       !== undefined) out.codigo       = p.codigo || null;
   if (p.nombre        !== undefined) out.nombre        = p.nombre;
   if (p.categoria     !== undefined) out.categoria     = p.categoria;
@@ -223,6 +231,7 @@ export function rowToVentaItem(r: Record<string, unknown>): VentaItem {
 export function rowToGasto(r: Record<string, unknown>): Gasto {
   return {
     id: String(r.id), negocioId: String(r.negocio_id),
+    proveedorId: r.proveedor_id ? String(r.proveedor_id) : undefined,
     categoria: String(r.categoria ?? "otro"),
     descripcion: r.descripcion ? String(r.descripcion) : undefined,
     monto: Number(r.monto ?? 0), fecha: String(r.fecha ?? ""),
@@ -230,10 +239,116 @@ export function rowToGasto(r: Record<string, unknown>): Gasto {
 }
 export function gastoToRow(g: Partial<Gasto>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  if (g.proveedorId   !== undefined) out.proveedor_id  = g.proveedorId || null;
   if (g.categoria     !== undefined) out.categoria     = g.categoria;
   if (g.descripcion   !== undefined) out.descripcion   = g.descripcion;
   if (g.monto           !== undefined) out.monto           = g.monto;
   if (g.fecha            !== undefined) out.fecha            = g.fecha;
+  return out;
+}
+
+/* ====== Proveedores ====== */
+export function rowToProveedor(r: Record<string, unknown>): Proveedor {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    nombre: String(r.nombre ?? ""),
+    ruc: r.ruc ? String(r.ruc) : undefined,
+    contacto: r.contacto ? String(r.contacto) : undefined,
+    telefono: r.telefono ? String(r.telefono) : undefined,
+    email: r.email ? String(r.email) : undefined,
+    direccion: r.direccion ? String(r.direccion) : undefined,
+    notas: r.notas ? String(r.notas) : undefined,
+    activo: Boolean(r.activo ?? true),
+  };
+}
+export function proveedorToRow(p: Partial<Proveedor>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.nombre    !== undefined) out.nombre    = p.nombre;
+  if (p.ruc       !== undefined) out.ruc       = p.ruc;
+  if (p.contacto  !== undefined) out.contacto  = p.contacto;
+  if (p.telefono  !== undefined) out.telefono  = p.telefono;
+  if (p.email     !== undefined) out.email     = p.email;
+  if (p.direccion !== undefined) out.direccion = p.direccion;
+  if (p.notas     !== undefined) out.notas     = p.notas;
+  if (p.activo    !== undefined) out.activo    = p.activo;
+  return out;
+}
+
+/* ====== Cotizaciones ====== */
+export function rowToCotizacion(r: Record<string, unknown>): Cotizacion {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    clienteId: r.cliente_id ? String(r.cliente_id) : undefined,
+    ventaId: r.venta_id ? String(r.venta_id) : undefined,
+    fecha: String(r.fecha ?? ""),
+    vigenciaHasta: r.vigencia_hasta ? String(r.vigencia_hasta) : undefined,
+    subtotal: Number(r.subtotal ?? 0), igv: Number(r.igv ?? 0), total: Number(r.total ?? 0),
+    estado: (r.estado as Cotizacion["estado"]) ?? "pendiente",
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function cotizacionToRow(c: Partial<Cotizacion>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.clienteId      !== undefined) out.cliente_id      = c.clienteId || null;
+  if (c.ventaId          !== undefined) out.venta_id          = c.ventaId || null;
+  if (c.vigenciaHasta   !== undefined) out.vigencia_hasta   = c.vigenciaHasta || null;
+  if (c.subtotal          !== undefined) out.subtotal          = c.subtotal;
+  if (c.igv                !== undefined) out.igv                = c.igv;
+  if (c.total              !== undefined) out.total              = c.total;
+  if (c.estado             !== undefined) out.estado             = c.estado;
+  if (c.notas               !== undefined) out.notas               = c.notas;
+  return out;
+}
+
+export function rowToCotizacionItem(r: Record<string, unknown>): CotizacionItem {
+  return {
+    id: String(r.id), cotizacionId: String(r.cotizacion_id),
+    productoId: r.producto_id ? String(r.producto_id) : undefined,
+    descripcion: String(r.descripcion ?? ""), cantidad: Number(r.cantidad ?? 1),
+    precioUnitario: Number(r.precio_unitario ?? 0), subtotal: Number(r.subtotal ?? 0),
+  };
+}
+
+/* ====== Descuentos / cupones ====== */
+export function rowToDescuento(r: Record<string, unknown>): Descuento {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    codigo: String(r.codigo ?? ""), tipo: (r.tipo as "porcentaje" | "monto") ?? "porcentaje",
+    valor: Number(r.valor ?? 0),
+    vigenciaDesde: r.vigencia_desde ? String(r.vigencia_desde) : undefined,
+    vigenciaHasta: r.vigencia_hasta ? String(r.vigencia_hasta) : undefined,
+    limiteUsos: r.limite_usos != null ? Number(r.limite_usos) : undefined,
+    usos: Number(r.usos ?? 0),
+    activo: Boolean(r.activo ?? true),
+  };
+}
+export function descuentoToRow(d: Partial<Descuento>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (d.codigo         !== undefined) out.codigo         = d.codigo;
+  if (d.tipo             !== undefined) out.tipo             = d.tipo;
+  if (d.valor            !== undefined) out.valor            = d.valor;
+  if (d.vigenciaDesde   !== undefined) out.vigencia_desde   = d.vigenciaDesde || null;
+  if (d.vigenciaHasta   !== undefined) out.vigencia_hasta   = d.vigenciaHasta || null;
+  if (d.limiteUsos      !== undefined) out.limite_usos      = d.limiteUsos ?? null;
+  if (d.activo           !== undefined) out.activo           = d.activo;
+  return out;
+}
+
+/* ====== Campañas de email marketing (scaffold, sin envío real) ====== */
+export function rowToCampania(r: Record<string, unknown>): CampaniaEmail {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    nombre: String(r.nombre ?? ""), asunto: String(r.asunto ?? ""), cuerpo: String(r.cuerpo ?? ""),
+    estado: (r.estado as "borrador" | "enviada") ?? "borrador",
+    enviados: Number(r.enviados ?? 0), fallidos: Number(r.fallidos ?? 0), desuscritos: Number(r.desuscritos ?? 0),
+  };
+}
+export function campaniaToRow(c: Partial<CampaniaEmail>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.nombre  !== undefined) out.nombre  = c.nombre;
+  if (c.asunto  !== undefined) out.asunto  = c.asunto;
+  if (c.cuerpo  !== undefined) out.cuerpo  = c.cuerpo;
+  if (c.estado  !== undefined) out.estado  = c.estado;
   return out;
 }
 

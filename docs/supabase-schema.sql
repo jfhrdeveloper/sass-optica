@@ -49,6 +49,7 @@ create table if not exists public.negocios (
   telefono     text,
   direccion    text,
   logo_url     text,
+  color_primario text,  -- personalización de marca (hex, ej. '#2563eb') — null = paleta por defecto
   activo       boolean not null default true,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
@@ -83,6 +84,12 @@ create table if not exists public.empleados (
   email         text,
   telefono      text,
   avatar_base64 text,
+  -- Permisos granulares ADITIVOS por empleado, capa por encima del rol fijo
+  -- (administrador/encargado/trabajador) — no lo reemplazan. Claves posibles
+  -- hoy: 'gastos', 'descuentos', 'marketing'. Default '{}' = ningún extra;
+  -- solo el administrador puede seguir gestionando empleados/ajustes, eso
+  -- NUNCA se delega por este campo. Ver tiene_permiso() más abajo.
+  permisos      jsonb not null default '{}'::jsonb,
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -201,6 +208,16 @@ set search_path = public as $$ select coalesce(public.current_rol() = 'administr
 create or replace function public.puede_gestionar()
 returns boolean language sql stable security definer
 set search_path = public as $$ select coalesce(public.current_rol() in ('administrador','encargado'), false); $$;
+
+-- Permiso granular aditivo (empleados.permisos jsonb) — ver comentario en la
+-- columna. Un administrador SIEMPRE pasa (is_administrador() ya lo cubre en
+-- cada policy con `or`), esta función solo resuelve el caso "no soy admin
+-- pero se me delegó este módulo puntual".
+create or replace function public.tiene_permiso(clave text)
+returns boolean language sql stable security definer
+set search_path = public as $$
+  select coalesce((select (permisos->>clave)::boolean from public.empleados where id = auth.uid()), false);
+$$;
 
 -- Dueño/equipo del SaaS (panel admin.dominio, Fase 5) — no confundir con
 -- is_administrador(), que es el rol dentro de UN negocio.
@@ -359,10 +376,30 @@ create table if not exists public.recetas (
 create index if not exists idx_recetas_negocio on public.recetas(negocio_id);
 create index if not exists idx_recetas_cliente on public.recetas(cliente_id);
 
+-- Proveedores (idea de UX tomada de research de competencia: hoy `marca` en
+-- productos es solo texto libre y `gastos.categoria = 'proveedor'` no
+-- estaba ligado a nada real) ------------------------------------------------
+create table if not exists public.proveedores (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  uuid not null references public.negocios(id) on delete cascade,
+  nombre      text not null,
+  ruc         text,
+  contacto    text,
+  telefono    text,
+  email       text,
+  direccion   text,
+  notas       text,
+  activo      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists idx_proveedores_negocio on public.proveedores(negocio_id);
+
 -- Productos (catálogo: armazones, lunas, lentes de contacto...) -----------
 create table if not exists public.productos (
   id            uuid primary key default gen_random_uuid(),
   negocio_id    uuid not null references public.negocios(id) on delete cascade,
+  proveedor_id  uuid references public.proveedores(id) on delete set null,
   codigo        text,
   nombre        text not null,
   categoria     categoria_producto not null default 'montura',
@@ -436,10 +473,47 @@ create table if not exists public.venta_items (
 );
 create index if not exists idx_venta_items_venta on public.venta_items(venta_id);
 
+-- Cotizaciones (documento previo a la venta, sin comprometer stock — idea
+-- de UX tomada de research de competencia: comparar armazón+luna antes de
+-- que el cliente decida). "Convertir a venta" crea una fila real en
+-- `ventas` y guarda su id acá; no borra la cotización, queda como
+-- histórico de que esa venta nació de una cotización. -----------------------
+do $$ begin create type estado_cotizacion as enum ('pendiente', 'aceptada', 'rechazada', 'vencida'); exception when duplicate_object then null; end $$;
+create table if not exists public.cotizaciones (
+  id             uuid primary key default gen_random_uuid(),
+  negocio_id     uuid not null references public.negocios(id) on delete cascade,
+  cliente_id     uuid references public.clientes(id) on delete set null,
+  empleado_id    uuid references public.empleados(id) on delete set null,
+  venta_id       uuid references public.ventas(id) on delete set null,
+  fecha          timestamptz not null default now(),
+  vigencia_hasta date,
+  subtotal       numeric(10,2) not null default 0,
+  igv            numeric(10,2) not null default 0,
+  total          numeric(10,2) not null default 0,
+  estado         estado_cotizacion not null default 'pendiente',
+  notas          text,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index if not exists idx_cotizaciones_negocio on public.cotizaciones(negocio_id);
+create index if not exists idx_cotizaciones_cliente on public.cotizaciones(cliente_id);
+
+create table if not exists public.cotizacion_items (
+  id              uuid primary key default gen_random_uuid(),
+  cotizacion_id   uuid not null references public.cotizaciones(id) on delete cascade,
+  producto_id     uuid references public.productos(id) on delete set null,
+  descripcion     text not null,
+  cantidad        integer not null default 1 check (cantidad > 0),
+  precio_unitario numeric(10,2) not null default 0,
+  subtotal        numeric(10,2) not null default 0
+);
+create index if not exists idx_cotizacion_items_cotizacion on public.cotizacion_items(cotizacion_id);
+
 -- Gastos (solo administrador — brief §5/§6) --------------------------------
 create table if not exists public.gastos (
   id              uuid primary key default gen_random_uuid(),
   negocio_id      uuid not null references public.negocios(id) on delete cascade,
+  proveedor_id    uuid references public.proveedores(id) on delete set null,
   categoria       categoria_gasto not null default 'otro',
   descripcion     text,
   monto           numeric(10,2) not null check (monto >= 0),
@@ -468,11 +542,48 @@ create table if not exists public.comprobantes (
 );
 create index if not exists idx_comprobantes_negocio on public.comprobantes(negocio_id);
 
+-- Descuentos / cupones (idea de UX #8 del research de competencia) ---------
+do $$ begin create type tipo_descuento as enum ('porcentaje', 'monto'); exception when duplicate_object then null; end $$;
+create table if not exists public.descuentos (
+  id            uuid primary key default gen_random_uuid(),
+  negocio_id    uuid not null references public.negocios(id) on delete cascade,
+  codigo        text not null,
+  tipo          tipo_descuento not null default 'porcentaje',
+  valor         numeric(10,2) not null check (valor > 0),
+  vigencia_desde date,
+  vigencia_hasta date,
+  limite_usos   integer,
+  usos          integer not null default 0,
+  activo        boolean not null default true,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create unique index if not exists idx_descuentos_negocio_codigo on public.descuentos(negocio_id, upper(codigo));
+
+-- Campañas de email marketing (idea de UX #13) — SOLO scaffold: no hay
+-- proveedor de email conectado todavía, `enviados/fallidos/desuscritos`
+-- quedan en 0 hasta que se integre uno real (ver docs/pending-task.md).
+do $$ begin create type estado_campania as enum ('borrador', 'enviada'); exception when duplicate_object then null; end $$;
+create table if not exists public.campanias_email (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid not null references public.negocios(id) on delete cascade,
+  nombre       text not null,
+  asunto       text not null default '',
+  cuerpo       text not null default '',
+  estado       estado_campania not null default 'borrador',
+  enviados     integer not null default 0,
+  fallidos     integer not null default 0,
+  desuscritos  integer not null default 0,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists idx_campanias_negocio on public.campanias_email(negocio_id);
+
 -- ====== TRIGGERS updated_at (módulo de dominio) ======
 do $$
 declare t text;
 begin
-  foreach t in array array['clientes','citas','recetas','productos','inventario','ventas'] loop
+  foreach t in array array['clientes','citas','recetas','productos','inventario','ventas','descuentos','campanias_email','proveedores','cotizaciones'] loop
     execute format(
       'drop trigger if exists trg_%1$s_updated on public.%1$s;
        create trigger trg_%1$s_updated before update on public.%1$s
@@ -491,12 +602,19 @@ alter table public.ventas            enable row level security;
 alter table public.venta_items       enable row level security;
 alter table public.gastos            enable row level security;
 alter table public.comprobantes      enable row level security;
+alter table public.descuentos        enable row level security;
+alter table public.campanias_email   enable row level security;
+alter table public.proveedores       enable row level security;
+alter table public.cotizaciones      enable row level security;
+alter table public.cotizacion_items  enable row level security;
 
--- clientes / citas / recetas / productos / ventas: mismo patrón de RLS.
+-- clientes / citas / recetas / productos / ventas / proveedores /
+-- cotizaciones: mismo patrón de RLS (lectura para todo el negocio,
+-- escritura para quien "puede_gestionar" — administrador o encargado).
 do $$
 declare t text;
 begin
-  foreach t in array array['clientes','citas','recetas','productos','ventas'] loop
+  foreach t in array array['clientes','citas','recetas','productos','ventas','proveedores','cotizaciones'] loop
     execute format('drop policy if exists %1$s_read  on public.%1$s;', t);
     execute format('drop policy if exists %1$s_write on public.%1$s;', t);
     execute format(
@@ -536,15 +654,41 @@ create policy venta_items_write on public.venta_items for all using (
 ) with check (
   public.puede_gestionar() and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
 
--- gastos (solo administrador)
+-- cotizacion_items (hereda tenant vía cotizaciones.negocio_id)
+drop policy if exists cotizacion_items_read  on public.cotizacion_items;
+drop policy if exists cotizacion_items_write on public.cotizacion_items;
+create policy cotizacion_items_read  on public.cotizacion_items for select using (
+  exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
+create policy cotizacion_items_write on public.cotizacion_items for all using (
+  public.puede_gestionar() and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant())
+) with check (
+  public.puede_gestionar() and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
+
+-- gastos (administrador, o empleado con permiso granular 'gastos' delegado)
 drop policy if exists gastos_admin_all on public.gastos;
 create policy gastos_admin_all on public.gastos for all
-  using (public.is_administrador() and negocio_id = public.current_tenant())
-  with check (public.is_administrador() and negocio_id = public.current_tenant());
+  using ((public.is_administrador() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant())
+  with check ((public.is_administrador() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant());
 
 -- comprobantes (lectura para todo el negocio; escritura solo service_role)
 drop policy if exists comprobantes_read on public.comprobantes;
 create policy comprobantes_read on public.comprobantes for select using (negocio_id = public.current_tenant());
+
+-- descuentos (administrador, o empleado con permiso granular 'descuentos')
+drop policy if exists descuentos_read  on public.descuentos;
+drop policy if exists descuentos_write on public.descuentos;
+create policy descuentos_read on public.descuentos for select using (negocio_id = public.current_tenant());
+create policy descuentos_write on public.descuentos for all
+  using ((public.is_administrador() or public.tiene_permiso('descuentos')) and negocio_id = public.current_tenant())
+  with check ((public.is_administrador() or public.tiene_permiso('descuentos')) and negocio_id = public.current_tenant());
+
+-- campanias_email (administrador, o empleado con permiso granular 'marketing')
+drop policy if exists campanias_read  on public.campanias_email;
+drop policy if exists campanias_write on public.campanias_email;
+create policy campanias_read on public.campanias_email for select using (negocio_id = public.current_tenant());
+create policy campanias_write on public.campanias_email for all
+  using ((public.is_administrador() or public.tiene_permiso('marketing')) and negocio_id = public.current_tenant())
+  with check ((public.is_administrador() or public.tiene_permiso('marketing')) and negocio_id = public.current_tenant());
 
 -- ================================================================
 -- AUDIT LOG: registro por triggers de TODAS las escrituras de gestión
@@ -606,7 +750,7 @@ begin
   -- Solo tablas sensibles/financieras del dominio (clientes, recetas, ventas,
   -- gastos) — se omiten movimientos_stock/venta_items/inventario por volumen,
   -- igual que asistencia en el patrón de referencia tramys-rrhh.
-  foreach t in array array['negocios','empleados','suscripciones','clientes','recetas','ventas','gastos'] loop
+  foreach t in array array['negocios','empleados','suscripciones','clientes','recetas','ventas','gastos','descuentos','proveedores','cotizaciones'] loop
     execute format(
       'drop trigger if exists trg_audit_%1$s on public.%1$s;
        create trigger trg_audit_%1$s after insert or update or delete on public.%1$s
@@ -666,7 +810,8 @@ declare t text;
 begin
   foreach t in array array[
     'negocios','empleados','suscripciones',
-    'clientes','citas','recetas','productos','inventario','movimientos_stock','ventas','venta_items','gastos','comprobantes'
+    'clientes','citas','recetas','productos','inventario','movimientos_stock','ventas','venta_items','gastos','comprobantes',
+    'descuentos','campanias_email','proveedores','cotizaciones','cotizacion_items'
   ] loop
     if not exists (select 1 from pg_publication_tables
       where pubname='supabase_realtime' and schemaname='public' and tablename=t) then
