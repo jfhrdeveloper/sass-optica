@@ -132,10 +132,25 @@ export async function proxy(request: NextRequest) {
 
   const rol = empleado.rol as string;
 
-  /* ====== Rutas exclusivas de `administrador` ====== */
+  /* ====== Rutas exclusivas de `administrador` ======
+     /dashboard/facturacion NO está aquí a propósito: todos los roles deben
+     poder verla (para saber que hay que renovar), aunque solo el
+     administrador vea el botón de pago — esa distinción se hace dentro de
+     la página, no en el proxy. */
   const rutasSoloAdministrador = ["/dashboard/gastos", "/dashboard/empleados", "/dashboard/config"];
   if (rol !== "administrador" && rutasSoloAdministrador.some((r) => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  /* ====== Trial vencido sin pago → bloquea el resto del dashboard ======
+     Brief §4/§10: "si venció sin pago, bloquea acceso". Redirige todo menos
+     /dashboard/facturacion (donde se paga) hacia esa misma página. */
+  if (!pathname.startsWith("/dashboard/facturacion")) {
+    const { data: suscripcion } = await supabase
+      .from("suscripciones").select("estado").eq("negocio_id", negocio.id).maybeSingle();
+    if (suscripcion?.estado === "vencida") {
+      return NextResponse.redirect(new URL("/dashboard/facturacion", request.url));
+    }
   }
 
   /* ====== Raíz del subdominio → /dashboard ====== */

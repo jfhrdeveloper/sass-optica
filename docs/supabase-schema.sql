@@ -241,11 +241,16 @@ create policy empleados_admin_update on public.empleados for update
   with check (public.is_administrador() and negocio_id = public.current_tenant());
 
 -- ====== SUSCRIPCIONES ======
--- Solo lectura para el administrador del negocio; los cambios de estado los
--- hace service_role vía webhook de Culqi y el cron de expiración de trial.
+-- Lectura para TODO empleado del negocio (no solo administrador): el proxy
+-- necesita poder chequear el estado para cualquier rol, para bloquear el
+-- acceso si el trial venció sin pago (brief §4/§10) — sin esto, RLS le
+-- ocultaría la fila a encargado/trabajador y el bloqueo nunca se activaría
+-- para ellos. Los cambios de estado los hace SIEMPRE service_role, vía
+-- webhook/cargo de Culqi y el cron de expiración de trial — nunca el cliente.
 drop policy if exists suscripciones_admin_read on public.suscripciones;
-create policy suscripciones_admin_read on public.suscripciones for select
-  using (public.is_administrador() and negocio_id = public.current_tenant());
+drop policy if exists suscripciones_read on public.suscripciones;
+create policy suscripciones_read on public.suscripciones for select
+  using (negocio_id = public.current_tenant());
 
 -- ================================================================
 -- MÓDULO DE DOMINIO: gestión de la óptica (Fase 6)
