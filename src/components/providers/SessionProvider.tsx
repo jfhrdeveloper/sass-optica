@@ -8,6 +8,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useData, type Empleado } from "@/components/providers/DataProvider";
+import { isMockMode, MOCK_COOKIE } from "@/lib/mock/mock-mode";
+import { MOCK_EMPLEADO } from "@/lib/mock/mock-data";
 
 /* ================= TIPOS ================= */
 export interface SessionCtx {
@@ -21,13 +23,17 @@ export const SessionContext = Ctx;
 
 /* ================= PROVIDER ================= */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const mock = isMockMode();
   const supabase = useMemo(() => createClient(), []);
   const d = useData();
-  const [authId, setAuthId] = useState<string | null>(null);
-  const [ready, setReady]   = useState(false);
+  const [authId, setAuthId] = useState<string | null>(mock ? MOCK_EMPLEADO.id : null);
+  const [ready, setReady]   = useState(mock);
 
-  /* ====== Carga sesión + suscripción a auth state ====== */
+  /* ====== Carga sesión + suscripción a auth state ======
+     En modo mock (ver mock-mode.ts) no hay auth.getUser() real — el "id
+     autenticado" es directamente el del empleado mock, fijo. */
   useEffect(() => {
+    if (mock) return;
     let active = true;
     async function bootstrap() {
       const { data } = await supabase.auth.getUser();
@@ -40,7 +46,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setAuthId(sess?.user?.id ?? null);
     });
     return () => { active = false; sub.subscription.unsubscribe(); };
-  }, [supabase]);
+  }, [supabase, mock]);
 
   const empleado = useMemo(
     () => authId ? d.empleados.find((e) => e.id === authId) ?? null : null,
@@ -48,6 +54,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    if (mock) {
+      document.cookie = `${MOCK_COOKIE}=; path=/; max-age=0`;
+      window.location.href = "/login";
+      return;
+    }
     await supabase.auth.signOut();
     if (typeof window !== "undefined") {
       const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? window.location.hostname;
@@ -55,7 +66,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         window.location.port ? `:${window.location.port}` : ""
       }/login`;
     }
-  }, [supabase]);
+  }, [supabase, mock]);
 
   const value: SessionCtx = { empleado, signOut, ready };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

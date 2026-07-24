@@ -21,6 +21,11 @@ import {
   rowToProducto, productoToRow, rowToMovimientoStock, rowToVenta, ventaToRow,
   rowToVentaItem, rowToGasto, gastoToRow,
 } from "@/lib/data/mappers";
+import { isMockMode } from "@/lib/mock/mock-mode";
+import {
+  MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_CLIENTES, MOCK_CITAS,
+  MOCK_RECETAS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_GASTOS,
+} from "@/lib/mock/mock-data";
 
 /* ================= TIPOS: capa de auth/tenant ================= */
 export type Rol = "administrador" | "encargado" | "trabajador";
@@ -149,25 +154,31 @@ const TABLAS_DOMINIO = [
 
 /* ================= PROVIDER ================= */
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const mock = isMockMode();
   const supabase = useMemo(() => createClient(), []);
-  const [empleados, setEmpleados]     = useState<Empleado[]>([]);
-  const [negocio, setNegocio]         = useState<Negocio | null>(null);
-  const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(null);
-  const [clientes, setClientes]       = useState<Cliente[]>([]);
-  const [citas, setCitas]             = useState<Cita[]>([]);
-  const [recetas, setRecetas]         = useState<Receta[]>([]);
-  const [productos, setProductos]     = useState<Producto[]>([]);
-  const [movimientosStock, setMovimientosStock] = useState<MovimientoStock[]>([]);
-  const [ventas, setVentas]           = useState<Venta[]>([]);
-  const [ventaItems, setVentaItems]   = useState<VentaItem[]>([]);
-  const [gastos, setGastos]           = useState<Gasto[]>([]);
-  const [ready, setReady]             = useState(false);
+  const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? [MOCK_EMPLEADO] : []);
+  const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
+  const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(mock ? MOCK_SUSCRIPCION : null);
+  const [clientes, setClientes]       = useState<Cliente[]>(mock ? MOCK_CLIENTES : []);
+  const [citas, setCitas]             = useState<Cita[]>(mock ? MOCK_CITAS : []);
+  const [recetas, setRecetas]         = useState<Receta[]>(mock ? MOCK_RECETAS : []);
+  const [productos, setProductos]     = useState<Producto[]>(mock ? MOCK_PRODUCTOS : []);
+  const [movimientosStock, setMovimientosStock] = useState<MovimientoStock[]>(mock ? MOCK_MOVIMIENTOS_STOCK : []);
+  const [ventas, setVentas]           = useState<Venta[]>(mock ? MOCK_VENTAS : []);
+  const [ventaItems, setVentaItems]   = useState<VentaItem[]>(mock ? MOCK_VENTA_ITEMS : []);
+  const [gastos, setGastos]           = useState<Gasto[]>(mock ? MOCK_GASTOS : []);
+  const [ready, setReady]             = useState(mock);
 
   /* ====== Carga inicial (todas las tablas en paralelo) + Realtime ======
      `cargar` vive DENTRO del efecto para que el fetch se dispare como
      reacción al montaje, no como una llamada a setState "suelta" en el
-     cuerpo del efecto. `activo` evita setState tras desmontar. */
+     cuerpo del efecto. `activo` evita setState tras desmontar.
+
+     En modo mock (ver mock-mode.ts) el estado ya arrancó poblado desde
+     mock-data.ts arriba — no hay Supabase real al cual conectarse ni
+     Realtime que suscribir. */
   useEffect(() => {
+    if (mock) return;
     let activo = true;
 
     async function cargar() {
@@ -226,57 +237,88 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
     const ch = canal.subscribe();
     return () => { activo = false; void supabase.removeChannel(ch); };
-  }, [supabase]);
+  }, [supabase, mock]);
 
-  /* ====== Mutaciones (Realtime refresca; no setState optimista) ====== */
+  /* ====== Mutaciones (Realtime refresca; no setState optimista) ======
+     Cada una arranca con una rama `if (mock)` que opera sobre el estado
+     local en vez de llamar a Supabase — ver mock-mode.ts. Esas ramas son
+     temporales, se quitan junto con el resto del modo mock. */
   const updateEmpleado = useCallback(async (id: string, patch: Partial<Empleado>) => {
+    if (mock) { setEmpleados((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))); return; }
     await supabase.from("empleados").update(empleadoToRow(patch)).eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
 
   const updateNegocio = useCallback(async (patch: Partial<Negocio>) => {
     if (!negocio) return;
+    if (mock) { setNegocio((prev) => (prev ? { ...prev, ...patch } : prev)); return; }
     await supabase.from("negocios").update(negocioToRow(patch)).eq("id", negocio.id);
-  }, [supabase, negocio]);
+  }, [supabase, negocio, mock]);
 
   const addCliente = useCallback(async (c: Partial<Cliente>) => {
     if (!negocio) return null;
+    if (mock) {
+      const id = crypto.randomUUID();
+      setClientes((prev) => [...prev, { id, negocioId: negocio.id, nombres: "", apellidos: "", documentoTipo: "DNI", ...c }]);
+      return id;
+    }
     const { data } = await supabase.from("clientes").insert({ ...clienteToRow(c), negocio_id: negocio.id }).select("id").single();
     return data ? String(data.id) : null;
-  }, [supabase, negocio]);
+  }, [supabase, negocio, mock]);
   const updateCliente = useCallback(async (id: string, patch: Partial<Cliente>) => {
+    if (mock) { setClientes((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); return; }
     await supabase.from("clientes").update(clienteToRow(patch)).eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
   const deleteCliente = useCallback(async (id: string) => {
+    if (mock) { setClientes((prev) => prev.filter((c) => c.id !== id)); return; }
     await supabase.from("clientes").delete().eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
 
   const addCita = useCallback(async (c: Partial<Cita>) => {
     if (!negocio) return null;
+    if (mock) {
+      const id = crypto.randomUUID();
+      setCitas((prev) => [...prev, { id, negocioId: negocio.id, clienteId: "", fechaHora: new Date().toISOString(), estado: "programada", ...c }]);
+      return id;
+    }
     const { data } = await supabase.from("citas").insert({ ...citaToRow(c), negocio_id: negocio.id }).select("id").single();
     return data ? String(data.id) : null;
-  }, [supabase, negocio]);
+  }, [supabase, negocio, mock]);
   const updateCita = useCallback(async (id: string, patch: Partial<Cita>) => {
+    if (mock) { setCitas((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); return; }
     await supabase.from("citas").update(citaToRow(patch)).eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
   const deleteCita = useCallback(async (id: string) => {
+    if (mock) { setCitas((prev) => prev.filter((c) => c.id !== id)); return; }
     await supabase.from("citas").delete().eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
 
   const addReceta = useCallback(async (r: Partial<Receta>) => {
     if (!negocio) return;
+    if (mock) {
+      setRecetas((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, clienteId: "", fecha: new Date().toISOString().slice(0, 10), tipo: "lejos", ...r }]);
+      return;
+    }
     await supabase.from("recetas").insert({ ...recetaToRow(r), negocio_id: negocio.id });
-  }, [supabase, negocio]);
+  }, [supabase, negocio, mock]);
 
   const addProducto = useCallback(async (p: Partial<Producto>, stockInicial: number, stockMinimo: number) => {
     if (!negocio) return;
+    if (mock) {
+      setProductos((prev) => [...prev, {
+        id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", categoria: "montura",
+        precioVenta: 0, precioCosto: 0, activo: true, stockActual: stockInicial, stockMinimo, ...p,
+      }]);
+      return;
+    }
     const { data } = await supabase.from("productos").insert({ ...productoToRow(p), negocio_id: negocio.id }).select("id").single();
     if (data) {
       await supabase.from("inventario").insert({ producto_id: data.id, stock_actual: stockInicial, stock_minimo: stockMinimo });
     }
-  }, [supabase, negocio]);
+  }, [supabase, negocio, mock]);
   const updateProducto = useCallback(async (id: string, patch: Partial<Producto>) => {
+    if (mock) { setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))); return; }
     await supabase.from("productos").update(productoToRow(patch)).eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
 
   /* Ajuste de stock: registra el movimiento (trazabilidad) y actualiza el
      contador en `inventario` — ver invariante en docs/architecture.md sobre
@@ -288,11 +330,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const delta = tipo === "salida" ? -cantidad : cantidad;
     const nuevoStock = tipo === "ajuste" ? cantidad : Math.max(0, producto.stockActual + delta);
 
+    if (mock) {
+      setProductos((prev) => prev.map((p) => (p.id === productoId ? { ...p, stockActual: nuevoStock } : p)));
+      setMovimientosStock((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, productoId, tipo, cantidad, motivo, fecha: new Date().toISOString() }]);
+      return;
+    }
     await supabase.from("movimientos_stock").insert({
       negocio_id: negocio.id, producto_id: productoId, tipo, cantidad, motivo,
     });
     await supabase.from("inventario").update({ stock_actual: nuevoStock }).eq("producto_id", productoId);
-  }, [supabase, negocio, productos]);
+  }, [supabase, negocio, productos, mock]);
 
   /* Alta de venta + sus ítems. Simplificación de MVP: dos escrituras
      secuenciales (no hay transacción multi-tabla desde el cliente sin una
@@ -301,6 +348,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
      vuelve un problema real. */
   const addVenta = useCallback(async (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => {
     if (!negocio) return;
+    if (mock) {
+      const ventaId = crypto.randomUUID();
+      setVentas((prev) => [...prev, {
+        id: ventaId, negocioId: negocio.id, fecha: new Date().toISOString(),
+        subtotal: 0, igv: 0, total: 0, metodoPago: "efectivo", estado: "pagada", montoPagado: 0, ...v,
+      }]);
+      setVentaItems((prev) => [...prev, ...items.map((it) => ({ ...it, id: crypto.randomUUID(), ventaId }))]);
+      for (const it of items) {
+        if (it.productoId) await ajustarStock(it.productoId, "salida", it.cantidad, `Venta ${ventaId}`);
+      }
+      return;
+    }
     const { data } = await supabase.from("ventas").insert({ ...ventaToRow(v), negocio_id: negocio.id }).select("id").single();
     if (!data) return;
     const ventaId = String(data.id);
@@ -319,15 +378,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await ajustarStock(it.productoId, "salida", it.cantidad, `Venta ${ventaId}`);
       }
     }
-  }, [supabase, negocio, ajustarStock]);
+  }, [supabase, negocio, ajustarStock, mock]);
 
   const addGasto = useCallback(async (g: Partial<Gasto>) => {
     if (!negocio) return;
+    if (mock) {
+      setGastos((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10), ...g }]);
+      return;
+    }
     await supabase.from("gastos").insert({ ...gastoToRow(g), negocio_id: negocio.id });
-  }, [supabase, negocio]);
+  }, [supabase, negocio, mock]);
   const deleteGasto = useCallback(async (id: string) => {
+    if (mock) { setGastos((prev) => prev.filter((g) => g.id !== id)); return; }
     await supabase.from("gastos").delete().eq("id", id);
-  }, [supabase]);
+  }, [supabase, mock]);
 
   const value: DataCtx = {
     empleados, negocio, suscripcion, clientes, citas, recetas, productos,
