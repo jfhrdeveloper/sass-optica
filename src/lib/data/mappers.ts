@@ -6,7 +6,10 @@
    En *ToRow se escriben solo las claves presentes (Partial) → sirve igual para
    insert que para update parcial sin pisar columnas no enviadas. */
 
-import type { Empleado, Negocio, Rol, Suscripcion } from "@/components/providers/DataProvider";
+import type {
+  Empleado, Negocio, Rol, Suscripcion,
+  Cliente, Cita, Receta, Producto, MovimientoStock, Venta, VentaItem, Gasto,
+} from "@/components/providers/DataProvider";
 
 /* ====== Empleados ====== */
 export function rowToEmpleado(r: Record<string, unknown>): Empleado {
@@ -54,6 +57,183 @@ export function negocioToRow(n: Partial<Negocio>): Record<string, unknown> {
   if (n.telefono  !== undefined) out.telefono  = n.telefono;
   if (n.direccion !== undefined) out.direccion = n.direccion;
   if (n.logoUrl   !== undefined) out.logo_url  = n.logoUrl;
+  return out;
+}
+
+/* ====== Clientes / pacientes ====== */
+export function rowToCliente(r: Record<string, unknown>): Cliente {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    nombres: String(r.nombres ?? ""), apellidos: String(r.apellidos ?? ""),
+    documentoTipo: String(r.documento_tipo ?? "DNI"),
+    documentoNumero: r.documento_numero ? String(r.documento_numero) : undefined,
+    telefono: r.telefono ? String(r.telefono) : undefined,
+    email: r.email ? String(r.email) : undefined,
+    fechaNacimiento: r.fecha_nacimiento ? String(r.fecha_nacimiento) : undefined,
+    direccion: r.direccion ? String(r.direccion) : undefined,
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function clienteToRow(c: Partial<Cliente>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.nombres          !== undefined) out.nombres           = c.nombres;
+  if (c.apellidos         !== undefined) out.apellidos          = c.apellidos;
+  if (c.documentoTipo    !== undefined) out.documento_tipo     = c.documentoTipo;
+  if (c.documentoNumero  !== undefined) out.documento_numero   = c.documentoNumero;
+  if (c.telefono          !== undefined) out.telefono           = c.telefono;
+  if (c.email              !== undefined) out.email              = c.email;
+  if (c.fechaNacimiento  !== undefined) out.fecha_nacimiento   = c.fechaNacimiento || null;
+  if (c.direccion         !== undefined) out.direccion          = c.direccion;
+  if (c.notas              !== undefined) out.notas              = c.notas;
+  return out;
+}
+
+/* ====== Citas / turnos ====== */
+export function rowToCita(r: Record<string, unknown>): Cita {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id), clienteId: String(r.cliente_id),
+    empleadoId: r.empleado_id ? String(r.empleado_id) : undefined,
+    fechaHora: String(r.fecha_hora ?? ""),
+    motivo: r.motivo ? String(r.motivo) : undefined,
+    estado: String(r.estado ?? "programada"),
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function citaToRow(c: Partial<Cita>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.clienteId  !== undefined) out.cliente_id  = c.clienteId;
+  if (c.empleadoId !== undefined) out.empleado_id = c.empleadoId || null;
+  if (c.fechaHora  !== undefined) out.fecha_hora  = c.fechaHora;
+  if (c.motivo      !== undefined) out.motivo      = c.motivo;
+  if (c.estado      !== undefined) out.estado      = c.estado;
+  if (c.notas        !== undefined) out.notas        = c.notas;
+  return out;
+}
+
+/* ====== Recetas (graduación) ====== */
+export function rowToReceta(r: Record<string, unknown>): Receta {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id), clienteId: String(r.cliente_id),
+    citaId: r.cita_id ? String(r.cita_id) : undefined,
+    fecha: String(r.fecha ?? ""), tipo: String(r.tipo ?? "lejos"),
+    odEsfera: r.od_esfera != null ? Number(r.od_esfera) : undefined,
+    odCilindro: r.od_cilindro != null ? Number(r.od_cilindro) : undefined,
+    odEje: r.od_eje != null ? Number(r.od_eje) : undefined,
+    odAdicion: r.od_adicion != null ? Number(r.od_adicion) : undefined,
+    oiEsfera: r.oi_esfera != null ? Number(r.oi_esfera) : undefined,
+    oiCilindro: r.oi_cilindro != null ? Number(r.oi_cilindro) : undefined,
+    oiEje: r.oi_eje != null ? Number(r.oi_eje) : undefined,
+    oiAdicion: r.oi_adicion != null ? Number(r.oi_adicion) : undefined,
+    dip: r.dip != null ? Number(r.dip) : undefined,
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function recetaToRow(r: Partial<Receta>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (r.clienteId  !== undefined) out.cliente_id  = r.clienteId;
+  if (r.citaId      !== undefined) out.cita_id      = r.citaId || null;
+  if (r.fecha        !== undefined) out.fecha        = r.fecha;
+  if (r.tipo          !== undefined) out.tipo          = r.tipo;
+  if (r.odEsfera     !== undefined) out.od_esfera     = r.odEsfera;
+  if (r.odCilindro   !== undefined) out.od_cilindro   = r.odCilindro;
+  if (r.odEje         !== undefined) out.od_eje         = r.odEje;
+  if (r.odAdicion    !== undefined) out.od_adicion    = r.odAdicion;
+  if (r.oiEsfera     !== undefined) out.oi_esfera     = r.oiEsfera;
+  if (r.oiCilindro   !== undefined) out.oi_cilindro   = r.oiCilindro;
+  if (r.oiEje         !== undefined) out.oi_eje         = r.oiEje;
+  if (r.oiAdicion    !== undefined) out.oi_adicion    = r.oiAdicion;
+  if (r.dip            !== undefined) out.dip            = r.dip;
+  if (r.notas           !== undefined) out.notas           = r.notas;
+  return out;
+}
+
+/* ====== Productos (+ stock de `inventario`, fusionado en DataProvider) ====== */
+export function rowToProducto(r: Record<string, unknown>): Producto {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    codigo: r.codigo ? String(r.codigo) : undefined,
+    nombre: String(r.nombre ?? ""), categoria: String(r.categoria ?? "montura"),
+    marca: r.marca ? String(r.marca) : undefined,
+    descripcion: r.descripcion ? String(r.descripcion) : undefined,
+    precioVenta: Number(r.precio_venta ?? 0), precioCosto: Number(r.precio_costo ?? 0),
+    imagenUrl: r.imagen_url ? String(r.imagen_url) : undefined,
+    activo: Boolean(r.activo ?? true),
+    stockActual: 0, stockMinimo: 0,
+  };
+}
+export function productoToRow(p: Partial<Producto>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.codigo       !== undefined) out.codigo       = p.codigo || null;
+  if (p.nombre        !== undefined) out.nombre        = p.nombre;
+  if (p.categoria     !== undefined) out.categoria     = p.categoria;
+  if (p.marca          !== undefined) out.marca          = p.marca;
+  if (p.descripcion   !== undefined) out.descripcion   = p.descripcion;
+  if (p.precioVenta   !== undefined) out.precio_venta   = p.precioVenta;
+  if (p.precioCosto   !== undefined) out.precio_costo   = p.precioCosto;
+  if (p.imagenUrl     !== undefined) out.imagen_url     = p.imagenUrl;
+  if (p.activo         !== undefined) out.activo         = p.activo;
+  return out;
+}
+
+/* ====== Movimientos de stock ====== */
+export function rowToMovimientoStock(r: Record<string, unknown>): MovimientoStock {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id), productoId: String(r.producto_id),
+    tipo: String(r.tipo ?? "entrada"), cantidad: Number(r.cantidad ?? 0),
+    motivo: r.motivo ? String(r.motivo) : undefined,
+    fecha: String(r.fecha ?? ""),
+  };
+}
+
+/* ====== Ventas ====== */
+export function rowToVenta(r: Record<string, unknown>): Venta {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    clienteId: r.cliente_id ? String(r.cliente_id) : undefined,
+    fecha: String(r.fecha ?? ""),
+    subtotal: Number(r.subtotal ?? 0), igv: Number(r.igv ?? 0), total: Number(r.total ?? 0),
+    metodoPago: String(r.metodo_pago ?? "efectivo"), estado: String(r.estado ?? "pagada"),
+    montoPagado: Number(r.monto_pagado ?? 0),
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function ventaToRow(v: Partial<Venta>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (v.clienteId    !== undefined) out.cliente_id    = v.clienteId || null;
+  if (v.subtotal       !== undefined) out.subtotal       = v.subtotal;
+  if (v.igv             !== undefined) out.igv             = v.igv;
+  if (v.total           !== undefined) out.total           = v.total;
+  if (v.metodoPago     !== undefined) out.metodo_pago     = v.metodoPago;
+  if (v.estado          !== undefined) out.estado          = v.estado;
+  if (v.montoPagado    !== undefined) out.monto_pagado    = v.montoPagado;
+  if (v.notas            !== undefined) out.notas            = v.notas;
+  return out;
+}
+
+export function rowToVentaItem(r: Record<string, unknown>): VentaItem {
+  return {
+    id: String(r.id), ventaId: String(r.venta_id),
+    productoId: r.producto_id ? String(r.producto_id) : undefined,
+    descripcion: String(r.descripcion ?? ""), cantidad: Number(r.cantidad ?? 1),
+    precioUnitario: Number(r.precio_unitario ?? 0), subtotal: Number(r.subtotal ?? 0),
+  };
+}
+
+/* ====== Gastos ====== */
+export function rowToGasto(r: Record<string, unknown>): Gasto {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    categoria: String(r.categoria ?? "otro"),
+    descripcion: r.descripcion ? String(r.descripcion) : undefined,
+    monto: Number(r.monto ?? 0), fecha: String(r.fecha ?? ""),
+  };
+}
+export function gastoToRow(g: Partial<Gasto>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (g.categoria     !== undefined) out.categoria     = g.categoria;
+  if (g.descripcion   !== undefined) out.descripcion   = g.descripcion;
+  if (g.monto           !== undefined) out.monto           = g.monto;
+  if (g.fecha            !== undefined) out.fecha            = g.fecha;
   return out;
 }
 

@@ -248,6 +248,270 @@ create policy suscripciones_admin_read on public.suscripciones for select
   using (public.is_administrador() and negocio_id = public.current_tenant());
 
 -- ================================================================
+-- MÓDULO DE DOMINIO: gestión de la óptica (Fase 6)
+-- Mismo patrón de tenant que la capa de auth: negocio_id + RLS filtrando por
+-- negocio_id = current_tenant(). "Gestión operativa" (puede_gestionar(), ya
+-- definido arriba) = administrador o encargado, según brief §5. `gastos` es
+-- exclusivo de administrador. `citas`≈"turnos", `clientes`≈"pacientes_optica",
+-- `recetas`≈"receta_optica" del brief (nombres conservados de la UI ya
+-- construida en otros prototipos del mismo fundador).
+-- ================================================================
+
+do $$ begin create type tipo_documento      as enum ('DNI','CE','RUC','PASAPORTE'); exception when duplicate_object then null; end $$;
+do $$ begin create type estado_cita         as enum ('programada','atendida','cancelada','no_asistio'); exception when duplicate_object then null; end $$;
+do $$ begin create type tipo_receta         as enum ('lejos','cerca','progresivo','bifocal','lentes_contacto'); exception when duplicate_object then null; end $$;
+do $$ begin create type categoria_producto  as enum ('montura','luna','lente_contacto','liquido','accesorio','servicio'); exception when duplicate_object then null; end $$;
+do $$ begin create type tipo_movimiento_stock as enum ('entrada','salida','ajuste','devolucion'); exception when duplicate_object then null; end $$;
+do $$ begin create type metodo_pago         as enum ('efectivo','tarjeta','yape','plin','transferencia'); exception when duplicate_object then null; end $$;
+do $$ begin create type estado_venta        as enum ('pagada','pendiente','anulada'); exception when duplicate_object then null; end $$;
+do $$ begin create type categoria_gasto     as enum ('alquiler','sueldos','insumos','servicios','proveedor','otro'); exception when duplicate_object then null; end $$;
+do $$ begin create type tipo_comprobante    as enum ('factura','boleta'); exception when duplicate_object then null; end $$;
+do $$ begin create type estado_comprobante  as enum ('emitido','anulado','rechazado'); exception when duplicate_object then null; end $$;
+
+-- Clientes / pacientes --------------------------------------------------
+create table if not exists public.clientes (
+  id               uuid primary key default gen_random_uuid(),
+  negocio_id       uuid not null references public.negocios(id) on delete cascade,
+  nombres          text not null,
+  apellidos        text not null default '',
+  documento_tipo   tipo_documento not null default 'DNI',
+  documento_numero text,
+  telefono         text,
+  email            text,
+  fecha_nacimiento date,
+  direccion        text,
+  notas            text,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index if not exists idx_clientes_negocio    on public.clientes(negocio_id);
+create index if not exists idx_clientes_apellidos  on public.clientes(apellidos);
+
+-- Citas / turnos ----------------------------------------------------------
+create table if not exists public.citas (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid not null references public.negocios(id) on delete cascade,
+  cliente_id   uuid not null references public.clientes(id) on delete cascade,
+  empleado_id  uuid references public.empleados(id) on delete set null,
+  fecha_hora   timestamptz not null,
+  motivo       text,
+  estado       estado_cita not null default 'programada',
+  notas        text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists idx_citas_negocio on public.citas(negocio_id);
+create index if not exists idx_citas_cliente on public.citas(cliente_id);
+create index if not exists idx_citas_fecha   on public.citas(fecha_hora);
+
+-- Recetas (graduaciones) ---------------------------------------------------
+-- OD = ojo derecho, OI = ojo izquierdo, DIP = distancia interpupilar (mm).
+create table if not exists public.recetas (
+  id            uuid primary key default gen_random_uuid(),
+  negocio_id    uuid not null references public.negocios(id) on delete cascade,
+  cliente_id    uuid not null references public.clientes(id) on delete cascade,
+  cita_id       uuid references public.citas(id) on delete set null,
+  empleado_id   uuid references public.empleados(id) on delete set null,
+  fecha         date not null default current_date,
+  tipo          tipo_receta not null default 'lejos',
+  od_esfera     numeric(5,2), od_cilindro numeric(5,2), od_eje smallint check (od_eje between 0 and 180), od_adicion numeric(5,2),
+  oi_esfera     numeric(5,2), oi_cilindro numeric(5,2), oi_eje smallint check (oi_eje between 0 and 180), oi_adicion numeric(5,2),
+  dip           numeric(4,1),
+  notas         text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists idx_recetas_negocio on public.recetas(negocio_id);
+create index if not exists idx_recetas_cliente on public.recetas(cliente_id);
+
+-- Productos (catálogo: armazones, lunas, lentes de contacto...) -----------
+create table if not exists public.productos (
+  id            uuid primary key default gen_random_uuid(),
+  negocio_id    uuid not null references public.negocios(id) on delete cascade,
+  codigo        text,
+  nombre        text not null,
+  categoria     categoria_producto not null default 'montura',
+  marca         text,
+  descripcion   text,
+  precio_venta  numeric(10,2) not null default 0,
+  precio_costo  numeric(10,2) not null default 0,
+  imagen_url    text,
+  activo        boolean not null default true,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create unique index if not exists idx_productos_negocio_codigo on public.productos(negocio_id, codigo) where codigo is not null;
+create index if not exists idx_productos_negocio   on public.productos(negocio_id);
+create index if not exists idx_productos_categoria on public.productos(categoria);
+
+-- Inventario (stock 1:1 — hereda el tenant vía producto_id) ----------------
+create table if not exists public.inventario (
+  producto_id   uuid primary key references public.productos(id) on delete cascade,
+  stock_actual  integer not null default 0,
+  stock_minimo  integer not null default 0,
+  ubicacion     text,
+  updated_at    timestamptz not null default now()
+);
+
+-- Movimientos de stock (trazabilidad — brief §6) --------------------------
+create table if not exists public.movimientos_stock (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid not null references public.negocios(id) on delete cascade,
+  producto_id  uuid not null references public.productos(id) on delete cascade,
+  tipo         tipo_movimiento_stock not null,
+  cantidad     integer not null check (cantidad > 0),
+  motivo       text,
+  empleado_id  uuid references public.empleados(id) on delete set null,
+  fecha        timestamptz not null default now()
+);
+create index if not exists idx_movstock_negocio  on public.movimientos_stock(negocio_id);
+create index if not exists idx_movstock_producto on public.movimientos_stock(producto_id);
+
+-- Ventas --------------------------------------------------------------------
+-- subtotal + igv = total. IGV Perú = 18%. Montos en soles (PEN).
+create table if not exists public.ventas (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid not null references public.negocios(id) on delete cascade,
+  cliente_id   uuid references public.clientes(id) on delete set null,
+  empleado_id  uuid references public.empleados(id) on delete set null,
+  receta_id    uuid references public.recetas(id) on delete set null,
+  fecha        timestamptz not null default now(),
+  subtotal     numeric(10,2) not null default 0,
+  igv          numeric(10,2) not null default 0,
+  total        numeric(10,2) not null default 0,
+  metodo_pago  metodo_pago not null default 'efectivo',
+  estado       estado_venta not null default 'pagada',
+  monto_pagado numeric(10,2) not null default 0,
+  notas        text,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_ventas_negocio on public.ventas(negocio_id);
+create index if not exists idx_ventas_cliente on public.ventas(cliente_id);
+create index if not exists idx_ventas_fecha   on public.ventas(fecha);
+
+-- Ítems de venta (hereda el tenant vía venta_id) --------------------------
+create table if not exists public.venta_items (
+  id              uuid primary key default gen_random_uuid(),
+  venta_id        uuid not null references public.ventas(id) on delete cascade,
+  producto_id     uuid references public.productos(id) on delete set null,
+  descripcion     text not null,
+  cantidad        integer not null default 1 check (cantidad > 0),
+  precio_unitario numeric(10,2) not null default 0,
+  subtotal        numeric(10,2) not null default 0
+);
+create index if not exists idx_venta_items_venta on public.venta_items(venta_id);
+
+-- Gastos (solo administrador — brief §5/§6) --------------------------------
+create table if not exists public.gastos (
+  id              uuid primary key default gen_random_uuid(),
+  negocio_id      uuid not null references public.negocios(id) on delete cascade,
+  categoria       categoria_gasto not null default 'otro',
+  descripcion     text,
+  monto           numeric(10,2) not null check (monto >= 0),
+  fecha           date not null default current_date,
+  empleado_id     uuid references public.empleados(id) on delete set null,
+  comprobante_url text,
+  created_at      timestamptz not null default now()
+);
+create index if not exists idx_gastos_negocio on public.gastos(negocio_id);
+create index if not exists idx_gastos_fecha   on public.gastos(fecha);
+
+-- Comprobantes (facturación SUNAT — fase posterior al MVP, brief §8/§9) ---
+-- Sin policy de escritura para `authenticated`: el alta la hace service_role
+-- cuando se integre el OSE (Nubefact). Por ahora solo lectura desde el panel.
+create table if not exists public.comprobantes (
+  id                    uuid primary key default gen_random_uuid(),
+  negocio_id            uuid not null references public.negocios(id) on delete cascade,
+  venta_id              uuid references public.ventas(id) on delete set null,
+  tipo                  tipo_comprobante not null default 'boleta',
+  serie_numero          text,
+  estado                estado_comprobante not null default 'emitido',
+  xml_url               text,
+  cdr_url               text,
+  proveedor_facturacion text,
+  created_at            timestamptz not null default now()
+);
+create index if not exists idx_comprobantes_negocio on public.comprobantes(negocio_id);
+
+-- ====== TRIGGERS updated_at (módulo de dominio) ======
+do $$
+declare t text;
+begin
+  foreach t in array array['clientes','citas','recetas','productos','inventario','ventas'] loop
+    execute format(
+      'drop trigger if exists trg_%1$s_updated on public.%1$s;
+       create trigger trg_%1$s_updated before update on public.%1$s
+         for each row execute function public.set_updated_at();', t);
+  end loop;
+end $$;
+
+-- ====== RLS: módulo de dominio ======
+alter table public.clientes          enable row level security;
+alter table public.citas             enable row level security;
+alter table public.recetas           enable row level security;
+alter table public.productos         enable row level security;
+alter table public.inventario        enable row level security;
+alter table public.movimientos_stock enable row level security;
+alter table public.ventas            enable row level security;
+alter table public.venta_items       enable row level security;
+alter table public.gastos            enable row level security;
+alter table public.comprobantes      enable row level security;
+
+-- clientes / citas / recetas / productos / ventas: mismo patrón de RLS.
+do $$
+declare t text;
+begin
+  foreach t in array array['clientes','citas','recetas','productos','ventas'] loop
+    execute format('drop policy if exists %1$s_read  on public.%1$s;', t);
+    execute format('drop policy if exists %1$s_write on public.%1$s;', t);
+    execute format(
+      'create policy %1$s_read on public.%1$s for select
+         using (negocio_id = public.current_tenant());', t);
+    execute format(
+      'create policy %1$s_write on public.%1$s for all
+         using (public.puede_gestionar() and negocio_id = public.current_tenant())
+         with check (public.puede_gestionar() and negocio_id = public.current_tenant());', t);
+  end loop;
+end $$;
+
+-- inventario (hereda tenant vía productos.negocio_id)
+drop policy if exists inventario_read  on public.inventario;
+drop policy if exists inventario_write on public.inventario;
+create policy inventario_read  on public.inventario for select using (
+  exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+create policy inventario_write on public.inventario for all using (
+  public.puede_gestionar() and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant())
+) with check (
+  public.puede_gestionar() and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+
+-- movimientos_stock (solo lectura + insert; nunca update/delete — trazabilidad)
+drop policy if exists movstock_read  on public.movimientos_stock;
+drop policy if exists movstock_write on public.movimientos_stock;
+create policy movstock_read  on public.movimientos_stock for select using (negocio_id = public.current_tenant());
+create policy movstock_write on public.movimientos_stock for insert
+  with check (public.puede_gestionar() and negocio_id = public.current_tenant());
+
+-- venta_items (hereda tenant vía ventas.negocio_id)
+drop policy if exists venta_items_read  on public.venta_items;
+drop policy if exists venta_items_write on public.venta_items;
+create policy venta_items_read  on public.venta_items for select using (
+  exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
+create policy venta_items_write on public.venta_items for all using (
+  public.puede_gestionar() and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant())
+) with check (
+  public.puede_gestionar() and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
+
+-- gastos (solo administrador)
+drop policy if exists gastos_admin_all on public.gastos;
+create policy gastos_admin_all on public.gastos for all
+  using (public.is_administrador() and negocio_id = public.current_tenant())
+  with check (public.is_administrador() and negocio_id = public.current_tenant());
+
+-- comprobantes (lectura para todo el negocio; escritura solo service_role)
+drop policy if exists comprobantes_read on public.comprobantes;
+create policy comprobantes_read on public.comprobantes for select using (negocio_id = public.current_tenant());
+
+-- ================================================================
 -- AUDIT LOG: registro por triggers de TODAS las escrituras de gestión
 -- Auditoría "real" en la DB (no a nivel de app): captura cada insert/update/
 -- delete aunque venga del SQL Editor. Solo el administrador de cada negocio
@@ -304,7 +568,10 @@ revoke execute on function public.fn_audit() from public, anon, authenticated;
 do $$
 declare t text;
 begin
-  foreach t in array array['negocios','empleados','suscripciones'] loop
+  -- Solo tablas sensibles/financieras del dominio (clientes, recetas, ventas,
+  -- gastos) — se omiten movimientos_stock/venta_items/inventario por volumen,
+  -- igual que asistencia en el patrón de referencia tramys-rrhh.
+  foreach t in array array['negocios','empleados','suscripciones','clientes','recetas','ventas','gastos'] loop
     execute format(
       'drop trigger if exists trg_audit_%1$s on public.%1$s;
        create trigger trg_audit_%1$s after insert or update or delete on public.%1$s
@@ -362,7 +629,10 @@ select cron.schedule('opticaly_revisar_trials', '0 3 * * *',
 do $$
 declare t text;
 begin
-  foreach t in array array['negocios','empleados','suscripciones'] loop
+  foreach t in array array[
+    'negocios','empleados','suscripciones',
+    'clientes','citas','recetas','productos','inventario','movimientos_stock','ventas','venta_items','gastos','comprobantes'
+  ] loop
     if not exists (select 1 from pg_publication_tables
       where pubname='supabase_realtime' and schemaname='public' and tablename=t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
