@@ -103,6 +103,12 @@ export async function proxy(request: NextRequest) {
           url.pathname = "/dashboard";
           return redirigir(url);
         }
+      } else if (empleado) {
+        /* Sesión válida sin negocio todavía — típicamente una cuenta de
+           Google recién creada (ver /auth/callback/route.ts: handle_new_user()
+           ya insertó esta fila mínima). Termina el alta en vez de mostrarle
+           el form de login de nuevo. */
+        return redirigir(new URL("/registro/completar", request.url));
       }
     }
 
@@ -164,21 +170,39 @@ export async function proxy(request: NextRequest) {
   }
 
   const { data: empleado } = await supabase
-    .from("empleados").select("negocio_id, rol, activo").eq("id", user.id).maybeSingle();
+    .from("empleados").select("negocio_id, rol, activo, permisos").eq("id", user.id).maybeSingle();
   if (!empleado || !empleado.activo || empleado.negocio_id !== negocio.id) {
     return irALogin();
   }
 
   const rol = empleado.rol as string;
+  const permisos = (empleado.permisos as Record<string, boolean> | null) ?? {};
 
-  /* ====== Rutas exclusivas de `administrador` ======
+  /* ====== Rutas exclusivas de `administrador` (nunca delegables) ======
      /dashboard/facturacion NO está aquí a propósito: todos los roles deben
      poder verla (para saber que hay que renovar), aunque solo el
      administrador vea el botón de pago — esa distinción se hace dentro de
      la página, no en el proxy. */
-  const rutasSoloAdministrador = ["/dashboard/gastos", "/dashboard/empleados", "/dashboard/config"];
+  const rutasSoloAdministrador = ["/dashboard/empleados", "/dashboard/ajustes", "/dashboard/config"];
   if (rol !== "administrador" && rutasSoloAdministrador.some((r) => pathname.startsWith(r))) {
     return redirigir(new URL("/dashboard", request.url));
+  }
+
+  /* ====== Rutas con permiso granular delegable (empleados.permisos) ======
+     Administrador siempre pasa; encargado/trabajador solo si el admin les
+     activó la clave correspondiente — ver tiene_permiso() en el schema
+     (misma regla, replicada aquí porque el proxy no puede llamar RPC de
+     Postgres sin una consulta adicional). */
+  const rutasConPermiso: Record<string, string> = {
+    "/dashboard/gastos": "gastos",
+    "/dashboard/informes": "gastos",
+    "/dashboard/descuentos": "descuentos",
+    "/dashboard/marketing": "marketing",
+  };
+  for (const [ruta, clave] of Object.entries(rutasConPermiso)) {
+    if (pathname.startsWith(ruta) && rol !== "administrador" && permisos[clave] !== true) {
+      return redirigir(new URL("/dashboard", request.url));
+    }
   }
 
   /* ====== Trial vencido sin pago → bloquea el resto del dashboard ======

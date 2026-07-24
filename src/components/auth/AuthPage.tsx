@@ -1,0 +1,595 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { isMockMode, MOCK_EMAIL, MOCK_PASSWORD, MOCK_COOKIE } from "@/lib/mock/mock-mode";
+import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
+import { Stepper } from "@/components/Stepper";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+type Modo = "login" | "registro";
+type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponible" | "invalido";
+
+const BENEFICIOS = [
+  "Clientes, citas y recetas en un solo lugar",
+  "Ventas con IGV calculado solo",
+  "Cancela cuando quieras, sin permanencia",
+];
+
+/* Logo oficial de Google (4 colores) — no hay ícono de marca en lucide-react,
+   así que va como SVG inline. Compartido entre LoginForm y RegistroForm. */
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.5-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 16.3 3 9.7 7.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 45c5.5 0 10.5-2.1 14.2-5.6l-6.6-5.4C29.6 35.7 27 36.6 24 36.6c-5.2 0-9.6-3.4-11.2-8.1l-6.6 5.1C9.6 40.4 16.3 45 24 45z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.9 2.6-2.5 4.8-4.6 6.3l6.6 5.4C41.4 36 45 30.5 45 24c0-1.4-.1-2.5-.4-3.5z" />
+    </svg>
+  );
+}
+
+/* Divisor "o continúa con..." entre el botón de Google y el formulario de
+   email/contraseña — mismo patrón visual en login y registro. */
+function DivisorO({ texto }: { texto: string }) {
+  return (
+    <div className="my-4 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+      <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+      {texto}
+      <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+    </div>
+  );
+}
+
+/* ================= LOGIN + REGISTRO — PANEL DESLIZANTE =================
+   Patrón split-screen con panel de marca deslizante (idea tomada de las
+   referencias en diseno-referencia/login-register/): el panel de color
+   siempre existe en el DOM y se desliza de un lado al otro con `transition`
+   de CSS; debajo, los dos formularios (login/registro) también coexisten
+   montados, cross-fadeando por opacidad — así el cambio se ve como una
+   animación continua en vez de un salto entre páginas.
+
+   /login y /registro siguen siendo rutas reales (bookmarkeables, sin JS
+   funcionan igual de bien) — ambas montan este mismo componente con un
+   `modoInicial` distinto. Al togglear, el estado local cambia primero (la
+   animación corre ahí mismo) y router.replace() actualiza la URL recién
+   cuando la transición ya casi terminó, para que el remount entre rutas
+   caiga sobre un estado visual idéntico y no se note. */
+export function AuthPage({ modoInicial }: { modoInicial: Modo }) {
+  const [modo, setModo] = useState<Modo>(modoInicial);
+  const router = useRouter();
+  const mock = isMockMode();
+
+  function cambiarModo(nuevo: Modo) {
+    if (nuevo === modo) return;
+    setModo(nuevo);
+    setTimeout(() => router.replace(nuevo === "login" ? "/login" : "/registro", { scroll: false }), 350);
+  }
+
+  return (
+    <div className="relative min-h-screen w-full overflow-hidden bg-white dark:bg-slate-950">
+      {/* ====== Cabecera compacta — solo móvil (el panel de marca no cabe) ====== */}
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800 md:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">O</div>
+          <Link href="/" className="font-display text-slate-900 dark:text-slate-100">SaaS Óptica</Link>
+        </div>
+        <ThemeToggle />
+      </div>
+
+      {/* ====== Panel de marca — SIEMPRE anclado a la izquierda, desliza con
+         `translate-x` (no `left`): animar `left` es una propiedad de layout,
+         el navegador no la acelera por GPU y se ve "a los saltos"; `transform`
+         sí corre en el compositor y queda fluido. En reposo (login) cubre la
+         mitad derecha (donde está el form de registro, oculto); al pasar a
+         registro se desliza a su posición natural (izquierda), tapando el
+         login y revelando el registro a la derecha. ====== */}
+      <div
+        className={`hidden overflow-hidden bg-gradient-to-br from-primary-dark via-primary to-primary-light p-10 text-white transition-transform duration-500 ease-in-out md:absolute md:inset-y-0 md:left-0 md:flex md:w-1/2 md:flex-col md:justify-between ${
+          modo === "login" ? "md:translate-x-full" : "md:translate-x-0"
+        }`}
+      >
+        {[
+          { top: -80, right: -80, size: 320 },
+          { bottom: -60, left: -60, size: 260 },
+          { top: "40%", left: "60%", size: 120 },
+        ].map((c, i) => (
+          <div
+            key={i}
+            className="pointer-events-none absolute rounded-full bg-white/5"
+            style={{
+              top: "top" in c ? c.top : undefined,
+              right: "right" in c ? c.right : undefined,
+              bottom: "bottom" in c ? c.bottom : undefined,
+              left: "left" in c ? c.left : undefined,
+              width: c.size, height: c.size,
+            }}
+          />
+        ))}
+
+        <Link href="/" className="relative font-display text-xl">SaaS Óptica</Link>
+
+        <div className="relative">
+          <h2 className="font-display text-3xl leading-tight">
+            {modo === "login" ? "Bienvenido de vuelta." : "Empieza en 2 minutos."}
+          </h2>
+          <p className="mt-3 max-w-sm text-white/80">
+            {modo === "login"
+              ? "Entra a tu panel y sigue atendiendo. Clientes, citas, ventas — todo donde lo dejaste."
+              : "Sin tarjeta de crédito. Carga tu óptica, invita a tu equipo y atiende desde el día uno."}
+          </p>
+          <ul className="mt-6 space-y-2 text-sm text-white/85">
+            {BENEFICIOS.map((b) => (
+              <li key={b} className="flex items-center gap-2">
+                <Check size={16} className="shrink-0" /> {b}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative text-xs text-white/50">© {new Date().getFullYear()} SaaS Óptica</p>
+      </div>
+
+      {/* ====== Formulario: Login — anclado a la izquierda, siempre ====== */}
+      <div
+        aria-hidden={modo !== "login"}
+        className={`${modo === "login" ? "block" : "hidden"} w-full px-6 py-10 transition-opacity duration-500 ease-in-out sm:px-10 md:absolute md:inset-y-0 md:left-0 md:flex md:w-1/2 md:flex-col md:justify-center md:px-14 ${
+          modo === "login" ? "md:opacity-100" : "md:pointer-events-none md:opacity-0"
+        }`}
+      >
+        {/* Toggle de tema — dentro de cada mitad de formulario (no un único
+           toggle fijo en la pantalla) para que siempre caiga sobre el fondo
+           claro/oscuro del form, nunca sobre el panel de marca azul (ahí el
+           ícono se leería mal). Solo desktop; en móvil vive en la cabecera. */}
+        <div className="absolute right-6 top-6 hidden md:block">
+          <ThemeToggle />
+        </div>
+        <LoginForm mock={mock} onIrARegistro={() => cambiarModo("registro")} />
+      </div>
+
+      {/* ====== Formulario: Registro — anclado a la derecha, siempre ====== */}
+      <div
+        aria-hidden={modo !== "registro"}
+        className={`${modo === "registro" ? "block" : "hidden"} w-full px-6 py-10 transition-opacity duration-500 ease-in-out sm:px-10 md:absolute md:inset-y-0 md:left-1/2 md:flex md:w-1/2 md:flex-col md:justify-center md:px-14 ${
+          modo === "registro" ? "md:opacity-100" : "md:pointer-events-none md:opacity-0"
+        }`}
+      >
+        <div className="absolute right-6 top-6 hidden md:block">
+          <ThemeToggle />
+        </div>
+        <RegistroForm onIrALogin={() => cambiarModo("login")} />
+      </div>
+    </div>
+  );
+}
+
+/* ================= FORMULARIO DE LOGIN ================= */
+function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [verPassword, setVerPassword] = useState(false);
+  const [recordarme, setRecordarme] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [modoReset, setModoReset] = useState(false);
+  const [resetMensaje, setResetMensaje] = useState<string | null>(null);
+  const [resetEnviando, setResetEnviando] = useState(false);
+  const [enviandoGoogle, setEnviandoGoogle] = useState(false);
+
+  /* Redirige a Google y vuelve por /auth/callback (ver route.ts) — ese
+     endpoint decide si mandar al dashboard (ya tiene negocio) o a
+     /registro/completar (cuenta de Google nueva, sin negocio todavía). En
+     modo mock no hay Supabase real detrás, así que no tiene sentido
+     intentar el redirect — mismo criterio que onSolicitarReset abajo. */
+  async function conGoogle() {
+    if (mock) {
+      setError("Modo mock activo — el inicio de sesión con Google no está disponible aquí.");
+      return;
+    }
+    setEnviandoGoogle(true);
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/login` },
+    });
+    if (err) {
+      setEnviandoGoogle(false);
+      setError("No se pudo iniciar sesión con Google. Intenta de nuevo.");
+    }
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setEnviando(true);
+
+    if (mock) {
+      if (email === MOCK_EMAIL && password === MOCK_PASSWORD) {
+        document.cookie = `${MOCK_COOKIE}=1; path=/; max-age=86400`;
+        window.location.href = "/dashboard";
+      } else {
+        setEnviando(false);
+        setError("Email o contraseña incorrectos.");
+      }
+      return;
+    }
+
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    if (err) {
+      setEnviando(false);
+      setError(/invalid login credentials/i.test(err.message)
+        ? "Email o contraseña incorrectos."
+        : "No se pudo iniciar sesión. Intenta de nuevo.");
+      return;
+    }
+
+    void recordarme;
+    window.location.href = "/login";
+  }
+
+  async function onSolicitarReset(e: React.FormEvent) {
+    e.preventDefault();
+    setResetMensaje(null);
+    if (!email) { setResetMensaje("Escribe tu correo para enviarte el enlace."); return; }
+
+    if (mock) {
+      setResetMensaje("Modo mock activo — no se envían correos reales.");
+      return;
+    }
+
+    setResetEnviando(true);
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login/nueva-clave`,
+    });
+    setResetEnviando(false);
+    setResetMensaje(err
+      ? "No se pudo enviar el enlace. Verifica el correo e intenta de nuevo."
+      : "Te enviamos un enlace para restablecer tu contraseña. Revisa tu correo.");
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-sm">
+      <h1 className="font-display text-2xl text-slate-900 dark:text-slate-100">Iniciar sesión</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ingresa tus credenciales para entrar a tu panel</p>
+
+      {mock && (
+        <p className="badge badge-warning mt-3 px-3 py-1.5">
+          Modo mock activo — usa <strong className="ml-1">{MOCK_EMAIL}</strong> / <strong>{MOCK_PASSWORD}</strong>
+        </p>
+      )}
+
+      {!modoReset && (
+        <>
+          <button type="button" onClick={conGoogle} disabled={enviandoGoogle} className="btn-outline mt-6 w-full gap-2">
+            <GoogleIcon /> {enviandoGoogle ? "Redirigiendo…" : "Continuar con Google"}
+          </button>
+          <DivisorO texto="o continúa con tu email" />
+        </>
+      )}
+
+      {!modoReset ? (
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="login-email">Email</label>
+            <input
+              id="login-email" type="email" required autoComplete="email"
+              value={email} onChange={(ev) => setEmail(ev.target.value)}
+              className="input mt-1 w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="login-password">Contraseña</label>
+            <div className="relative mt-1">
+              <input
+                id="login-password" type={verPassword ? "text" : "password"} required autoComplete="current-password"
+                value={password} onChange={(ev) => setPassword(ev.target.value)}
+                className="input w-full pr-10"
+              />
+              <button
+                type="button" onClick={() => setVerPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {verPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked={recordarme} onChange={(ev) => setRecordarme(ev.target.checked)} className="checkbox" />
+              Recuérdame
+            </label>
+            <button type="button" onClick={() => { setModoReset(true); setResetMensaje(null); }} className="text-xs font-medium link">
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+          <button type="submit" disabled={enviando} className="btn-primary w-full">
+            {enviando ? "Ingresando…" : "Ingresar"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={onSolicitarReset} className="mt-6 space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300">Escribe tu correo y te mandamos un enlace para poner una contraseña nueva.</p>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reset-email">Email</label>
+            <input
+              id="reset-email" type="email" required autoComplete="email"
+              value={email} onChange={(ev) => setEmail(ev.target.value)}
+              className="input mt-1 w-full"
+            />
+          </div>
+          {resetMensaje && <p className="text-sm text-slate-600 dark:text-slate-300">{resetMensaje}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setModoReset(false)} className="btn-outline flex-1">Atrás</button>
+            <button type="submit" disabled={resetEnviando} className="btn-primary flex-1">
+              {resetEnviando ? "Enviando…" : "Enviar enlace"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <p className="mt-6 text-sm text-slate-600 dark:text-slate-300">
+        ¿No tienes cuenta?{" "}
+        <button type="button" onClick={onIrARegistro} className="font-medium link">Prueba gratis</button>
+      </p>
+    </div>
+  );
+}
+
+const VACIO_REGISTRO = { nombreNegocio: "", nombres: "", apellidos: "", email: "", password: "" };
+
+/* ================= FORMULARIO DE REGISTRO (2 pasos) ================= */
+function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
+  const [paso, setPaso] = useState(1);
+  const [form, setForm] = useState(VACIO_REGISTRO);
+  const [formato, setFormato] = useState<FormatoSlug>("guiones");
+  const [verPassword, setVerPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [enviandoGoogle, setEnviandoGoogle] = useState(false);
+  const mock = isMockMode();
+
+  /* Registrarse con Google salta directo al OAuth (sin pedir nombre de
+     óptica/contraseña acá) — /auth/callback detecta que la cuenta de Google
+     es nueva (sin negocio_id todavía, ver handle_new_user() en el schema) y
+     manda a /registro/completar, que solo pide el nombre de la óptica. */
+  async function conGoogle() {
+    if (mock) {
+      setError("Modo mock activo — el registro con Google no está disponible aquí.");
+      return;
+    }
+    setEnviandoGoogle(true);
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/registro/completar` },
+    });
+    if (err) {
+      setEnviandoGoogle(false);
+      setError("No se pudo continuar con Google. Intenta de nuevo.");
+    }
+  }
+
+  const slug = useMemo(() => generarSlug(form.nombreNegocio, formato), [form.nombreNegocio, formato]);
+  const formatoSlug = useMemo(() => (slug ? validarFormatoSlug(slug) : null), [slug]);
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+
+  /* Resultado del último chequeo completado — si `chequeo.slug` ya no
+     coincide con `slug` actual, quedó desactualizado y se deriva
+     "verificando" más abajo (ningún estado se fija sincrónicamente en el
+     cuerpo del efecto, solo dentro del callback async del debounce). */
+  const [chequeo, setChequeo] = useState<{ slug: string; disponible: boolean; mensaje: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!slug || !formatoSlug?.valido) return;
+    let cancelado = false;
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(`/api/registro/disponibilidad?slug=${encodeURIComponent(slug)}`);
+          const data = await res.json();
+          if (cancelado) return;
+          setChequeo({
+            slug,
+            disponible: Boolean(data.disponible),
+            mensaje: data.disponible ? null : (data.error ?? "Ese nombre ya está en uso."),
+          });
+        } catch {
+          if (!cancelado) setChequeo(null);
+        }
+      })();
+    }, 500);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [slug, formatoSlug]);
+
+  const estadoSlug: EstadoDisponibilidad = !slug
+    ? "idle"
+    : !formatoSlug?.valido
+    ? "invalido"
+    : chequeo?.slug !== slug
+    ? "verificando"
+    : chequeo.disponible
+    ? "disponible"
+    : "no-disponible";
+
+  const mensajeSlug =
+    !slug ? null
+    : !formatoSlug?.valido ? (formatoSlug?.error ?? null)
+    : chequeo?.slug === slug ? chequeo.mensaje
+    : null;
+
+  function siguiente() {
+    if (estadoSlug !== "disponible") return;
+    setPaso(2);
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setEnviando(true);
+
+    const res = await fetch("/api/registro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombreNegocio: form.nombreNegocio, subdominio: slug, nombres: form.nombres, apellidos: form.apellidos, email: form.email, password: form.password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setEnviando(false);
+      setError(data.error ?? "No se pudo completar el registro.");
+      return;
+    }
+
+    /* El registro no deja sesión iniciada en este navegador (se creó por
+       service_role) — iniciamos sesión ahora, igual que en /login. */
+    const supabase = createClient();
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
+    setEnviando(false);
+    if (signInErr) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const port = typeof window !== "undefined" && window.location.port ? `:${window.location.port}` : "";
+    window.location.href = `${window.location.protocol}//${data.subdominio}.${rootDomain}${port}/dashboard`;
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-sm">
+      <h1 className="font-display text-2xl text-slate-900 dark:text-slate-100">Prueba gratis 30 días</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sin tarjeta de crédito · Cancela cuando quieras</p>
+
+      {/* mt-6: sin este margen el stepper queda pegado al subtítulo (no tiene
+         un header de panel arriba como en el SlideOver, que sí trae su
+         propio padding) y el paso 1/2 se ve comprimido contra el borde
+         superior del formulario. */}
+      <div className="mt-6">
+        <Stepper paso={paso} total={2} />
+      </div>
+
+      {paso === 1 && (
+        <>
+          <button type="button" onClick={conGoogle} disabled={enviandoGoogle} className="btn-outline w-full gap-2">
+            <GoogleIcon /> {enviandoGoogle ? "Redirigiendo…" : "Registrarse con Google"}
+          </button>
+          <DivisorO texto="o regístrate con tu email" />
+        </>
+      )}
+
+      <form onSubmit={onSubmit} className="space-y-4">
+        {paso === 1 ? (
+          <>
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu óptica</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-negocio">Nombre de tu óptica</label>
+              <input
+                id="reg-negocio" required value={form.nombreNegocio}
+                onChange={(ev) => setForm({ ...form, nombreNegocio: ev.target.value })}
+                className="input mt-1 w-full"
+              />
+            </div>
+
+            {slug && (
+              <div className="card bg-slate-50 px-3 py-2 text-sm dark:bg-slate-900">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-slate-700 dark:text-slate-200">{slug}.{rootDomain}</span>
+                  <span className="shrink-0">
+                    {estadoSlug === "verificando" && <Loader2 size={16} className="animate-spin text-slate-400 dark:text-slate-500" />}
+                    {estadoSlug === "disponible" && <Check size={16} className="text-accent" />}
+                    {(estadoSlug === "no-disponible" || estadoSlug === "invalido") && <X size={16} className="text-red-600 dark:text-red-400" />}
+                  </span>
+                </div>
+                {mensajeSlug && <p className="mt-1 text-red-600 dark:text-red-400">{mensajeSlug}</p>}
+
+                <div className="mt-2 flex gap-4 text-xs text-slate-500 dark:text-slate-400">
+                  <label className="flex items-center gap-1">
+                    <input type="radio" checked={formato === "guiones"} onChange={() => setFormato("guiones")} />
+                    con-guiones
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input type="radio" checked={formato === "junto"} onChange={() => setFormato("junto")} />
+                    junto
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <button type="button" disabled={estadoSlug !== "disponible"} onClick={siguiente} className="btn-primary w-full">
+              Siguiente
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tus datos</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-nombres">Nombres</label>
+                <input
+                  id="reg-nombres" required value={form.nombres}
+                  onChange={(ev) => setForm({ ...form, nombres: ev.target.value })}
+                  className="input mt-1 w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-apellidos">Apellidos</label>
+                <input
+                  id="reg-apellidos" value={form.apellidos}
+                  onChange={(ev) => setForm({ ...form, apellidos: ev.target.value })}
+                  className="input mt-1 w-full"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-email">Email</label>
+              <input
+                id="reg-email" type="email" required autoComplete="email" value={form.email}
+                onChange={(ev) => setForm({ ...form, email: ev.target.value })}
+                className="input mt-1 w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-password">Contraseña</label>
+              <div className="relative mt-1">
+                <input
+                  id="reg-password" type={verPassword ? "text" : "password"} required minLength={8} autoComplete="new-password" value={form.password}
+                  onChange={(ev) => setForm({ ...form, password: ev.target.value })}
+                  className="input w-full pr-10"
+                />
+                <button
+                  type="button" onClick={() => setVerPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                >
+                  {verPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setPaso(1)} className="btn-outline flex-1">Atrás</button>
+              <button type="submit" disabled={enviando} className="btn-primary flex-1">
+                {enviando ? "Creando…" : "Crear mi cuenta"}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+
+      <p className="mt-6 text-sm text-slate-600 dark:text-slate-300">
+        ¿Ya tienes cuenta?{" "}
+        <button type="button" onClick={onIrALogin} className="font-medium link">Inicia sesión</button>
+      </p>
+    </div>
+  );
+}

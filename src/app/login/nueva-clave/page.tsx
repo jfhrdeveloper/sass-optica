@@ -39,10 +39,10 @@ function NuevaClaveForm() {
   if (enlaceVencido) {
     return (
       <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-8">
-        <h1 className="text-xl font-semibold text-slate-900">Enlace vencido</h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Enlace vencido</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
           Este enlace ya expiró o ya fue usado. Pide uno nuevo desde{" "}
-          <a href="/login" className="font-medium text-primary hover:underline">iniciar sesión</a> (opción &quot;olvidé mi clave&quot;).
+          <a href="/login" className="font-medium link">iniciar sesión</a> (opción &quot;olvidé mi clave&quot;).
         </p>
       </main>
     );
@@ -50,11 +50,11 @@ function NuevaClaveForm() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-8">
-      <h1 className="text-xl font-semibold text-slate-900">Define tu contraseña</h1>
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Define tu contraseña</h1>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700" htmlFor="password">Nueva contraseña</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="password">Nueva contraseña</label>
           <input
             id="password" type="password" required autoComplete="new-password"
             value={password} onChange={(ev) => setPassword(ev.target.value)}
@@ -62,7 +62,7 @@ function NuevaClaveForm() {
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         {listo && <p className="badge badge-success">Listo, redirigiendo…</p>}
 
         <button type="submit" disabled={enviando} className="btn-primary w-full">
