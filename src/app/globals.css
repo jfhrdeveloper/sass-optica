@@ -161,7 +161,8 @@ input[type="number"]::-webkit-inner-spin-button {
     background-size: 16px;
   }
   .badge {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40;
   }
   .badge-success { @apply bg-accent-light text-accent; }
   .badge-warning { @apply bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400; }
@@ -203,5 +204,82 @@ input[type="number"]::-webkit-inner-spin-button {
   }
   .checkbox:checked {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+  }
+
+  /* Patrón único de tabla/lista para las ~10 páginas de listado del
+     dashboard (clientes, productos, ventas, etc.) — antes cada página tenía
+     una <table> suelta con py-2 sin contenedor propio. Vocabulario
+     compartido en vez de un componente <DataTable> genérico: cada página
+     sigue definiendo sus propias columnas, pero todas comparten el mismo
+     contenedor/densidad/iconografía (ver docs/pending-task.md, sesión de
+     rediseño de listas). */
+  .table-card {
+    @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm
+           transition-shadow duration-150 dark:border-slate-800 dark:bg-slate-900;
+  }
+  .table-filter-bar {
+    @apply flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3
+           dark:border-slate-800;
+  }
+  .table-head-cell {
+    @apply bg-slate-50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide
+           text-slate-400 dark:bg-slate-800/50 dark:text-slate-500;
+  }
+  .table-row {
+    @apply border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50
+           dark:border-slate-800 dark:hover:bg-slate-800/60;
+  }
+  .table-cell {
+    @apply px-4 py-3.5 align-middle;
+  }
+  /* Ícono/avatar circular de fila — mismo patrón que ya usaba el SlideOver
+     de detalle de cliente, subido a la fila de tabla para darle jerarquía
+     visual a la columna principal (nombre en negrita + subtexto debajo, en
+     vez de columnas sueltas de igual peso). */
+  .row-avatar {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full
+           bg-primary-light text-primary;
+  }
+  .row-icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400
+           transition-colors hover:bg-slate-100 hover:text-slate-700
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
+           dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200;
+  }
+  .row-icon-btn-danger {
+    @apply hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400;
+  }
+  .table-empty {
+    @apply flex flex-col items-center justify-center gap-2 py-10 text-center text-sm
+           text-slate-400 dark:text-slate-500;
+  }
+
+  /* Switch (toggle deslizante) — reemplaza el patrón anterior de "click al
+     badge de estado para togglear" (Activo/Borrador, Activo/Inactivo): un
+     badge de solo texto no se ve clickeable, un switch sí comunica de
+     entrada que es un control binario (ver namethatui.com/web/switch-
+     checkbox-radio). Mismo truco que `.checkbox` (appearance-none + input
+     real, sin wrapper) pero con el pulgar dibujado en `::before` en vez de
+     un ícono de fondo, para poder animar su posición al togglear. */
+  .switch {
+    @apply relative h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full
+           bg-slate-300 transition-colors checked:bg-primary
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2
+           dark:bg-slate-700;
+  }
+  .switch::before {
+    content: "";
+    position: absolute;
+    left: 0.125rem;
+    top: 0.125rem;
+    height: 1rem;
+    width: 1rem;
+    border-radius: 9999px;
+    background: white;
+    transition: transform 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+  .switch:checked::before {
+    transform: translateX(1rem);
   }
 }

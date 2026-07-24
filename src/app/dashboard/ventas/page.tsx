@@ -2,13 +2,18 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Receipt } from "lucide-react";
 import { useData, type VentaItem } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const IGV = 0.18;
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;
 
 export default function VentasPage() {
   const { ventas, ventaItems, clientes, productos, addVenta } = useData();
+  const toast = useToast();
   const [clienteId, setClienteId] = useState("");
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -49,6 +54,7 @@ export default function VentasPage() {
     setGuardando(false);
     setItems([]);
     setClienteId("");
+    toast("Venta registrada.");
   }
 
   const nombreCliente = (id?: string) => {
@@ -62,6 +68,7 @@ export default function VentasPage() {
     .filter((v) => !desde || v.fecha.slice(0, 10) >= desde)
     .filter((v) => !hasta || v.fecha.slice(0, 10) <= hasta)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(ordenadas);
 
   return (
     <main>
@@ -121,46 +128,67 @@ export default function VentasPage() {
         </button>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select text-sm">
-          <option value="todos">Todos los métodos</option>
-          <option value="efectivo">Efectivo</option>
-          <option value="tarjeta">Tarjeta</option>
-          <option value="yape">Yape</option>
-          <option value="plin">Plin</option>
-          <option value="transferencia">Transferencia</option>
-        </select>
-        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
-        <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
-        <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
-      </div>
+      <div className="table-card mt-6">
+        <div className="table-filter-bar">
+          <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select text-sm">
+            <option value="todos">Todos los métodos</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="yape">Yape</option>
+            <option value="plin">Plin</option>
+            <option value="transferencia">Transferencia</option>
+          </select>
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
+          <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+        </div>
 
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Fecha</th><th>Cliente</th><th>Método</th><th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ordenadas.map((v) => (
-            <tr key={v.id} className="border-b align-top transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              {/* suppressHydrationWarning: mismo falso positivo de Intl que en citas/page.tsx. */}
-              <td className="py-2" suppressHydrationWarning>{new Date(v.fecha).toLocaleString("es-PE", { timeZone: "America/Lima" })}</td>
-              <td>{nombreCliente(v.clienteId)}</td>
-              <td>{v.metodoPago}</td>
-              <td>
-                S/ {v.total.toFixed(2)}
-                <div className="text-xs text-slate-400 dark:text-slate-500">
-                  {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
-                </div>
-              </td>
-            </tr>
-          ))}
-          {ordenadas.length === 0 && (
-            <tr><td colSpan={4} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin ventas todavía.</td></tr>
-          )}
-        </tbody>
-      </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Fecha</th>
+                <th className="table-head-cell">Cliente</th>
+                <th className="table-head-cell">Método</th>
+                <th className="table-head-cell">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((v) => (
+                <tr key={v.id} className="table-row align-top">
+                  <td className="table-cell text-slate-600 dark:text-slate-300" suppressHydrationWarning>
+                    {new Date(v.fecha).toLocaleString("es-PE", { timeZone: "America/Lima" })}
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <span className="row-avatar"><Receipt size={16} /></span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(v.clienteId)}</span>
+                    </div>
+                  </td>
+                  <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
+                  <td className="table-cell">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">
+                      {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {ordenadas.length === 0 && (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="table-empty">
+                      <Receipt size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin ventas todavía.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
     </main>
   );
 }

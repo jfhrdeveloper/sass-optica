@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useData } from "@/components/providers/DataProvider";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 type Movimiento = { fecha: string; tipo: "ingreso" | "egreso"; concepto: string; monto: number };
 
@@ -41,6 +43,8 @@ export default function InformesPage() {
     }, []);
   }, [filtrados]);
 
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(conSaldo);
+
   const ingresosTotal = filtrados.filter((m) => m.tipo === "ingreso").reduce((acc, m) => acc + m.monto, 0);
   const egresosTotal = filtrados.filter((m) => m.tipo === "egreso").reduce((acc, m) => acc + m.monto, 0);
   const balance = ingresosTotal - egresosTotal;
@@ -75,33 +79,46 @@ export default function InformesPage() {
         </div>
       </div>
 
-      <table className="mt-6 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Fecha</th><th>Concepto</th><th>Tipo</th><th className="text-right">Monto</th><th className="text-right">Saldo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {conSaldo.map((m, i) => (
-            <tr key={i} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              <td className="py-2">{m.fecha}</td>
-              <td>{m.concepto}</td>
-              <td>
-                <span className={`badge ${m.tipo === "ingreso" ? "badge-success" : "badge-danger"}`}>
-                  {m.tipo === "ingreso" ? "Ingreso" : "Egreso"}
-                </span>
-              </td>
-              <td className="text-right">
-                {m.tipo === "ingreso" ? "+" : "−"} S/ {m.monto.toFixed(2)}
-              </td>
-              <td className="text-right font-medium">S/ {m.saldo.toFixed(2)}</td>
-            </tr>
-          ))}
-          {conSaldo.length === 0 && (
-            <tr><td colSpan={5} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin movimientos en este rango.</td></tr>
-          )}
-        </tbody>
-      </table>
+      <div className="table-card mt-6">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Fecha</th>
+                <th className="table-head-cell">Concepto</th>
+                <th className="table-head-cell">Tipo</th>
+                <th className="table-head-cell text-right">Monto</th>
+                <th className="table-head-cell text-right">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((m, i) => (
+                <tr key={i} className="table-row">
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{m.fecha}</td>
+                  <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{m.concepto}</td>
+                  <td className="table-cell">
+                    <span className={`badge ${m.tipo === "ingreso" ? "badge-success" : "badge-danger"}`}>
+                      {m.tipo === "ingreso" ? "Ingreso" : "Egreso"}
+                    </span>
+                  </td>
+                  <td className={`table-cell text-right ${m.tipo === "ingreso" ? "text-accent" : "text-red-600 dark:text-red-400"}`}>
+                    {m.tipo === "ingreso" ? "+" : "−"} S/ {m.monto.toFixed(2)}
+                  </td>
+                  <td className="table-cell text-right font-medium text-slate-900 dark:text-slate-100">S/ {m.saldo.toFixed(2)}</td>
+                </tr>
+              ))}
+              {conSaldo.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="table-empty">Sin movimientos en este rango.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
     </main>
   );
 }

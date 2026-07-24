@@ -2,10 +2,13 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, User } from "lucide-react";
+import { Plus, User, Search, Pencil, Trash2, Users } from "lucide-react";
 import { useData, type Cliente } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
 import { Stepper } from "@/components/Stepper";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const VACIO: Partial<Cliente> = { nombres: "", apellidos: "", documentoTipo: "DNI" };
 const DIAS_RIESGO = 180;
@@ -23,6 +26,7 @@ function formatearFecha(iso: string) {
 
 export default function ClientesPage() {
   const { clientes, citas, recetas, ventas, addCliente, updateCliente, deleteCliente } = useData();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Cliente>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -76,6 +80,7 @@ export default function ClientesPage() {
       const riesgo = enRiesgo(c.id);
       return filtroRiesgo === "riesgo" ? riesgo : !riesgo;
     });
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(filtrados);
 
   function nuevo() {
     setEditandoId(null);
@@ -103,11 +108,18 @@ export default function ClientesPage() {
     setGuardando(true);
     if (editandoId) {
       await updateCliente(editandoId, form);
+      toast("Cambios guardados.");
     } else {
       await addCliente(form);
+      toast("Cliente agregado.");
     }
     setGuardando(false);
     cerrar();
+  }
+
+  async function eliminar(c: Cliente) {
+    await deleteCliente(c.id);
+    toast(`${c.nombres} eliminado.`, "info");
   }
 
   /* Sin useMemo a propósito: el panel de historial solo se abre por click
@@ -132,61 +144,92 @@ export default function ClientesPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Clientes</h1>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <input
-          placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-          className="input flex-1 text-sm sm:max-w-xs"
-        />
-        <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select text-sm">
-          <option value="todos">Todos</option>
-          <option value="riesgo">En riesgo</option>
-          <option value="al_dia">Al día</option>
-        </select>
-        <button onClick={nuevo} className="btn-primary ml-auto gap-1.5">
-          <Plus size={16} /> Nuevo cliente
-        </button>
-      </div>
+      <div className="table-card mt-4">
+        <div className="table-filter-bar">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+              className="input w-full pl-9 text-sm"
+            />
+          </div>
+          <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select text-sm">
+            <option value="todos">Todos</option>
+            <option value="riesgo">En riesgo</option>
+            <option value="al_dia">Al día</option>
+          </select>
+          <button onClick={nuevo} className="btn-primary ml-auto gap-1.5">
+            <Plus size={16} /> Nuevo cliente
+          </button>
+        </div>
 
-      <table className="mt-4 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Nombre</th><th>Documento</th><th>Teléfono</th><th>Historial</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {filtrados.map((c) => {
-            const h = historialDe(c.id);
-            return (
-              <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-                <td className="py-2">
-                  <button onClick={() => setDetalleId(c.id)} className="font-medium text-slate-900 transition-colors hover:text-primary dark:text-slate-100">
-                    {c.nombres} {c.apellidos}
-                  </button>
-                </td>
-                <td>{c.documentoNumero ?? "—"}</td>
-                <td>{c.telefono ?? "—"}</td>
-                <td>
-                  {h.total === 0 ? (
-                    <span className="badge badge-neutral">Primera vez</span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                      {h.atendidas} {h.atendidas === 1 ? "visita" : "visitas"} · última {formatearFecha(h.ultima!)}
-                      {enRiesgo(c.id) && <span className="badge badge-warning">En riesgo</span>}
-                    </span>
-                  )}
-                </td>
-                <td className="space-x-2 text-right">
-                  <button onClick={() => editar(c)} className="link">Editar</button>
-                  <button onClick={() => deleteCliente(c.id)} className="link-danger">Eliminar</button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Cliente</th>
+                <th className="table-head-cell">Teléfono</th>
+                <th className="table-head-cell">Historial</th>
+                <th className="table-head-cell text-right">Acciones</th>
               </tr>
-            );
-          })}
-          {filtrados.length === 0 && (
-            <tr><td colSpan={5} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin clientes todavía.</td></tr>
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {visibles.map((c) => {
+                const h = historialDe(c.id);
+                return (
+                  <tr key={c.id} className="table-row">
+                    <td className="table-cell">
+                      <button onClick={() => setDetalleId(c.id)} className="flex items-center gap-3 text-left">
+                        <span className="row-avatar"><User size={16} /></span>
+                        <span>
+                          <span className="block font-medium text-slate-900 transition-colors hover:text-primary dark:text-slate-100">
+                            {c.nombres} {c.apellidos}
+                          </span>
+                          <span className="block text-xs text-slate-400 dark:text-slate-500">
+                            {c.documentoTipo} {c.documentoNumero ?? "—"}
+                          </span>
+                        </span>
+                      </button>
+                    </td>
+                    <td className="table-cell text-slate-600 dark:text-slate-300">{c.telefono ?? "—"}</td>
+                    <td className="table-cell">
+                      {h.total === 0 ? (
+                        <span className="badge badge-neutral">Primera vez</span>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                          {h.atendidas} {h.atendidas === 1 ? "visita" : "visitas"} · última {formatearFecha(h.ultima!)}
+                          {enRiesgo(c.id) && <span className="badge badge-warning">En riesgo</span>}
+                        </span>
+                      )}
+                    </td>
+                    <td className="table-cell text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => editar(c)} title="Editar" className="row-icon-btn">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => eliminar(c)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="table-empty">
+                      <Users size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin clientes todavía.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
 
       {/* ====== Panel de historial (solo lectura) — abre al click en el nombre ====== */}
       <SlideOver abierto={Boolean(clienteDetalle)} onClose={() => setDetalleId(null)} titulo="Historial del cliente">

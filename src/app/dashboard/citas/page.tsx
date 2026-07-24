@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarDays, List, Plus } from "lucide-react";
+import { CalendarDays, List, Plus, User, FileText, Pencil, Trash2 } from "lucide-react";
 import { useData, type Cita } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
 import { CalendarioMes } from "@/components/CalendarioMes";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const ESTADOS = ["programada", "atendida", "cancelada", "no_asistio"] as const;
 const VACIO: Partial<Cita> = { estado: "programada" };
@@ -23,6 +26,7 @@ function aInputLocal(fecha: Date): string {
 
 export default function CitasPage() {
   const { citas, clientes, addCita, updateCita, deleteCita, addReceta } = useData();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Cita>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -71,11 +75,18 @@ export default function CitasPage() {
     setGuardando(true);
     if (editandoId) {
       await updateCita(editandoId, form);
+      toast("Cambios guardados.");
     } else {
       await addCita(form);
+      toast("Cita agendada.");
     }
     setGuardando(false);
     cerrar();
+  }
+
+  async function eliminar(c: Cita) {
+    await deleteCita(c.id);
+    toast("Cita eliminada.", "info");
   }
 
   async function guardarReceta(citaId: string, clienteId: string) {
@@ -91,6 +102,7 @@ export default function CitasPage() {
     });
     setRecetaAbierta(null);
     setReceta({});
+    toast("Receta guardada.");
   }
 
   const filtradas = citas
@@ -98,6 +110,7 @@ export default function CitasPage() {
     .filter((c) => !desde || c.fechaHora.slice(0, 10) >= desde)
     .filter((c) => !hasta || c.fechaHora.slice(0, 10) <= hasta)
     .sort((a, b) => a.fechaHora.localeCompare(b.fechaHora));
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(filtradas);
 
   return (
     <main>
@@ -156,23 +169,32 @@ export default function CitasPage() {
         </div>
       ) : (
         <div className="mt-4 space-y-2">
-          {filtradas.map((c) => (
+          {visibles.map((c) => (
             <div key={c.id} className="card p-3 text-sm transition-shadow hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{nombreCliente(c.clienteId)}</div>
-                  <div className="text-slate-500 dark:text-slate-400">
-                    {/* suppressHydrationWarning: Intl puede formatear con espacios Unicode
-                        distintos entre el ICU de Node (SSR) y el del navegador (mismo texto
-                        visible, whitespace interno distinto) — falso positivo conocido de
-                        React, no un bug real. */}
-                    <span suppressHydrationWarning>{new Date(c.fechaHora).toLocaleString("es-PE", { timeZone: "America/Lima" })}</span> · {c.estado} {c.motivo ? `· ${c.motivo}` : ""}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="row-avatar shrink-0"><User size={16} /></span>
+                  <div>
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(c.clienteId)}</div>
+                    <div className="text-slate-500 dark:text-slate-400">
+                      {/* suppressHydrationWarning: Intl puede formatear con espacios Unicode
+                          distintos entre el ICU de Node (SSR) y el del navegador (mismo texto
+                          visible, whitespace interno distinto) — falso positivo conocido de
+                          React, no un bug real. */}
+                      <span suppressHydrationWarning>{new Date(c.fechaHora).toLocaleString("es-PE", { timeZone: "America/Lima" })}</span> · {c.estado} {c.motivo ? `· ${c.motivo}` : ""}
+                    </div>
                   </div>
                 </div>
-                <div className="space-x-2 whitespace-nowrap">
-                  <button onClick={() => setRecetaAbierta(recetaAbierta === c.id ? null : c.id)} className="link">Receta</button>
-                  <button onClick={() => editar(c)} className="link">Editar</button>
-                  <button onClick={() => deleteCita(c.id)} className="link-danger">Eliminar</button>
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => setRecetaAbierta(recetaAbierta === c.id ? null : c.id)} title="Receta" className="row-icon-btn">
+                    <FileText size={15} />
+                  </button>
+                  <button onClick={() => editar(c)} title="Editar" className="row-icon-btn">
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={() => eliminar(c)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
 
@@ -195,6 +217,7 @@ export default function CitasPage() {
             </div>
           ))}
           {filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">Sin citas para este filtro.</p>}
+          <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
         </div>
       )}
 

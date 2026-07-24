@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Package, PackageSearch, Pencil } from "lucide-react";
 import { useData, type Producto } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
 import { Stepper } from "@/components/Stepper";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const CATEGORIAS = ["montura", "luna", "lente_contacto", "liquido", "accesorio", "servicio"] as const;
 const TIPOS_MOVIMIENTO = ["entrada", "salida", "ajuste", "devolucion"] as const;
@@ -13,6 +16,7 @@ const VACIO: Partial<Producto> = { categoria: "montura", precioVenta: 0, precioC
 
 export default function ProductosPage() {
   const { productos, proveedores, addProducto, updateProducto, ajustarStock } = useData();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Producto>>(VACIO);
   const [stockInicial, setStockInicial] = useState(0);
   const [stockMinimo, setStockMinimo] = useState(0);
@@ -64,8 +68,10 @@ export default function ProductosPage() {
     setGuardando(true);
     if (editandoId) {
       await updateProducto(editandoId, form);
+      toast("Cambios guardados.");
     } else {
       await addProducto(form, stockInicial, stockMinimo);
+      toast("Producto agregado.");
     }
     setGuardando(false);
     cerrar();
@@ -94,12 +100,14 @@ export default function ProductosPage() {
     setGuardandoMov(true);
     await ajustarStock(productoAjuste.id, tipoMov, cantidadMov, motivoMov || undefined);
     setGuardandoMov(false);
+    toast("Stock actualizado.");
     cerrarAjuste();
   }
 
   const filtrados = productos
     .filter((p) => filtroCategoria === "todas" || p.categoria === filtroCategoria)
     .filter((p) => filtroEstado === "todos" || (filtroEstado === "activo" ? p.activo : !p.activo));
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(filtrados);
 
   return (
     <main>
@@ -108,54 +116,90 @@ export default function ProductosPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Productos y stock</h1>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
-          <option value="todas">Todas las categorías</option>
-          {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
-          <option value="todos">Todos los estados</option>
-          <option value="activo">Activo</option>
-          <option value="borrador">Borrador</option>
-        </select>
-        <button onClick={nuevo} className="btn-primary ml-auto gap-1.5">
-          <Plus size={16} /> Nuevo producto
-        </button>
-      </div>
+      <div className="table-card mt-4">
+        <div className="table-filter-bar">
+          <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
+            <option value="todas">Todas las categorías</option>
+            {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
+            <option value="todos">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="borrador">Borrador</option>
+          </select>
+          <button onClick={nuevo} className="btn-primary ml-auto gap-1.5">
+            <Plus size={16} /> Nuevo producto
+          </button>
+        </div>
 
-      <table className="mt-4 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Estado</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {filtrados.map((p) => (
-            <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              <td className="py-2">{p.nombre} {p.marca ? `(${p.marca})` : ""}</td>
-              <td>{p.categoria}</td>
-              <td>S/ {p.precioVenta.toFixed(2)}</td>
-              <td className={p.stockActual <= p.stockMinimo ? "font-semibold text-red-600 dark:text-red-400" : ""}>{p.stockActual}</td>
-              <td>
-                <button
-                  onClick={() => updateProducto(p.id, { activo: !p.activo })}
-                  className={`badge cursor-pointer transition-opacity hover:opacity-75 ${p.activo ? "badge-success" : "badge-neutral"}`}
-                  title="Click para cambiar de estado"
-                >
-                  {p.activo ? "Activo" : "Borrador"}
-                </button>
-              </td>
-              <td className="space-x-2 text-right">
-                <button onClick={() => abrirAjuste(p)} className="link">Ajustar stock</button>
-                <button onClick={() => editar(p)} className="link">Editar</button>
-              </td>
-            </tr>
-          ))}
-          {filtrados.length === 0 && (
-            <tr><td colSpan={6} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin productos para este filtro.</td></tr>
-          )}
-        </tbody>
-      </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Producto</th>
+                <th className="table-head-cell">Categoría</th>
+                <th className="table-head-cell">Precio</th>
+                <th className="table-head-cell">Stock</th>
+                <th className="table-head-cell">Estado</th>
+                <th className="table-head-cell text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((p) => (
+                <tr key={p.id} className="table-row">
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <span className="row-avatar"><Package size={16} /></span>
+                      <span>
+                        <span className="block font-medium text-slate-900 dark:text-slate-100">{p.nombre}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">
+                          {p.marca ?? "—"}{p.codigo ? ` · ${p.codigo}` : ""}
+                        </span>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-cell text-slate-600 capitalize dark:text-slate-300">{p.categoria.replace("_", " ")}</td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">S/ {p.precioVenta.toFixed(2)}</td>
+                  <td className={`table-cell ${p.stockActual <= p.stockMinimo ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}>
+                    {p.stockActual}
+                  </td>
+                  <td className="table-cell">
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox" role="switch" checked={p.activo}
+                        onChange={() => updateProducto(p.id, { activo: !p.activo })}
+                        className="switch"
+                      />
+                      <span className="text-sm text-slate-600 dark:text-slate-300">{p.activo ? "Activo" : "Borrador"}</span>
+                    </label>
+                  </td>
+                  <td className="table-cell text-right">
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => abrirAjuste(p)} title="Ajustar stock" className="row-icon-btn">
+                        <PackageSearch size={15} />
+                      </button>
+                      <button onClick={() => editar(p)} title="Editar" className="row-icon-btn">
+                        <Pencil size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="table-empty">
+                      <Package size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin productos para este filtro.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
 
       <SlideOver abierto={abierto} onClose={cerrar} titulo={editandoId ? "Editar producto" : "Nuevo producto"}>
         <Stepper paso={paso} total={2} />

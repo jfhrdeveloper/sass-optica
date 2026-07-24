@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Receipt, Trash2 } from "lucide-react";
 import { useData, type Gasto } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
 const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };
@@ -11,6 +15,7 @@ const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().t
    RLS (gastos_admin_all) — solo el administrador llega hasta aquí con datos. */
 export default function GastosPage() {
   const { gastos, proveedores, addGasto, deleteGasto } = useData();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Gasto>>(VACIO);
   const [guardando, setGuardando] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
@@ -29,6 +34,12 @@ export default function GastosPage() {
     await addGasto(form);
     setGuardando(false);
     setForm(VACIO);
+    toast("Gasto registrado.");
+  }
+
+  async function eliminar(g: Gasto) {
+    await deleteGasto(g.id);
+    toast("Gasto eliminado.", "info");
   }
 
   const ordenados = [...gastos]
@@ -36,6 +47,7 @@ export default function GastosPage() {
     .filter((g) => !desde || g.fecha >= desde)
     .filter((g) => !hasta || g.fecha <= hasta)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(ordenados);
 
   return (
     <main>
@@ -61,37 +73,62 @@ export default function GastosPage() {
         </button>
       </form>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
-          <option value="todas">Todas las categorías</option>
-          {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
-        <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
-        <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
-      </div>
+      <div className="table-card mt-4">
+        <div className="table-filter-bar">
+          <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
+            <option value="todas">Todas las categorías</option>
+            {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
+          <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+        </div>
 
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {ordenados.map((g) => (
-            <tr key={g.id} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              <td className="py-2">{g.fecha}</td>
-              <td>{g.categoria}</td>
-              <td>{g.descripcion ?? "—"}</td>
-              <td>S/ {g.monto.toFixed(2)}</td>
-              <td className="text-right"><button onClick={() => deleteGasto(g.id)} className="link-danger">Eliminar</button></td>
-            </tr>
-          ))}
-          {ordenados.length === 0 && (
-            <tr><td colSpan={5} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin gastos registrados.</td></tr>
-          )}
-        </tbody>
-      </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Fecha</th>
+                <th className="table-head-cell">Categoría</th>
+                <th className="table-head-cell">Descripción</th>
+                <th className="table-head-cell">Monto</th>
+                <th className="table-head-cell text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((g) => (
+                <tr key={g.id} className="table-row">
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{g.fecha}</td>
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <span className="row-avatar"><Receipt size={16} /></span>
+                      <span className="font-medium capitalize text-slate-900 dark:text-slate-100">{g.categoria}</span>
+                    </div>
+                  </td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
+                  <td className="table-cell font-medium text-slate-900 dark:text-slate-100">S/ {g.monto.toFixed(2)}</td>
+                  <td className="table-cell text-right">
+                    <button onClick={() => eliminar(g)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {ordenados.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="table-empty">
+                      <Receipt size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin gastos registrados.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
     </main>
   );
 }

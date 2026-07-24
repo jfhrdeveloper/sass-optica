@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Tag, Trash2 } from "lucide-react";
 import { useData, type Descuento } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, activo: true };
 
@@ -13,9 +16,11 @@ const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, activo: true }
    proxy.ts y la RLS descuentos_write en supabase-schema.sql. */
 export default function DescuentosPage() {
   const { descuentos, addDescuento, updateDescuento, deleteDescuento } = useData();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Descuento>>(VACIO);
   const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(descuentos);
 
   function nuevo() {
     setForm(VACIO);
@@ -30,6 +35,12 @@ export default function DescuentosPage() {
     setGuardando(false);
     setAbierto(false);
     setForm(VACIO);
+    toast("Cupón creado.");
+  }
+
+  async function eliminar(d: Descuento) {
+    await deleteDescuento(d.id);
+    toast(`Cupón ${d.codigo} eliminado.`, "info");
   }
 
   return (
@@ -39,45 +50,73 @@ export default function DescuentosPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Descuentos y cupones</h1>
       </div>
 
-      <div className="mt-4 flex justify-end">
-        <button onClick={nuevo} className="btn-primary gap-1.5">
-          <Plus size={16} /> Nuevo cupón
-        </button>
-      </div>
+      <div className="table-card mt-4">
+        <div className="table-filter-bar justify-end">
+          <button onClick={nuevo} className="btn-primary gap-1.5">
+            <Plus size={16} /> Nuevo cupón
+          </button>
+        </div>
 
-      <table className="mt-4 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Código</th><th>Valor</th><th>Vigencia</th><th>Usos</th><th>Estado</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {descuentos.map((d) => (
-            <tr key={d.id} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              <td className="py-2 font-medium">{d.codigo}</td>
-              <td>{d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}</td>
-              <td className="text-slate-500 dark:text-slate-400">
-                {d.vigenciaDesde || d.vigenciaHasta ? `${d.vigenciaDesde ?? "—"} → ${d.vigenciaHasta ?? "—"}` : "Sin límite"}
-              </td>
-              <td>{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
-              <td>
-                <button
-                  onClick={() => updateDescuento(d.id, { activo: !d.activo })}
-                  className={`badge cursor-pointer transition-opacity hover:opacity-75 ${d.activo ? "badge-success" : "badge-neutral"}`}
-                >
-                  {d.activo ? "Activo" : "Inactivo"}
-                </button>
-              </td>
-              <td className="text-right">
-                <button onClick={() => deleteDescuento(d.id)} className="link-danger">Eliminar</button>
-              </td>
-            </tr>
-          ))}
-          {descuentos.length === 0 && (
-            <tr><td colSpan={6} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin cupones todavía.</td></tr>
-          )}
-        </tbody>
-      </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Código</th>
+                <th className="table-head-cell">Valor</th>
+                <th className="table-head-cell">Vigencia</th>
+                <th className="table-head-cell">Usos</th>
+                <th className="table-head-cell">Estado</th>
+                <th className="table-head-cell text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((d) => (
+                <tr key={d.id} className="table-row">
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <span className="row-avatar"><Tag size={16} /></span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">{d.codigo}</span>
+                    </div>
+                  </td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">
+                    {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
+                  </td>
+                  <td className="table-cell text-slate-500 dark:text-slate-400">
+                    {d.vigenciaDesde || d.vigenciaHasta ? `${d.vigenciaDesde ?? "—"} → ${d.vigenciaHasta ?? "—"}` : "Sin límite"}
+                  </td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
+                  <td className="table-cell">
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox" role="switch" checked={d.activo}
+                        onChange={() => updateDescuento(d.id, { activo: !d.activo })}
+                        className="switch"
+                      />
+                      <span className="text-sm text-slate-600 dark:text-slate-300">{d.activo ? "Activo" : "Inactivo"}</span>
+                    </label>
+                  </td>
+                  <td className="table-cell text-right">
+                    <button onClick={() => eliminar(d)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {descuentos.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="table-empty">
+                      <Tag size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin cupones todavía.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
 
       <SlideOver abierto={abierto} onClose={() => setAbierto(false)} titulo="Nuevo cupón">
         <form onSubmit={onSubmit} className="space-y-3">

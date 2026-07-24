@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Truck, Pencil, Trash2 } from "lucide-react";
 import { useData, type Proveedor } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const VACIO: Partial<Proveedor> = { nombre: "", activo: true };
 
@@ -13,11 +16,13 @@ const VACIO: Partial<Proveedor> = { nombre: "", activo: true };
    proveedorId — ver selector en esas dos páginas. */
 export default function ProveedoresPage() {
   const { proveedores, addProveedor, updateProveedor, deleteProveedor } = useData();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Proveedor>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(proveedores);
 
   function nuevo() {
     setEditandoId(null);
@@ -41,8 +46,10 @@ export default function ProveedoresPage() {
     setGuardando(true);
     if (editandoId) {
       await updateProveedor(editandoId, form);
+      toast("Cambios guardados.");
     } else {
       await addProveedor(form);
+      toast("Proveedor agregado.");
     }
     setGuardando(false);
     cerrar();
@@ -51,6 +58,7 @@ export default function ProveedoresPage() {
   async function eliminar(id: string) {
     await deleteProveedor(id);
     setConfirmandoId(null);
+    toast("Proveedor eliminado.", "info");
   }
 
   return (
@@ -63,53 +71,83 @@ export default function ProveedoresPage() {
         Catálogo de proveedores. Se pueden vincular a Productos y a Gastos.
       </p>
 
-      <div className="mt-4 flex justify-end">
-        <button onClick={nuevo} className="btn-primary gap-1.5">
-          <Plus size={16} /> Nuevo proveedor
-        </button>
-      </div>
+      <div className="table-card mt-4">
+        <div className="table-filter-bar justify-end">
+          <button onClick={nuevo} className="btn-primary gap-1.5">
+            <Plus size={16} /> Nuevo proveedor
+          </button>
+        </div>
 
-      <table className="mt-4 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Nombre</th><th>RUC</th><th>Contacto</th><th>Teléfono</th><th>Estado</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {proveedores.map((p) => (
-            <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              <td className="py-2 font-medium">{p.nombre}</td>
-              <td>{p.ruc ?? "—"}</td>
-              <td>{p.contacto ?? "—"}</td>
-              <td>{p.telefono ?? "—"}</td>
-              <td>
-                <button
-                  onClick={() => updateProveedor(p.id, { activo: !p.activo })}
-                  className={`badge cursor-pointer transition-opacity hover:opacity-75 ${p.activo ? "badge-success" : "badge-neutral"}`}
-                  title="Click para cambiar de estado"
-                >
-                  {p.activo ? "Activo" : "Inactivo"}
-                </button>
-              </td>
-              <td className="space-x-2 text-right whitespace-nowrap">
-                <button onClick={() => editar(p)} className="link">Editar</button>
-                {confirmandoId === p.id ? (
-                  <span className="inline-flex items-center gap-2">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>
-                    <button onClick={() => eliminar(p.id)} className="link-danger">Sí</button>
-                    <button onClick={() => setConfirmandoId(null)} className="link-muted">No</button>
-                  </span>
-                ) : (
-                  <button onClick={() => setConfirmandoId(p.id)} className="link-danger">Eliminar</button>
-                )}
-              </td>
-            </tr>
-          ))}
-          {proveedores.length === 0 && (
-            <tr><td colSpan={6} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin proveedores todavía.</td></tr>
-          )}
-        </tbody>
-      </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Nombre</th>
+                <th className="table-head-cell">Contacto</th>
+                <th className="table-head-cell">Teléfono</th>
+                <th className="table-head-cell">Estado</th>
+                <th className="table-head-cell text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((p) => (
+                <tr key={p.id} className="table-row">
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <span className="row-avatar"><Truck size={16} /></span>
+                      <span>
+                        <span className="block font-medium text-slate-900 dark:text-slate-100">{p.nombre}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">{p.ruc ?? "Sin RUC"}</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{p.contacto ?? "—"}</td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{p.telefono ?? "—"}</td>
+                  <td className="table-cell">
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox" role="switch" checked={p.activo}
+                        onChange={() => updateProveedor(p.id, { activo: !p.activo })}
+                        className="switch"
+                      />
+                      <span className="text-sm text-slate-600 dark:text-slate-300">{p.activo ? "Activo" : "Inactivo"}</span>
+                    </label>
+                  </td>
+                  <td className="table-cell text-right whitespace-nowrap">
+                    {confirmandoId === p.id ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>
+                        <button onClick={() => eliminar(p.id)} className="link-danger">Sí</button>
+                        <button onClick={() => setConfirmandoId(null)} className="link-muted">No</button>
+                      </span>
+                    ) : (
+                      <div className="inline-flex gap-1">
+                        <button onClick={() => editar(p)} title="Editar" className="row-icon-btn">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => setConfirmandoId(p.id)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {proveedores.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="table-empty">
+                      <Truck size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin proveedores todavía.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
 
       <SlideOver abierto={abierto} onClose={cerrar} titulo={editandoId ? "Editar proveedor" : "Nuevo proveedor"}>
         <form onSubmit={onSubmit} className="space-y-3">

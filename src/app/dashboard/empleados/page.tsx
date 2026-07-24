@@ -2,10 +2,13 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
-import { Plus, Settings2 } from "lucide-react";
+import { Plus, Settings2, Trash2, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const MODULOS_DELEGABLES = [
   { clave: "gastos", label: "Gastos y caja" },
@@ -21,6 +24,8 @@ const MODULOS_DELEGABLES = [
 export default function EmpleadosPage() {
   const { empleados, updateEmpleado } = useData();
   const { empleado: yo } = useSession();
+  const toast = useToast();
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(empleados);
   const [email, setEmail] = useState("");
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
@@ -58,6 +63,7 @@ export default function EmpleadosPage() {
     setMensaje(`Invitación enviada a ${email}.`);
     setEmail(""); setNombres(""); setApellidos("");
     setAbierto(false);
+    toast(`Invitación enviada a ${email}.`);
   }
 
   async function eliminar(id: string) {
@@ -75,6 +81,7 @@ export default function EmpleadosPage() {
       return;
     }
     setConfirmandoId(null);
+    toast("Empleado eliminado.", "info");
   }
 
   async function togglePermiso(empleadoId: string, permisosActuales: Record<string, boolean>, clave: string) {
@@ -91,80 +98,97 @@ export default function EmpleadosPage() {
         Puedes delegar módulos puntuales a un encargado o trabajador sin cambiarle el rol. Usa el ícono de permisos para eso.
       </p>
 
-      <div className="mt-4 flex justify-end">
-        <button onClick={() => setAbierto(true)} className="btn-primary gap-1.5">
-          <Plus size={16} /> Invitar empleado
-        </button>
-      </div>
+      <div className="table-card mt-4">
+        <div className="table-filter-bar justify-end">
+          <button onClick={() => setAbierto(true)} className="btn-primary gap-1.5">
+            <Plus size={16} /> Invitar empleado
+          </button>
+        </div>
 
-      <table className="mt-4 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Nombre</th><th>Email</th><th>Rol</th><th>Permisos extra</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {empleados.map((e) => (
-            <Fragment key={e.id}>
-              <tr className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-                <td className="py-2">{e.nombres} {e.apellidos}</td>
-                <td>{e.email ?? "—"}</td>
-                <td>{e.rol}</td>
-                <td>
-                  {e.rol !== "administrador" && (
-                    <button
-                      onClick={() => setPermisosAbiertos(permisosAbiertos === e.id ? null : e.id)}
-                      className="inline-flex items-center gap-1 link"
-                    >
-                      <Settings2 size={14} />
-                      {Object.values(e.permisos ?? {}).filter(Boolean).length || 0} activos
-                    </button>
-                  )}
-                </td>
-                <td className="text-right">
-                  {e.rol !== "administrador" && e.id !== yo?.id && (
-                    confirmandoId === e.id ? (
-                      <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                        <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>
-                        <button onClick={() => eliminar(e.id)} disabled={eliminando} className="link-danger">
-                          {eliminando ? "Eliminando…" : "Sí"}
-                        </button>
-                        <button onClick={() => { setConfirmandoId(null); setErrorEliminar(null); }} className="link-muted">No</button>
-                      </span>
-                    ) : (
-                      <button onClick={() => { setConfirmandoId(e.id); setErrorEliminar(null); }} className="link-danger">Eliminar</button>
-                    )
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Nombre</th>
+                <th className="table-head-cell">Rol</th>
+                <th className="table-head-cell">Permisos extra</th>
+                <th className="table-head-cell text-right">Acciones</th>
               </tr>
-              {confirmandoId === e.id && errorEliminar && (
-                <tr className="border-b border-slate-100 dark:border-slate-800">
-                  <td colSpan={5} className="px-2 py-2 text-sm text-red-600 dark:text-red-400">{errorEliminar}</td>
-                </tr>
-              )}
-              {permisosAbiertos === e.id && e.rol !== "administrador" && (
-                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-                  <td colSpan={5} className="px-2 py-3">
-                    <div className="flex flex-wrap gap-3">
-                      {MODULOS_DELEGABLES.map((m) => (
-                        <label key={m.clave} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(e.permisos?.[m.clave])}
-                            onChange={() => togglePermiso(e.id, e.permisos ?? {}, m.clave)}
-                            className="checkbox"
-                          />
-                          {m.label}
-                        </label>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {visibles.map((e) => (
+                <Fragment key={e.id}>
+                  <tr className="table-row">
+                    <td className="table-cell">
+                      <div className="flex items-center gap-3">
+                        <span className="row-avatar"><UserRound size={16} /></span>
+                        <span>
+                          <span className="block font-medium text-slate-900 dark:text-slate-100">{e.nombres} {e.apellidos}</span>
+                          <span className="block text-xs text-slate-400 dark:text-slate-500">{e.email ?? "—"}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{e.rol}</td>
+                    <td className="table-cell">
+                      {e.rol !== "administrador" && (
+                        <button
+                          onClick={() => setPermisosAbiertos(permisosAbiertos === e.id ? null : e.id)}
+                          className="inline-flex items-center gap-1 link"
+                        >
+                          <Settings2 size={14} />
+                          {Object.values(e.permisos ?? {}).filter(Boolean).length || 0} activos
+                        </button>
+                      )}
+                    </td>
+                    <td className="table-cell text-right">
+                      {e.rol !== "administrador" && e.id !== yo?.id && (
+                        confirmandoId === e.id ? (
+                          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>
+                            <button onClick={() => eliminar(e.id)} disabled={eliminando} className="link-danger">
+                              {eliminando ? "Eliminando…" : "Sí"}
+                            </button>
+                            <button onClick={() => { setConfirmandoId(null); setErrorEliminar(null); }} className="link-muted">No</button>
+                          </span>
+                        ) : (
+                          <button onClick={() => { setConfirmandoId(e.id); setErrorEliminar(null); }} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                            <Trash2 size={15} />
+                          </button>
+                        )
+                      )}
+                    </td>
+                  </tr>
+                  {confirmandoId === e.id && errorEliminar && (
+                    <tr className="table-row">
+                      <td colSpan={4} className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{errorEliminar}</td>
+                    </tr>
+                  )}
+                  {permisosAbiertos === e.id && e.rol !== "administrador" && (
+                    <tr className="table-row bg-slate-50 dark:bg-slate-900">
+                      <td colSpan={4} className="px-4 py-3">
+                        <div className="flex flex-wrap gap-3">
+                          {MODULOS_DELEGABLES.map((m) => (
+                            <label key={m.clave} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(e.permisos?.[m.clave])}
+                                onChange={() => togglePermiso(e.id, e.permisos ?? {}, m.clave)}
+                                className="checkbox"
+                              />
+                              {m.label}
+                            </label>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
 
       <SlideOver abierto={abierto} onClose={() => setAbierto(false)} titulo="Invitar empleado">
         <form onSubmit={invitar} className="space-y-3">

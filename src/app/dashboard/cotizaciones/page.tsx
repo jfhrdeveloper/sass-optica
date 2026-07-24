@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { FileText, ArrowRightCircle } from "lucide-react";
 import { useData, type Cotizacion, type CotizacionItem } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
+import { Pagination } from "@/components/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const IGV = 0.18;
 type ItemForm = Omit<CotizacionItem, "id" | "cotizacionId">;
@@ -19,6 +23,7 @@ const ESTADO_BADGE: Record<Cotizacion["estado"], string> = {
    convierte — ver convertirCotizacionAVenta en DataProvider.tsx. */
 export default function CotizacionesPage() {
   const { cotizaciones, cotizacionItems, clientes, productos, addCotizacion, updateCotizacion, convertirCotizacionAVenta } = useData();
+  const toast = useToast();
   const [clienteId, setClienteId] = useState("");
   const [vigenciaHasta, setVigenciaHasta] = useState("");
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -59,12 +64,19 @@ export default function CotizacionesPage() {
     setItems([]);
     setClienteId("");
     setVigenciaHasta("");
+    toast("Cotización creada.");
   }
 
   async function convertir(id: string) {
     setConvirtiendoId(id);
     await convertirCotizacionAVenta(id);
     setConvirtiendoId(null);
+    toast("Cotización convertida en venta.");
+  }
+
+  async function rechazar(id: string) {
+    await updateCotizacion(id, { estado: "rechazada" });
+    toast("Cotización rechazada.", "info");
   }
 
   const nombreCliente = (id?: string) => {
@@ -76,6 +88,7 @@ export default function CotizacionesPage() {
   const ordenadas = [...cotizaciones]
     .filter((c) => filtroEstado === "todos" || c.estado === filtroEstado)
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(ordenadas);
 
   return (
     <main>
@@ -134,64 +147,87 @@ export default function CotizacionesPage() {
         </button>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
-          <option value="todos">Todos los estados</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="aceptada">Aceptada</option>
-          <option value="rechazada">Rechazada</option>
-          <option value="vencida">Vencida</option>
-        </select>
-      </div>
+      <div className="table-card mt-6">
+        <div className="table-filter-bar">
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
+            <option value="todos">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aceptada">Aceptada</option>
+            <option value="rechazada">Rechazada</option>
+            <option value="vencida">Vencida</option>
+          </select>
+        </div>
 
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
-            <th className="py-2">Fecha</th><th>Cliente</th><th>Vigencia</th><th>Total</th><th>Estado</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {ordenadas.map((c) => (
-            <tr key={c.id} className="border-b align-top border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
-              <td className="py-2">{c.fecha}</td>
-              <td>{nombreCliente(c.clienteId)}</td>
-              <td className="text-slate-500 dark:text-slate-400">{c.vigenciaHasta ?? "—"}</td>
-              <td>
-                S/ {c.total.toFixed(2)}
-                <div className="text-xs text-slate-400 dark:text-slate-500">
-                  {cotizacionItems.filter((it) => it.cotizacionId === c.id).map((it) => it.descripcion).join(", ")}
-                </div>
-              </td>
-              <td>
-                {c.estado === "pendiente" ? (
-                  <div className="flex flex-wrap gap-1">
-                    <button onClick={() => updateCotizacion(c.id, { estado: "rechazada" })} className="badge badge-neutral cursor-pointer hover:opacity-75">Rechazar</button>
-                  </div>
-                ) : (
-                  <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{c.estado}</span>
-                )}
-              </td>
-              <td className="text-right">
-                {c.estado === "pendiente" && (
-                  <button
-                    onClick={() => convertir(c.id)}
-                    disabled={convirtiendoId === c.id}
-                    className="link disabled:opacity-50"
-                  >
-                    {convirtiendoId === c.id ? "Convirtiendo…" : "Convertir a venta"}
-                  </button>
-                )}
-                {c.estado === "aceptada" && c.ventaId && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500">Ya es venta</span>
-                )}
-              </td>
-            </tr>
-          ))}
-          {ordenadas.length === 0 && (
-            <tr><td colSpan={6} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin cotizaciones todavía.</td></tr>
-          )}
-        </tbody>
-      </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Fecha</th>
+                <th className="table-head-cell">Cliente</th>
+                <th className="table-head-cell">Vigencia</th>
+                <th className="table-head-cell">Total</th>
+                <th className="table-head-cell">Estado</th>
+                <th className="table-head-cell text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((c) => (
+                <tr key={c.id} className="table-row align-top">
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{c.fecha}</td>
+                  <td className="table-cell">
+                    <div className="flex items-center gap-3">
+                      <span className="row-avatar"><FileText size={16} /></span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(c.clienteId)}</span>
+                    </div>
+                  </td>
+                  <td className="table-cell text-slate-500 dark:text-slate-400">{c.vigenciaHasta ?? "—"}</td>
+                  <td className="table-cell">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">S/ {c.total.toFixed(2)}</span>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">
+                      {cotizacionItems.filter((it) => it.cotizacionId === c.id).map((it) => it.descripcion).join(", ")}
+                    </div>
+                  </td>
+                  <td className="table-cell">
+                    {c.estado === "pendiente" ? (
+                      <button onClick={() => rechazar(c.id)} className="badge badge-neutral cursor-pointer hover:opacity-75">
+                        Rechazar
+                      </button>
+                    ) : (
+                      <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{c.estado}</span>
+                    )}
+                  </td>
+                  <td className="table-cell text-right">
+                    {c.estado === "pendiente" && (
+                      <button
+                        onClick={() => convertir(c.id)}
+                        disabled={convirtiendoId === c.id}
+                        title="Convertir a venta"
+                        className="row-icon-btn disabled:opacity-50"
+                      >
+                        <ArrowRightCircle size={16} />
+                      </button>
+                    )}
+                    {c.estado === "aceptada" && c.ventaId && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500">Ya es venta</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {ordenadas.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="table-empty">
+                      <FileText size={28} className="text-slate-300 dark:text-slate-600" />
+                      Sin cotizaciones todavía.
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
+      </div>
     </main>
   );
 }
