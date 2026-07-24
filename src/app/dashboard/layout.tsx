@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Providers } from "@/components/providers/Providers";
 import { HydrationGate } from "@/components/HydrationGate";
-import { DashboardNav } from "@/components/DashboardNav";
+import { DashboardShell } from "@/components/DashboardShell";
 import { isMockMode, MOCK_COOKIE } from "@/lib/mock/mock-mode";
 
 /* Defensa en profundidad: el proxy ya exige sesión + tenant resuelto antes
@@ -26,12 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <Providers>
       <HydrationGate>
-        <div className="min-h-screen bg-slate-50">
-          <DashboardNav />
-          <div className="ml-60 min-h-screen p-6">
-            <div className="mx-auto max-w-4xl">{children}</div>
-          </div>
-        </div>
+        <DashboardShell>{children}</DashboardShell>
       </HydrationGate>
     </Providers>
   );
