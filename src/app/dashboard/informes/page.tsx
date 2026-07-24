@@ -1,0 +1,107 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useData } from "@/components/providers/DataProvider";
+
+type Movimiento = { fecha: string; tipo: "ingreso" | "egreso"; concepto: string; monto: number };
+
+/* Extraído del research de competencia (sistema de facturación SUNAT):
+   libro combinado de Ventas + Gastos, ordenado por fecha, con saldo
+   corriente — no reemplaza contabilidad formal, es una vista rápida para
+   el dueño de la óptica. */
+export default function InformesPage() {
+  const { ventas, gastos } = useData();
+  const hoy = new Date().toISOString().slice(0, 10);
+  const inicioMes = hoy.slice(0, 7) + "-01";
+  const [desde, setDesde] = useState(inicioMes);
+  const [hasta, setHasta] = useState(hoy);
+
+  const movimientos: Movimiento[] = useMemo(() => {
+    const ingresos: Movimiento[] = ventas.map((v) => ({
+      fecha: v.fecha.slice(0, 10), tipo: "ingreso", concepto: `Venta (${v.metodoPago})`, monto: v.total,
+    }));
+    const egresos: Movimiento[] = gastos.map((g) => ({
+      fecha: g.fecha.slice(0, 10), tipo: "egreso", concepto: g.descripcion || g.categoria, monto: g.monto,
+    }));
+    return [...ingresos, ...egresos].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }, [ventas, gastos]);
+
+  const filtrados = useMemo(
+    () => movimientos.filter((m) => (!desde || m.fecha >= desde) && (!hasta || m.fecha <= hasta)),
+    [movimientos, desde, hasta],
+  );
+
+  const conSaldo = useMemo(() => {
+    return filtrados.reduce<Array<Movimiento & { saldo: number }>>((acc, m) => {
+      const saldoPrevio = acc.length > 0 ? acc[acc.length - 1].saldo : 0;
+      const saldo = saldoPrevio + (m.tipo === "ingreso" ? m.monto : -m.monto);
+      acc.push({ ...m, saldo });
+      return acc;
+    }, []);
+  }, [filtrados]);
+
+  const ingresosTotal = filtrados.filter((m) => m.tipo === "ingreso").reduce((acc, m) => acc + m.monto, 0);
+  const egresosTotal = filtrados.filter((m) => m.tipo === "egreso").reduce((acc, m) => acc + m.monto, 0);
+  const balance = ingresosTotal - egresosTotal;
+
+  return (
+    <main>
+      <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ingresos y Egresos</h1>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
+        <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
+        <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Ingresos</p>
+          <p className="mt-1 text-2xl font-semibold text-accent">S/ {ingresosTotal.toFixed(2)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Egresos</p>
+          <p className="mt-1 text-2xl font-semibold text-red-600 dark:text-red-400">S/ {egresosTotal.toFixed(2)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Balance</p>
+          <p className={`mt-1 text-2xl font-semibold ${balance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-600 dark:text-red-400"}`}>
+            S/ {balance.toFixed(2)}
+          </p>
+        </div>
+      </div>
+
+      <table className="mt-6 w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-400 dark:text-slate-500">
+            <th className="py-2">Fecha</th><th>Concepto</th><th>Tipo</th><th className="text-right">Monto</th><th className="text-right">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {conSaldo.map((m, i) => (
+            <tr key={i} className="border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
+              <td className="py-2">{m.fecha}</td>
+              <td>{m.concepto}</td>
+              <td>
+                <span className={`badge ${m.tipo === "ingreso" ? "badge-success" : "badge-danger"}`}>
+                  {m.tipo === "ingreso" ? "Ingreso" : "Egreso"}
+                </span>
+              </td>
+              <td className="text-right">
+                {m.tipo === "ingreso" ? "+" : "−"} S/ {m.monto.toFixed(2)}
+              </td>
+              <td className="text-right font-medium">S/ {m.saldo.toFixed(2)}</td>
+            </tr>
+          ))}
+          {conSaldo.length === 0 && (
+            <tr><td colSpan={5} className="py-6 text-center text-slate-400 dark:text-slate-500">Sin movimientos en este rango.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </main>
+  );
+}
