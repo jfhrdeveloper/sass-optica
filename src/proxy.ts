@@ -9,9 +9,10 @@ import { sharedCookieDomain } from "@/lib/supabase/cookie-domain";
      - dominio raíz (o www → redirige al raíz)  → landing pública, sin auth
      - [negocio].dominio                        → dashboard: exige sesión,
        resuelve el tenant por el subdominio, valida que el empleado
-       pertenezca a ESE negocio, protege rutas admin-only por rol
-     - admin.dominio                            → reservado para el panel
-       del dueño del SaaS (Fase 5, fuera de alcance por ahora)
+       pertenezca a ESE negocio, protege rutas admin-only por rol, bloquea
+       si el trial venció sin pago
+     - admin.dominio                            → panel del dueño del SaaS
+       (cross-tenant), rewrite transparente a src/app/admin-panel/*
 
    Doble capa de autorización: esto protege el bypass de UI; RLS (con
    negocio_id = current_tenant()) protege el bypass de datos. Las dos son
@@ -63,7 +64,22 @@ export async function proxy(request: NextRequest) {
     }
   );
 
+  /* getUser() puede refrescar el access token y encolar cookies nuevas en
+     supabaseResponse (vía setAll de arriba) — toda respuesta que NO sea la
+     propia supabaseResponse (redirect/rewrite a otra URL) debe copiarlas, o
+     una sesión a punto de expirar se pierde silenciosamente en ese salto. */
   const { data: { user } } = await supabase.auth.getUser();
+
+  function conCookiesDeSesion(res: NextResponse): NextResponse {
+    supabaseResponse.cookies.getAll().forEach((c) => res.cookies.set(c));
+    return res;
+  }
+  function redirigir(url: URL): NextResponse {
+    return conCookiesDeSesion(NextResponse.redirect(url));
+  }
+  function reescribir(url: URL): NextResponse {
+    return conCookiesDeSesion(NextResponse.rewrite(url, { request }));
+  }
 
   /* ================= DOMINIO RAÍZ: landing pública ================= */
   if (!subdomain) {
@@ -85,7 +101,7 @@ export async function proxy(request: NextRequest) {
           const url = request.nextUrl.clone();
           url.hostname = `${negocio.subdominio}.${rootDomain}`;
           url.pathname = "/dashboard";
-          return NextResponse.redirect(url);
+          return redirigir(url);
         }
       }
     }
@@ -94,25 +110,48 @@ export async function proxy(request: NextRequest) {
   }
 
   /* ================= SUBDOMINIO admin: panel del dueño del SaaS =================
-     Fuera de alcance por ahora (Fase 5) — solo reservamos el nombre; no hay
-     páginas construidas todavía, así que simplemente se deja pasar. */
+     Las páginas reales viven en src/app/admin-panel/* (namespace interno)
+     para no chocar con las rutas /login, /dashboard, etc. que ya existen
+     para el dominio raíz y los subdominios de negocio — el rewrite es
+     transparente, el navegador sigue viendo admin.dominio/login,
+     admin.dominio/ tal como se documentó en docs/architecture.md §3. */
   if (subdomain === "admin") {
-    return supabaseResponse;
+    const destino = request.nextUrl.clone();
+    destino.pathname = pathname === "/" ? "/admin-panel" : `/admin-panel${pathname}`;
+
+    if (pathname.startsWith("/login")) {
+      return reescribir(destino);
+    }
+
+    if (!user) {
+      return redirigir(new URL("/login", request.url));
+    }
+    const { data: esSuperAdmin } = await supabase
+      .from("super_admins").select("id").eq("id", user.id).maybeSingle();
+    if (!esSuperAdmin) {
+      return redirigir(new URL("/login", request.url));
+    }
+
+    /* Header de defensa en profundidad, mismo patrón que x-negocio-id para
+       el dashboard de negocio — src/app/admin-panel/layout.tsx lo exige. */
+    const res = reescribir(destino);
+    res.headers.set("x-super-admin", "1");
+    return res;
   }
 
   /* ================= SUBDOMINIO de negocio: dashboard =================
      Exige sesión + resuelve el tenant por el subdominio + valida que el
      empleado pertenezca a ESE negocio (no basta con estar logueado en
      cualquier negocio: el subdominio y el negocio del empleado deben calzar). */
-  const loginRedirect = () => {
+  const irALogin = () => {
     const url = request.nextUrl.clone();
     url.hostname = rootDomain;
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return redirigir(url);
   };
 
   if (!user) {
-    return loginRedirect();
+    return irALogin();
   }
 
   const { data: negocio } = await supabase
@@ -121,13 +160,13 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.hostname = rootDomain;
     url.pathname = "/";
-    return NextResponse.redirect(url);
+    return redirigir(url);
   }
 
   const { data: empleado } = await supabase
     .from("empleados").select("negocio_id, rol, activo").eq("id", user.id).maybeSingle();
   if (!empleado || !empleado.activo || empleado.negocio_id !== negocio.id) {
-    return loginRedirect();
+    return irALogin();
   }
 
   const rol = empleado.rol as string;
@@ -139,7 +178,7 @@ export async function proxy(request: NextRequest) {
      la página, no en el proxy. */
   const rutasSoloAdministrador = ["/dashboard/gastos", "/dashboard/empleados", "/dashboard/config"];
   if (rol !== "administrador" && rutasSoloAdministrador.some((r) => pathname.startsWith(r))) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return redirigir(new URL("/dashboard", request.url));
   }
 
   /* ====== Trial vencido sin pago → bloquea el resto del dashboard ======
@@ -149,13 +188,13 @@ export async function proxy(request: NextRequest) {
     const { data: suscripcion } = await supabase
       .from("suscripciones").select("estado").eq("negocio_id", negocio.id).maybeSingle();
     if (suscripcion?.estado === "vencida") {
-      return NextResponse.redirect(new URL("/dashboard/facturacion", request.url));
+      return redirigir(new URL("/dashboard/facturacion", request.url));
     }
   }
 
   /* ====== Raíz del subdominio → /dashboard ====== */
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return redirigir(new URL("/dashboard", request.url));
   }
 
   /* Inyecta el tenant resuelto para que Server Components/Route Handlers no

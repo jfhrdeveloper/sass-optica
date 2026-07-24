@@ -125,6 +125,20 @@ create table if not exists public.suscripciones (
 create index if not exists idx_suscripciones_negocio on public.suscripciones(negocio_id);
 create index if not exists idx_suscripciones_estado  on public.suscripciones(estado);
 
+-- super_admins (dueño/equipo del SaaS — Fase 5, panel admin.dominio) --------
+-- NO son "empleados" de ningún negocio: ven a través de TODOS los tenants.
+-- Sin alta self-service ni por invitación — se agregan a mano por SQL Editor
+-- (ver POST-INSTALACIÓN al final del archivo). El panel admin.dominio los usa
+-- vía el cliente admin.ts (service role) en Server Components/Route Handlers,
+-- nunca con el cliente anon — por eso su RLS solo necesita permitir que cada
+-- quien confirme SU PROPIA membresía (para el gate de acceso en el proxy).
+create table if not exists public.super_admins (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  nombre     text not null default '',
+  email      text,
+  created_at timestamptz not null default now()
+);
+
 -- ================================================================
 -- TRIGGERS updated_at
 -- ================================================================
@@ -188,6 +202,14 @@ create or replace function public.puede_gestionar()
 returns boolean language sql stable security definer
 set search_path = public as $$ select coalesce(public.current_rol() in ('administrador','encargado'), false); $$;
 
+-- Dueño/equipo del SaaS (panel admin.dominio, Fase 5) — no confundir con
+-- is_administrador(), que es el rol dentro de UN negocio.
+create or replace function public.is_super_admin()
+returns boolean language sql stable security definer
+set search_path = public as $$
+  select exists (select 1 from public.super_admins where id = auth.uid());
+$$;
+
 -- ================================================================
 -- PRIVILEGIOS DE TABLA (GRANTs) — IMPRESCINDIBLE
 -- RLS solo filtra FILAS; `authenticated` necesita además el privilegio de tabla.
@@ -212,6 +234,14 @@ alter default privileges for role postgres in schema public grant all privileges
 alter table public.negocios      enable row level security;
 alter table public.empleados     enable row level security;
 alter table public.suscripciones enable row level security;
+alter table public.super_admins  enable row level security;
+
+-- ====== SUPER_ADMINS ======
+-- Cada quien solo confirma SU PROPIA membresía (lo usa el proxy para el
+-- gate de acceso a admin.dominio). Nadie escribe desde el cliente — el alta
+-- es manual por SQL Editor (ver POST-INSTALACIÓN).
+drop policy if exists super_admins_self_read on public.super_admins;
+create policy super_admins_self_read on public.super_admins for select using (id = auth.uid());
 
 -- ====== NEGOCIOS ======
 -- Lectura/escritura del propio negocio; alta de negocios queda reservada a
@@ -654,6 +684,11 @@ end $$;
 --    <origin>/login/nueva-clave a las Redirect URLs (local y prod).
 -- 4) El primer negocio + administrador se crean por el flujo de registro
 --    self-service (/api/registro), NO manualmente.
+-- 5) Panel admin.dominio (Fase 5): crear tu propio usuario por Authentication
+--    → Users → Add user (con contraseña), luego:
+--      insert into public.super_admins (id, nombre, email)
+--      values ('<UUID-DEL-USER>', 'Tu nombre', 'tu-email@dominio.com');
+--    No hay alta self-service para super_admins a propósito.
 -- ================================================================
 
 select 'Schema SaaS Óptica (auth + tenant + roles) creado correctamente' as resultado;

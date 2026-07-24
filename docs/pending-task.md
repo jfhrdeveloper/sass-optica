@@ -5,28 +5,86 @@
 
 ## Roadmap
 - [x] Fase 1 — Schema multi-tenant en Supabase (`negocios`, `suscripciones`, roles, RLS)
-- [x] Fase 2 — Auth real (3 clientes Supabase, `proxy.ts`, registro self-service) — capa de
-      auth/tenant/roles completa; los módulos de dominio de la óptica (clientes, citas,
-      recetas, productos, ventas, gastos, comprobantes) van en una fase aparte
-- [ ] Fase 3 — Landing con diseño real (hoy es una versión mínima funcional, sin marca/paleta)
-- [ ] Fase 4 — Integración de pagos Culqi (checkout embebido + webhook + cron de trial)
-- [ ] Fase 5 — Panel admin cross-tenant (`admin.dominio`)
-- [ ] Fase 6 — Módulos de dominio de la óptica (clientes, citas, recetas, productos, ventas, gastos)
+- [x] Fase 2 — Auth real (3 clientes Supabase, `proxy.ts`, registro self-service)
+- [x] Fase 3 — Landing con las 10 secciones del brief (sin branding/paleta final todavía)
+- [x] Fase 4 — Integración de pagos Culqi (checkout embebido + webhook + bloqueo por trial vencido)
+- [x] Fase 5 — Panel admin cross-tenant (`admin.dominio`, tabla `super_admins` separada)
+- [x] Fase 6 — Módulos de dominio de la óptica (clientes, citas, recetas, productos, ventas, gastos)
 - [ ] Validar con 3-5 negocios reales (Puente Piedra / Los Olivos) antes de seguir sumando funciones
+- [ ] Conectar la facturación electrónica SUNAT (OSE tipo Nubefact) — fase posterior al MVP, brief §9
 
-## Pendientes activos
+**Todas las fases del MVP están construidas y pasan `npm run build`/`npm run lint`.
+Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendientes activos.**
+
+## Pendientes activos (bloquean probar el sistema de verdad)
 - [ ] Crear el proyecto real en Supabase y pegar `docs/supabase-schema.sql` en el SQL Editor
-- [ ] Completar `.env.local` con credenciales reales (Supabase + Culqi) — hoy tiene placeholders
-- [ ] Decidir permisos exactos de `gastos` para el rol `encargado` (hoy: solo `administrador`)
-- [ ] Definir nombre de marca y dominio final (ver brief §12 — Barberly/Dentaly/Materna descartados por conflicto de marca)
-- [ ] Diseñar la landing real (paleta, tipografía, secciones) con la skill `ui-ux-pro-max`
-- [ ] Probar el flujo completo local con subdominios (`[slug].localhost:3000`) una vez haya
-      credenciales reales — nota: la cookie de sesión NO comparte dominio entre root y
-      subdominios en `localhost` (ver `cookie-domain.ts`), revisar si esto complica el dev local
+- [ ] Completar `.env.local` con credenciales reales (Supabase + Culqi) — hoy vacío a propósito
+- [ ] Crear el primer `super_admin` a mano (ver POST-INSTALACIÓN al final de `supabase-schema.sql`)
+- [ ] Activar cuenta Culqi real (24-48h) y confirmar el shape exacto de su API de cargos/webhooks
+      contra la documentación oficial — `/api/pagos/culqi/cargo` y `/api/webhooks/culqi` están
+      escritos con la mejor información disponible pero SIN haber sido probados contra Culqi real
 - [ ] Authentication → URL Configuration en Supabase: añadir `<origin>/auth/confirm` y
       `<origin>/login/nueva-clave` a las Redirect URLs (local y prod)
+- [ ] Probar el flujo completo con subdominios reales (`[slug].dominio.pe`) — en `localhost` la
+      cookie de sesión NO comparte dominio entre root y subdominios (ver `cookie-domain.ts`),
+      revisar si esto complica probar el flujo login→subdominio en dev local
+
+## Pendientes activos (no bloquean, pero quedan abiertos)
+- [ ] Decidir permisos exactos de `gastos` para el rol `encargado` (hoy: solo `administrador`)
+- [ ] Definir nombre de marca, dominio final y precio del plan Pro en soles (ver brief §12)
+- [ ] Diseñar la landing real (paleta, tipografía, capturas reales) con la skill `ui-ux-pro-max`
+      — hoy tiene copy/estructura completos pero placeholders visuales (`[ mockup... ]`)
+- [ ] `addVenta` en `DataProvider.tsx` hace 2 escrituras secuenciales (venta + ítems), no una
+      transacción real — aceptable para el volumen de una óptica pyme, revisar si se vuelve
+      un problema real (ítems huérfanos si la 2ª escritura falla)
+- [ ] Suscripción Culqi real (renovación automática) no está implementada — hoy es un cargo
+      único que activa 30 días; para cobro recurrente automático hace falta la API de
+      Suscripciones/Planes de Culqi, no solo Cargos
 
 ## Bitácora de sesiones
+
+### 2026-07-24 (3) — Fases 3 a 6: MVP completo (dominio, landing, Culqi, panel admin)
+- **Qué cambió:** a pedido explícito de "haz todas las fases de una vez", se construyeron las
+  4 fases restantes en la misma sesión, cada una commiteada por separado y verificada con
+  `npm run build` + `npm run lint` antes de pasar a la siguiente:
+  1. **Fase 6 (dominio):** se agregaron al schema `clientes`, `citas`, `recetas`, `productos`,
+     `inventario`, `movimientos_stock`, `ventas`, `venta_items`, `gastos`, `comprobantes`
+     (esqueleto), con el mismo patrón `negocio_id` + RLS que la capa de auth. `DataProvider`
+     ampliado con las 8 entidades y sus mutaciones. Páginas CRUD en
+     `/dashboard/{clientes,citas,productos,ventas,gastos,empleados}` — patrón "lista +
+     formulario inline", sin fichas de detalle separadas ni PDFs/CSV/calendario (fuera de
+     alcance del MVP a propósito). `DashboardNav` nueva, oculta rutas admin-only en la UI.
+  2. **Fase 3 (landing):** reescrita con las 10 secciones exactas del brief §3 (header, hero,
+     prueba social, problema→solución×3, funciones, cómo funciona, precios, FAQ, CTA final,
+     footer). Copy completo; visuales son placeholders `[ captura/mockup ]` — falta el diseño
+     real con `ui-ux-pro-max` cuando haya marca.
+  3. **Fase 4 (Culqi):** `CulqiCheckoutButton` (script v4, checkout embebido sin redirección),
+     `/api/pagos/culqi/cargo` (crea el cargo server-side con `CULQI_SECRET_KEY`, reactiva la
+     suscripción), `/api/webhooks/culqi` (respaldo para eventos async futuros — sin validar
+     firma todavía, no hay credenciales reales contra las cuales probarla). Página
+     `/dashboard/facturacion`. El proxy bloquea TODO el dashboard hacia esa página si
+     `suscripciones.estado = 'vencida'`. Requirió aflojar la RLS de lectura de `suscripciones`
+     (antes solo `administrador`, ahora cualquier empleado del negocio) porque el proxy
+     necesita chequear el estado para todos los roles al aplicar el bloqueo.
+  4. **Fase 5 (panel admin):** tabla nueva `super_admins` (sin alta self-service, se agrega a
+     mano por SQL Editor — ver POST-INSTALACIÓN del schema), separada de `empleados` porque un
+     super_admin no pertenece a ningún negocio. El proxy, en el subdominio `admin`, reescribe
+     (`NextResponse.rewrite`, transparente para el navegador) hacia el namespace interno
+     `src/app/admin-panel/*`, con un route group `(protegido)` para que `/login` quede fuera
+     de la guardia de sesión (si no, redirect loop). El dashboard admin es un Server Component
+     puro que usa `admin.ts` directo (justificado: su código nunca llega al navegador, misma
+     garantía de seguridad que un route handler).
+  5. **Bug real encontrado y corregido en el proxy:** varios `redirect`/`rewrite` devolvían un
+     `NextResponse` nuevo en vez de reutilizar `supabaseResponse`, perdiendo las cookies de
+     refresco de sesión que Supabase pudo haber encolado en `getUser()` — se centralizó en dos
+     helpers (`redirigir`/`reescribir`) que copian esas cookies siempre. Bug pre-existía desde
+     la Fase 2, no era exclusivo del código nuevo de esta ronda.
+  - `npm run build` y `npm run lint` limpios después de cada fase.
+- **Por qué:** el usuario pidió explícitamente completar todo el roadmap de una sola vez en
+  vez de ir fase por fase con checkpoints.
+- **Pendiente:** nada de esto se ha probado contra credenciales reales (Supabase ni Culqi) —
+  es la siguiente acción antes de poder demostrar el sistema a un negocio real. Ver
+  "Pendientes activos (bloquean probar el sistema de verdad)" arriba.
 
 ### 2026-07-24 (2) — Fase 1 y 2: schema multi-tenant + auth real
 - **Qué cambió:** con `plantillabase-auth` como base (adaptada — ver diferencias abajo), se
