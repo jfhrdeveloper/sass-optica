@@ -120,16 +120,28 @@ export function CompletarRegistroForm({ email }: { email: string }) {
               </div>
               {mensajeSlug && <p className="mt-1 text-red-600 dark:text-red-400">{mensajeSlug}</p>}
 
-              <div className="mt-2 flex gap-4 text-xs text-slate-500 dark:text-slate-400">
-                <label className="flex items-center gap-1">
-                  <input type="radio" checked={formato === "guiones"} onChange={() => setFormato("guiones")} />
-                  con-guiones
-                </label>
-                <label className="flex items-center gap-1">
-                  <input type="radio" checked={formato === "junto"} onChange={() => setFormato("junto")} />
-                  junto
-                </label>
-              </div>
+              {/* Mismo grupo de radios que en AuthPage.tsx (registro por
+                  email) — ver el comentario largo allá: el `name` compartido
+                  es lo que los agrupa y habilita las flechas ↑↓. */}
+              <fieldset className="mt-2">
+                <legend className="sr-only">Formato del subdominio</legend>
+                <div className="flex gap-4 text-xs text-slate-500 dark:text-slate-400">
+                  <label className="flex cursor-pointer items-center gap-1.5">
+                    <input
+                      type="radio" name="formato-slug" value="guiones" className="radio"
+                      checked={formato === "guiones"} onChange={() => setFormato("guiones")}
+                    />
+                    con-guiones
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-1.5">
+                    <input
+                      type="radio" name="formato-slug" value="junto" className="radio"
+                      checked={formato === "junto"} onChange={() => setFormato("junto")}
+                    />
+                    junto
+                  </label>
+                </div>
+              </fieldset>
             </div>
           )}
 

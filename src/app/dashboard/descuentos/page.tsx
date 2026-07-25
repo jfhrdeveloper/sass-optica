@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Plus, Tag, Trash2 } from "lucide-react";
 import { useData, type Descuento } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
@@ -46,10 +46,7 @@ export default function DescuentosPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Descuentos y cupones</h1>
-      </div>
 
       <div className="table-card mt-4">
         <div className="table-filter-bar justify-end">
@@ -131,10 +128,12 @@ export default function DescuentosPage() {
             </select>
             <input placeholder="Valor" type="number" step="0.01" required value={form.valor ?? ""} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} className="input text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input type="date" value={form.vigenciaDesde ?? ""} onChange={(e) => setForm({ ...form, vigenciaDesde: e.target.value })} className="input text-sm" aria-label="Vigencia desde" />
-            <input type="date" value={form.vigenciaHasta ?? ""} onChange={(e) => setForm({ ...form, vigenciaHasta: e.target.value })} className="input text-sm" aria-label="Vigencia hasta" />
-          </div>
+          <DateRangePicker
+            etiqueta="Vigencia del cupón"
+            desde={form.vigenciaDesde ?? ""}
+            hasta={form.vigenciaHasta ?? ""}
+            onChange={(d, h) => setForm({ ...form, vigenciaDesde: d || undefined, vigenciaHasta: h || undefined })}
+          />
           <input placeholder="Límite de usos (opcional)" type="number" value={form.limiteUsos ?? ""} onChange={(e) => setForm({ ...form, limiteUsos: e.target.value ? Number(e.target.value) : undefined })} className="input w-full text-sm" />
           <button type="submit" disabled={guardando} className="btn-primary w-full">
             {guardando ? "Guardando…" : "Crear cupón"}

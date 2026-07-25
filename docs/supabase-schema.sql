@@ -54,7 +54,14 @@ create table if not exists public.negocios (
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   constraint negocios_subdominio_formato check (subdominio ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'),
-  constraint negocios_subdominio_longitud check (char_length(subdominio) between 3 and 30)
+  constraint negocios_subdominio_longitud check (char_length(subdominio) between 3 and 30),
+  -- Defensa en profundidad: ColorWell.tsx (src/lib/color.ts) ya valida el
+  -- formato hex y el contraste contra texto blanco antes de dejar guardar,
+  -- pero eso es solo del lado del cliente — cualquiera con acceso directo a
+  -- la tabla (SQL Editor, un futuro endpoint) podría dejar un valor
+  -- inválido que luego rompe `style.setProperty('--color-primary', …)` en
+  -- HydrationGate.tsx. NULL sigue permitido (paleta por defecto).
+  constraint negocios_color_primario_formato check (color_primario is null or color_primario ~ '^#[0-9a-fA-F]{6}$')
 );
 create unique index if not exists idx_negocios_subdominio on public.negocios (lower(subdominio));
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { CalendarDays, List, Plus, User, FileText, Pencil, Trash2 } from "lucide-react";
 import { useData, type Cita } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -9,6 +8,7 @@ import { SlideOver } from "@/components/SlideOver";
 import { CalendarioMes } from "@/components/CalendarioMes";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { DateRangePicker } from "@/components/DateRangePicker";
 
 const ESTADOS = ["programada", "atendida", "cancelada", "no_asistio"] as const;
 const VACIO: Partial<Cita> = { estado: "programada" };
@@ -114,10 +114,7 @@ export default function CitasPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Citas</h1>
-      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <div className="flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-800">
@@ -145,9 +142,7 @@ export default function CitasPage() {
               <option value="todos">Todos los estados</option>
               {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
-            <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
-            <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+            <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
           </>
         )}
         <button onClick={() => nueva()} className="btn-primary ml-auto gap-1.5">

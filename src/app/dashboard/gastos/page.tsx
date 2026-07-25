@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Receipt, Trash2 } from "lucide-react";
 import { useData, type Gasto } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { DatePicker } from "@/components/DatePicker";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
 const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };
@@ -52,10 +53,7 @@ export default function GastosPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Gastos</h1>
-      </div>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Total este mes: S/ {totalMes.toFixed(2)}</p>
 
       <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
@@ -68,7 +66,7 @@ export default function GastosPage() {
           {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
         <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input text-sm" />
-        <input type="date" value={form.fecha ?? ""} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className="input text-sm" />
+        <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
         <button type="submit" disabled={guardando} className="btn-primary col-span-full">
           Registrar gasto
         </button>
@@ -80,9 +78,7 @@ export default function GastosPage() {
             <option value="todas">Todas las categorías</option>
             {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
-          <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
-          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+          <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         </div>
 
         <div className="overflow-x-auto">

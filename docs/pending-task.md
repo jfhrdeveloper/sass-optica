@@ -129,6 +129,135 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 
 ## Bitácora de sesiones
 
+### 2026-07-25 (10) — Análisis completo del proyecto + los 6 hallazgos corregidos
+- **Qué cambió:** a pedido del usuario ("analiza todo el proyecto y dime qué falta, si hay un bug
+  o algo que debemos mejorar"), se hizo una revisión sistemática (build/lint/tsc/tests, búsqueda
+  de `TODO`/`console.log`/`any`/`eslint-disable`, superficie de seguridad —
+  `dangerouslySetInnerHTML`, uso de `service_role`, `npm audit` —, y prueba en vivo de los
+  componentes nuevos de la sesión en viewports angostos) y luego se corrigieron los 6 hallazgos
+  accionables (excluidos a propósito los que dependen de Supabase/Culqi reales, ya trackeados):
+  1. **Recorte de popovers en pantallas angostas** — `DateRangePicker.tsx` y `ColorWell.tsx`
+     clampeaban la POSICIÓN al viewport pero no el ANCHO: en 320px (iPhone SE) medí `left: -8px`.
+     Corregido clampeando también el ancho (`Math.min(anchoDeseado, innerWidth - margen*2)`).
+     Reverificado en 320px: ambos quedan dentro del viewport.
+  2. **Sin límite en el logo subido** (`dashboard/ajustes`) — un archivo sin comprimir se
+     guardaba tal cual en `negocios.logo_url` (columna `text`, sin Storage), leída en CADA carga
+     del dashboard. Nuevo `src/lib/imagen.ts` (`prepararImagen`): rechaza no-imágenes y >8MB,
+     redimensiona a máx. 512px vía canvas, recodifica a JPEG (o PNG si el original ya era PNG,
+     por la transparencia). Probado con una imagen de prueba de 3000×2000px generada en el momento:
+     quedó en 512×341px / 4KB, proporción conservada. El rechazo por tamaño también se probó
+     (19.7MB → toast de error, visible en captura).
+  3. **`negocios.color_primario` sin constraint en la DB** — la validación de hex solo vivía en
+     el cliente (`ColorWell.tsx`). Agregado `constraint negocios_color_primario_formato check
+     (color_primario is null or color_primario ~ '^#[0-9a-fA-F]{6}$')` en `supabase-schema.sql`,
+     mismo patrón que los constraints ya existentes de `subdominio`.
+  4. **`.env.example` sin versionar** — resultó que el archivo YA EXISTÍA en disco con buen
+     contenido, el problema real era el `.gitignore` (`.env*` lo excluía sin excepción). Agregada
+     `!.env.example`, confirmado con `git status` que ahora aparece como archivo nuevo listable.
+  5. **DatePicker de fecha única** (`src/components/DatePicker.tsx`, nuevo) — reemplaza los 3
+     `<input type="date">` nativos que quedaban: `clientes` (fecha de nacimiento), `gastos`
+     (fecha del gasto), `cotizaciones` (vigencia hasta). Componente aparte de
+     `DateRangePicker.tsx` (no un `modo` compartido): react-day-picker tipa `selected`/`onSelect`
+     distinto en `mode="single"` vs `"range"`, forzar ambos en un solo componente genérico hubiera
+     peleado con esos tipos sin ganar nada — se aceptó duplicar el poco boilerplate de
+     posicionamiento (mismo criterio que ya usa `ColorWell.tsx`). Probado en los 3 lugares con
+     Playwright, incluido el caso de mayor riesgo (dentro del `SlideOver` de clientes): sin
+     recorte, sin errores de consola.
+  6. **`SegmentedControl` con `role="tablist"` incluso donde no hay pestañas** — el toggle
+     Mensual/Anual de precios no revela un panel distinto, es una elección excluyente: debería
+     ser `radiogroup`/`radio`, no `tablist`/`tab` (un lector de pantalla anunciaba "Anual, pestaña
+     2 de 2"). Agregada una prop `variante="tabs" | "opciones"` (default `"tabs"`, no rompe el uso
+     existente en `FuncionesShowcase`); precios pasa `variante="opciones"`. Verificado con
+     Playwright que cada uso expone el rol correcto (`radiogroup`/`radio` con `aria-checked` en
+     precios; `tablist`/`tab` con `aria-selected` intacto en funciones).
+  - `npm test` (62/62), `build`, `lint` y `tsc --noEmit` limpios después de cada fix, no solo al
+    final.
+- **Por qué:** pedido explícito de corregir todo lo encontrado en el análisis, excepto lo que
+  depende de Supabase/Culqi reales (fuera del alcance de este pase).
+- **Hallazgos NO corregidos, a propósito o por estar fuera de alcance:**
+  - `npm audit`: 3 vulnerabilidades altas, pero viven en copias internas de `postcss`/`sharp` que
+    trae **Next.js mismo** (su optimizador de imágenes) — confirmado que el proyecto no usa
+    `next/image` en ningún lado (todo son `<img>` planos), así que `sharp` nunca se ejecuta con
+    contenido de usuario. Riesgo real bajo; revisar cuando Next saque una versión parchada.
+  - `FuncionesShowcase.tsx` usa `role="tablist"`/`"tab"` pero le falta el resto del patrón ARIA de
+    tabs (`role="tabpanel"`, `aria-controls`/`aria-labelledby` enlazando tab↔panel) — hallazgo
+    nuevo encontrado de paso al revisar el punto 6, no estaba en la lista original pedida, se
+    deja anotado para una sesión futura en vez de ampliar el alcance de esta.
+  - Todo lo ya trackeado en "Pendientes activos" que depende de Supabase/Culqi reales (RLS sin
+    probar, Culqi sin probar, suscripción recurrente, legal sin revisión de abogado, marketing
+    por email sin proveedor) — excluido a pedido explícito del usuario.
+
+### 2026-07-25 (9) — Breadcrumbs, grupo de radios, date range picker y color well
+- **Qué cambió:** el usuario pasó 4 referencias de patrón de NameThatUI y se aplicaron al proyecto
+  (tres forks en paralelo). Resultado:
+  1. **`Breadcrumbs.tsx`** montado una sola vez en `DashboardShell`; reemplazó el `← Inicio` que
+     repetían las 13 páginas del dashboard. Como las rutas del dashboard son planas
+     (`/dashboard/ventas`), el nivel intermedio (Comercial/Administración) sale de un mapa en el
+     componente que replica la agrupación de `DashboardNav` — **acoplamiento explícito**: al
+     agregar una ruta al sidebar hay que agregarla ahí también.
+  2. **Bug real corregido — los radios no eran un grupo**: los 4 radios del formato de subdominio
+     (`AuthPage.tsx` y `CompletarRegistroForm.tsx`) **no tenían atributo `name`**. Como React
+     forzaba el `checked`, visualmente parecía andar, pero para el navegador eran controles
+     sueltos: las flechas del teclado no movían la selección y un lector no anunciaba "1 de 2".
+     Ahora comparten `name`, van dentro de `<fieldset>` + `<legend class="sr-only">` y usan una
+     clase `.radio` propia en vez del estilo nativo. Verificado: la flecha ↓ mueve la selección.
+  3. **`DateRangePicker.tsx`** (sobre `react-day-picker`, dependencia nueva) en los filtros de
+     citas, ventas, gastos, informes y descuentos. El puente fecha civil ↔ `Date` vive en
+     `src/lib/date.ts` con tests (62 en total ahora, eran 38).
+  4. **`ColorWell.tsx`** para el color de marca en Ajustes.
+- **El fork del date picker murió a mitad de trabajo** (límite de gasto de la cuenta, no un error
+  de código) y **dejó `descuentos/page.tsx` roto**: usaba `<DateRangePicker>` sin haber agregado
+  el import — `tsc`/`lint` fallaban aunque `next build` reportara "Compiled successfully" (el
+  chequeo de tipos corre en un paso aparte). Corregido, y verificado además el caso que ese fork
+  no alcanzó a probar: el calendario dentro del `SlideOver` de descuentos **no se recorta**
+  (el popover se posiciona con `position: fixed` y coordenadas calculadas), semana en lunes,
+  indicador de "hoy" presente, 0 errores de consola.
+- **Pendiente:** las fechas ÚNICAS de formulario siguen con el calendario nativo del sistema —
+  `clientes` (fecha de nacimiento), `gastos` (fecha del gasto) y `cotizaciones` (vigencia hasta).
+  El pedido original era justamente sacarle el look del sistema a las fechas, así que falta un
+  `DatePicker` de fecha única (o un `modo="single"` en el existente) para cerrarlo.
+
+### 2026-07-25 (8) — FAQ como acordeón nativo
+- **Qué cambió:** la sección de Preguntas frecuentes **no era un acordeón**: mostraba las 4
+  respuestas siempre abiertas, una debajo de otra. Se rehízo con `<details>`/`<summary>` nativos
+  (clase `.accordion-item` nueva en `globals.css`), siguiendo la referencia de NameThatUI que
+  pasó el usuario:
+  - **Elemento nativo, no `div` + `useState`**: así vienen gratis el teclado (Enter/Espacio), el
+    estado expuesto a lectores de pantalla y que el Ctrl+F del navegador encuentre texto dentro
+    de un panel cerrado y lo abra. Reimplementarlo a mano solo servía para perder todo eso.
+  - **Sin `aria-expanded`** a propósito (la referencia lo remarca): `<details>` ya comunica su
+    estado, duplicarlo puede terminar contradiciendo al real.
+  - **"Solo una abierta a la vez" con el atributo `name` compartido**, sin una línea de JS.
+  - Triángulo por defecto oculto + chevron de lucide que rota 180° con `group-open:`.
+  - **Animación de apertura** vía `::details-content` + `interpolate-size: allow-keywords` (es lo
+    que permite transicionar hacia `auto`) y `content-visibility` con `allow-discrete` para que el
+    contenido no desaparezca de golpe al cerrar. Es mejora progresiva: sin soporte, abre y cierra
+    igual, solo que sin animación.
+  - `summary` se sumó a la regla global de `cursor: pointer` (no es `<button>` ni `[role=button]`,
+    así que no la tomaba).
+  - Verificado con Playwright de forma programática, no solo por captura: arranca todo cerrado,
+    abrir una segunda cierra la primera (queda 1 abierta), Enter abre desde el teclado, y la
+    altura del panel se anima de verdad (57 → 69 → 81 → 88 → 92 → 93 px).
+  - Los 4 modos de fallo del prompt de debug de la referencia, descartados uno por uno con
+    mediciones: (1) la altura anima; (2) el `name` deja una sola abierta; (3) no queda marcador
+    duplicado (`list-style-type: none` + `summary` en `display:flex`); (4) un `<a>` inyectado
+    dentro de un panel cerrado NO puede recibir foco — el contenido se oculta con el
+    `content-visibility: hidden` nativo, no con `opacity`.
+- **Ajuste posterior (mismo pedido del usuario: "da un brinco al expandir")** — medido, la
+  respuesta ocupaba los 538px de la fila completa contra los ~200px que mide el texto de la
+  pregunta: al abrir aparecía un bloque casi 3× más ancho que su propio título. Dos correcciones
+  en el `<p>` de la respuesta:
+  - `max-w-[44ch]` (≈408px) para que la respuesta no barra todo el ancho de la fila. **Ojo con el
+    valor**: `58ch` resolvía exactamente a 538px acá, o sea que no acotaba nada — con esta
+    tipografía `1ch` ≈ 9.3px.
+  - `min-h-[calc(2lh+1rem)]` para que TODOS los paneles abran con la misma altura (56px) y cambiar
+    de pregunta no mueva nada de lo que está debajo. El `+1rem` no es opcional: con
+    `box-sizing: border-box` el `min-height` incluye el `pb-4`, así que `2lh` a secas dejaba las
+    respuestas de una línea en 40px y las de dos en 56px.
+  - Verificado: los 4 paneles miden 56px y el desplazamiento del contenido de abajo al saltar de
+    la respuesta más larga a la más corta es **0px** (antes 16px).
+- **Por qué:** pedido explícito del usuario con la referencia de patrón adjunta.
+
 ### 2026-07-25 (7) — Oferta anual excluyente, datos de contacto reales, FAB de WhatsApp y crédito de autoría
 - **Qué cambió:** el usuario pidió cerrar la contradicción de la oferta anual, cargar sus datos
   reales y sumar el crédito de autoría. Se explicó el plan ANTES de tocar código (a pedido

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Plus, Truck, Pencil, Trash2 } from "lucide-react";
 import { useData, type Proveedor } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -63,10 +62,7 @@ export default function ProveedoresPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Proveedores</h1>
-      </div>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Catálogo de proveedores. Se pueden vincular a Productos y a Gastos.
       </p>

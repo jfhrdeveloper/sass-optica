@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { CulqiCheckoutButton } from "@/components/CulqiCheckoutButton";
@@ -16,10 +15,7 @@ export default function FacturacionPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ajustes</h1>
-      </div>
       <SettingsTabs />
 
       <div className="card mt-4 p-4 text-sm">

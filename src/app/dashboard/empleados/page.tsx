@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import Link from "next/link";
 import { Plus, Settings2, Trash2, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
@@ -90,10 +89,7 @@ export default function EmpleadosPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Empleados</h1>
-      </div>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Puedes delegar módulos puntuales a un encargado o trabajador sin cambiarle el rol. Usa el ícono de permisos para eso.
       </p>

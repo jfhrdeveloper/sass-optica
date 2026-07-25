@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { FileText, ArrowRightCircle } from "lucide-react";
 import { useData, type Cotizacion, type CotizacionItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
+import { DatePicker } from "@/components/DatePicker";
 
 const IGV = 0.18;
 type ItemForm = Omit<CotizacionItem, "id" | "cotizacionId">;
@@ -93,10 +93,7 @@ export default function CotizacionesPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Cotizaciones</h1>
-      </div>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Envía un presupuesto antes de la venta. No descuenta stock hasta que se convierte en venta.
       </p>
@@ -108,7 +105,7 @@ export default function CotizacionesPage() {
             <option value="">Sin cliente</option>
             {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
           </select>
-          <input type="date" value={vigenciaHasta} onChange={(e) => setVigenciaHasta(e.target.value)} className="input text-sm" aria-label="Vigente hasta" />
+          <DatePicker etiqueta="Vigente hasta" placeholder="Vigente hasta" valor={vigenciaHasta} onChange={setVigenciaHasta} />
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2">

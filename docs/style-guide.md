@@ -50,6 +50,74 @@ Diseña primero para móvil y escala hacia arriba.
 - **Selector de opciones excluyentes (tabs/toggle): `SegmentedControl.tsx`** — un solo bloque
   con indicador deslizante, no botones sueltos que se prenden y apagan. Ya lo usan las pestañas
   de funciones y el toggle Mensual/Anual de precios.
+  - **Prop `variante`**: `"tabs"` (default, `role="tablist"`/`"tab"` — cambiar de opción revela
+    un panel distinto, ej. las pestañas de funciones) vs. `"opciones"` (`role="radiogroup"`/
+    `"radio"` — elegir uno entre varios sin revelar ningún panel, ej. Mensual/Anual). Elegir mal
+    la variante hace que un lector de pantalla describa el control como algo que no es.
+- **Fecha única: `DatePicker.tsx`** / **rango de fechas: `DateRangePicker.tsx`** (ambos sobre
+  `react-day-picker`) — nunca `<input type="date">` nativo, cada navegador dibuja su propio
+  calendario del sistema. Son dos componentes separados a propósito (no un `modo` compartido):
+  react-day-picker tipa `selected`/`onSelect` distinto según `mode="single"` vs `"range"`.
+  - Las fechas se tratan como fechas civiles (`"YYYY-MM-DD"`), nunca `new Date(iso)` — ver
+    `src/lib/date.ts` (`aFechaLocal`/`aCadenaISO`, con tests).
+  - El popover va en un portal con `position: fixed`, posición Y ANCHO calculados desde el rect
+    del trigger y clampeados al viewport — un ancho fijo sin clamp se recorta en pantallas
+    angostas (bug real encontrado y corregido, ver bitácora 2026-07-25 (10)).
+- **Rastro de navegación: `Breadcrumbs.tsx`** — montado una sola vez en `DashboardShell`, no por
+  página; se oculta solo en `/dashboard`. Reemplazó el `← Inicio` que repetían las 13 páginas.
+  - Va en `<nav aria-label="Breadcrumb">` + **`<ol>`** (es una lista *ordenada*: el orden ES la
+    jerarquía; con `div`+`span` se ve igual pero se pierde la semántica).
+  - El último crumb lleva `aria-current="page"` y **nunca** es un link a sí mismo.
+  - Los separadores son SVG con `aria-hidden="true"`: si fueran texto, el lector de pantalla
+    dictaría "Inicio barra Comercial barra Ventas".
+  - El **grupo** (Comercial/Administración) no está en la URL — las rutas del dashboard son
+    planas. Sale del mapa `RUTAS` del componente, que replica la agrupación de `DashboardNav`.
+    Al agregar una ruta al sidebar, agregarla también ahí.
+- **Rango de fechas: `DateRangePicker.tsx`** (envuelve `react-day-picker`). Reemplaza los pares de
+  `<input type="date">` sueltos de los filtros — cada navegador dibujaba su propio calendario del
+  sistema y no se veía la relación entre los dos extremos. En uso en citas, ventas, gastos,
+  informes y descuentos.
+  - **Las fechas se tratan como fechas civiles (`"YYYY-MM-DD"`), nunca `new Date(iso)`**: ese
+    constructor las interpreta como medianoche UTC y en America/Lima (UTC-5) corren un día para
+    atrás. El puente vive en `src/lib/date.ts` (`aFechaLocal`/`aCadenaISO`) y está cubierto por
+    tests, junto con el clásico "los meses de `Date` son 0-based".
+  - El popover se posiciona con coordenadas calculadas (`position: fixed`), no como hijo del
+    campo: dentro de un `SlideOver` u otro contenedor con `overflow` quedaría recortado.
+  - Para una fecha ÚNICA en un formulario (fecha de nacimiento, fecha del gasto, vigencia) hoy se
+    sigue usando `<input type="date">` nativo — ver pendiente en `pending-task.md`.
+- **Selector de color: `ColorWell.tsx`** — swatch + paleta rápida, patrón del color well de macOS
+  (`NSColorWell` en estilo `.expanded`). En uso en Ajustes para el color de marca del negocio.
+- **Acordeón / secciones desplegables: `<details>` + `<summary>` con la clase `.accordion-item`**
+  (ver `globals.css` y la FAQ de la landing). Nunca reimplementarlo con un `div` + `useState`:
+  el elemento nativo ya trae teclado (Enter/Espacio), el estado expuesto a lectores de pantalla
+  y que el Ctrl+F del navegador encuentre y abra texto dentro de un panel cerrado.
+  - **No agregar `aria-expanded`**: `<details>` ya comunica su estado; duplicarlo puede terminar
+    contradiciendo al real. Solo haría falta en un disclosure 100% custom.
+  - "Solo uno abierto a la vez" se logra con el atributo `name` compartido entre los `<details>`
+    del grupo — sin JavaScript.
+  - El triángulo por defecto se oculta (`list-style: none` + `::-webkit-details-marker`) y se
+    dibuja un chevron de lucide que rota con `group-open:rotate-180`.
+- **Switch vs. checkbox vs. radio — la elección NO es estética, es semántica:**
+
+  | Control | Clase | Cuándo |
+  |---|---|---|
+  | Switch | `.switch` | Ajuste binario que se aplica **al instante**, sin Guardar (Activo/Borrador de un producto, permisos de un empleado) |
+  | Checkbox | `.checkbox` | Valor **independiente** de un formulario, que puede esperar al Submit ("Recuérdame") |
+  | Radio | `.radio` | **Exactamente una** de N opciones excluyentes (formato del subdominio) |
+
+  - El switch es un `<input type="checkbox" role="switch">`: sin ese `role` un lector de
+    pantalla lo anuncia como "casilla de verificación" y se pierde la promesa de "esto ya
+    quedó aplicado".
+  - **Los radios de un grupo DEBEN compartir el mismo `name`.** Sin él el navegador los trata
+    como controles sueltos: se pierde la navegación con flechas ↑↓ y no se anuncia "1 de 2".
+    Aunque React fuerce el `checked`, el grupo sigue roto para teclado y lector de pantalla.
+  - Un grupo de radios va en `<fieldset>` con `<legend>` (puede ser `sr-only`): es lo que le
+    da nombre accesible al grupo, si no solo se oye la etiqueta de cada opción sin contexto.
+  - Todo control va **envuelto en su `<label>`** — la asociación implícita evita el bug clásico
+    de `for`/`id` desalineados, y hace clickeable el texto.
+  - `indeterminate` (el checkbox "algunos seleccionados" de una cabecera de tabla) **solo se
+    puede activar desde JS** (`ref.current.indeterminate = true`), no existe como atributo.
+    Hoy el proyecto no lo usa; haría falta si se agregan acciones en lote a las tablas.
 - **"Seleccionado" se ve igual en todo el sitio:** fondo primario sólido + texto blanco
   (nav activo, indicador del segmented control). Nunca fondo tintado + texto del mismo tono:
   no contrasta y el estado activo se pierde.
@@ -60,6 +128,11 @@ Diseña primero para móvil y escala hacia arriba.
   `padding-right` suficiente para que no quede pegada. Ver `globals.css`.
 - **Inputs numéricos sin flechas arriba/abajo:** ya aplicado globalmente en `globals.css`
   (`input[type="number"]` sin spinners) — no hace falta nada por componente.
+- **Imágenes subidas por el usuario: siempre por `src/lib/imagen.ts` (`prepararImagen`)**, nunca
+  un `FileReader.readAsDataURL` crudo. Valida tipo/tamaño (rechaza >8MB) y redimensiona a máx.
+  512px vía canvas antes de codificar — sin esto, una foto de celular sin comprimir se guarda tal
+  cual en una columna `text` de Postgres que se relee en cada carga de página. En uso en el logo
+  de Ajustes.
 - Modales / overlays: _(pendiente)_
 - Tablas / listas: _(pendiente)_
 - **Clases globales reutilizables:** centralizar tipografía y botones recurrentes

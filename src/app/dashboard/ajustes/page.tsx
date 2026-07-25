@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { SettingsTabs } from "@/components/SettingsTabs";
+import { ColorWell } from "@/components/ColorWell";
+import { prepararImagen, ImagenInvalidaError } from "@/lib/imagen";
 
 const COLOR_DEFECTO = "#2563eb";
 
@@ -18,6 +20,7 @@ const COLOR_DEFECTO = "#2563eb";
 export default function AjustesPage() {
   const { negocio, updateNegocio } = useData();
   const { signOut } = useSession();
+  const toast = useToast();
   const [form, setForm] = useState({
     nombre: negocio?.nombre ?? "", ruc: negocio?.ruc ?? "",
     telefono: negocio?.telefono ?? "", direccion: negocio?.direccion ?? "",
@@ -26,6 +29,7 @@ export default function AjustesPage() {
   const [colorPrimario, setColorPrimario] = useState(negocio?.colorPrimario ?? COLOR_DEFECTO);
   const [confirmando, setConfirmando] = useState(false);
   const [desactivando, setDesactivando] = useState(false);
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
 
   async function guardarDatos(e: React.FormEvent) {
     e.preventDefault();
@@ -38,12 +42,24 @@ export default function AjustesPage() {
     await updateNegocio({ colorPrimario });
   }
 
-  function onLogo(e: React.ChangeEvent<HTMLInputElement>) {
+  /* `prepararImagen` valida tipo/tamaño y redimensiona a 512px antes de
+     codificar — antes esto era un FileReader crudo que guardaba el archivo
+     tal cual llegara (una foto de celular sin comprimir podía pesar 20MB en
+     base64), y `negocios.logo_url` se lee en CADA carga del dashboard. */
+  async function onLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // permite volver a elegir el mismo archivo tras un error
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => updateNegocio({ logoUrl: String(reader.result) });
-    reader.readAsDataURL(file);
+    setSubiendoLogo(true);
+    try {
+      const dataUrl = await prepararImagen(file);
+      await updateNegocio({ logoUrl: dataUrl });
+      toast("Logo actualizado.");
+    } catch (err) {
+      toast(err instanceof ImagenInvalidaError ? err.message : "No se pudo procesar la imagen.", "error");
+    } finally {
+      setSubiendoLogo(false);
+    }
   }
 
   async function desactivarNegocio() {
@@ -54,10 +70,7 @@ export default function AjustesPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ajustes</h1>
-      </div>
       <SettingsTabs />
 
       <form onSubmit={guardarDatos} className="card mt-4 space-y-3 p-4">
@@ -86,17 +99,15 @@ export default function AjustesPage() {
           ) : (
             <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500">Sin logo</div>
           )}
-          <label className="btn-outline cursor-pointer">
-            Subir logo
-            <input type="file" accept="image/*" onChange={onLogo} className="hidden" />
+          <label className={`btn-outline cursor-pointer ${subiendoLogo ? "pointer-events-none opacity-50" : ""}`}>
+            {subiendoLogo ? "Procesando…" : "Subir logo"}
+            <input type="file" accept="image/*" onChange={onLogo} disabled={subiendoLogo} className="hidden" />
           </label>
         </div>
+        <p className="text-xs text-slate-400 dark:text-slate-500">JPG, PNG o WebP. Máximo 8MB.</p>
 
         <div className="flex items-center gap-3">
-          <input
-            type="color" value={colorPrimario} onChange={(e) => setColorPrimario(e.target.value)}
-            className="h-9 w-14 cursor-pointer rounded border border-slate-300 dark:border-slate-700"
-          />
+          <ColorWell valor={colorPrimario} onChange={setColorPrimario} />
           <span className="text-sm text-slate-500 dark:text-slate-400">{colorPrimario}</span>
           <button onClick={guardarColor} className="btn-outline ml-auto">Aplicar color</button>
         </div>

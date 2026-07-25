@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Plus, Package, PackageSearch, Pencil } from "lucide-react";
 import { useData, type Producto } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -111,10 +110,7 @@ export default function ProductosPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Productos y stock</h1>
-      </div>
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">

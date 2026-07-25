@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Plus, User, Search, Pencil, Trash2, Users } from "lucide-react";
 import { useData, type Cliente } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/SlideOver";
 import { Stepper } from "@/components/Stepper";
+import { DatePicker } from "@/components/DatePicker";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 
@@ -139,10 +139,7 @@ export default function ClientesPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Clientes</h1>
-      </div>
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
@@ -340,7 +337,7 @@ export default function ClientesPage() {
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Contacto y notas</p>
               <input placeholder="Teléfono" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input w-full text-sm" />
               <input placeholder="Email" type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input w-full text-sm" />
-              <input placeholder="Fecha de nacimiento" type="date" value={form.fechaNacimiento ?? ""} onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })} className="input w-full text-sm" />
+              <DatePicker etiqueta="Fecha de nacimiento" placeholder="Fecha de nacimiento" valor={form.fechaNacimiento ?? ""} onChange={(v) => setForm({ ...form, fechaNacimiento: v || undefined })} />
               <input placeholder="Dirección" value={form.direccion ?? ""} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input w-full text-sm" />
               <textarea placeholder="Notas" value={form.notas ?? ""} onChange={(e) => setForm({ ...form, notas: e.target.value })} className="input w-full text-sm" rows={3} />
               <div className="mt-2 flex gap-2">

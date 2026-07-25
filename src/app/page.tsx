@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, Smartphone, Ban, MessageCircle } from "lucide-react";
+import { ShieldCheck, Smartphone, Ban, MessageCircle, ChevronDown } from "lucide-react";
 import { FuncionesShowcase } from "@/components/FuncionesShowcase";
 import { PreciosSection } from "@/components/PreciosSection";
 import { LandingHeader } from "@/components/LandingHeader";
@@ -124,15 +124,41 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ====== 8. FAQ ====== */}
+      {/* ====== 8. FAQ — acordeón nativo ======
+          `<details>` + `<summary>` en vez de divs con estado: el teclado, el
+          estado para lectores de pantalla y el Ctrl+F del navegador vienen
+          gratis (ver .accordion-item en globals.css). El `name` compartido
+          es lo que hace que solo una respuesta quede abierta a la vez —
+          sin una línea de JavaScript. */}
       <section className="mx-auto max-w-2xl px-6 py-16">
         <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Preguntas frecuentes</h2>
-        <div className="mt-8 space-y-4">
+        <div className="mt-8">
           {FAQ.map((f) => (
-            <div key={f.q} className="border-b border-slate-200 dark:border-slate-800 pb-4">
-              <h3 className="font-medium text-slate-900 dark:text-slate-100">{f.q}</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{f.a}</p>
-            </div>
+            <details key={f.q} name="faq" className="accordion-item group border-b border-slate-200 dark:border-slate-800">
+              <summary className="flex items-center justify-between gap-4 py-4 font-medium text-slate-900 outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-slate-100">
+                {f.q}
+                <ChevronDown
+                  size={18}
+                  aria-hidden="true"
+                  className="shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-180"
+                />
+              </summary>
+              {/* `max-w-[44ch]`: sin esto la respuesta ocupaba TODO el ancho de
+                  la fila (~538px) contra los ~200px que mide el texto de la
+                  pregunta — al expandir aparecía un bloque casi 3 veces más
+                  ancho que su propio título y se sentía como un brinco. Ojo con
+                  el valor: `58ch` resolvía justo a 538px acá, o sea que no
+                  acotaba nada; `1ch` ≈ 9.3px con esta tipografía.
+
+                  `min-h-[calc(2lh+1rem)]`: reserva SIEMPRE el alto de 2 líneas
+                  (`lh` = una línea), que es lo que mide la respuesta más larga,
+                  MÁS el `pb-4`. El `+1rem` no es opcional: con `box-sizing:
+                  border-box` (el default de Tailwind) el `min-height` incluye el
+                  padding, así que `2lh` a secas dejaba las respuestas de una
+                  línea en 40px y las de dos en 56px. Igualadas, cambiar de una
+                  pregunta a otra no mueve nada de lo que está debajo. */}
+              <p className="min-h-[calc(2lh+1rem)] max-w-[44ch] pb-4 text-sm text-slate-600 dark:text-slate-300">{f.a}</p>
+            </details>
           ))}
         </div>
       </section>

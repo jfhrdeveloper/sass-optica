@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Receipt } from "lucide-react";
 import { useData, type VentaItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { DateRangePicker } from "@/components/DateRangePicker";
 
 const IGV = 0.18;
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;
@@ -72,10 +72,7 @@ export default function VentasPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ventas</h1>
-      </div>
 
       <div className="card mt-4 p-4">
         <h2 className="font-medium">Nueva venta</h2>
@@ -138,9 +135,7 @@ export default function VentasPage() {
             <option value="plin">Plin</option>
             <option value="transferencia">Transferencia</option>
           </select>
-          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="input text-sm" aria-label="Desde" />
-          <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
-          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="input text-sm" aria-label="Hasta" />
+          <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         </div>
 
         <div className="overflow-x-auto">

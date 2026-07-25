@@ -489,16 +489,32 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
                 </div>
                 {mensajeSlug && <p className="mt-1 text-red-600 dark:text-red-400">{mensajeSlug}</p>}
 
-                <div className="mt-2 flex gap-4 text-xs text-slate-500 dark:text-slate-400">
-                  <label className="flex items-center gap-1">
-                    <input type="radio" checked={formato === "guiones"} onChange={() => setFormato("guiones")} />
-                    con-guiones
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input type="radio" checked={formato === "junto"} onChange={() => setFormato("junto")} />
-                    junto
-                  </label>
-                </div>
+                {/* Radios (no checkboxes): las dos opciones son excluyentes.
+                    El `name` compartido es lo que las hace un grupo de verdad
+                    — sin él el navegador las trata como controles sueltos y se
+                    pierde la navegación con flechas ↑↓, además de que un lector
+                    de pantalla no anuncia "1 de 2". El `fieldset`/`legend` le
+                    da nombre accesible al grupo (la leyenda es solo para
+                    lectores: el contexto visual ya lo da el campo de arriba). */}
+                <fieldset className="mt-2">
+                  <legend className="sr-only">Formato del subdominio</legend>
+                  <div className="flex gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <label className="flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="radio" name="formato-slug" value="guiones" className="radio"
+                        checked={formato === "guiones"} onChange={() => setFormato("guiones")}
+                      />
+                      con-guiones
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="radio" name="formato-slug" value="junto" className="radio"
+                        checked={formato === "junto"} onChange={() => setFormato("junto")}
+                      />
+                      junto
+                    </label>
+                  </div>
+                </fieldset>
               </div>
             )}
 

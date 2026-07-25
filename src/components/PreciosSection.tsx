@@ -23,8 +23,13 @@ export function PreciosSection() {
 
   return (
     <div>
+      {/* variante="opciones": elegir Mensual/Anual no revela un panel
+          distinto, cambia el precio mostrado — es un grupo de radios, no
+          pestañas. Con el default ("tabs") un lector de pantalla anunciaba
+          "Anual, pestaña 2 de 2", que describe mal lo que hace este control. */}
       <SegmentedControl
         aria-label="Ciclo de facturación"
+        variante="opciones"
         valor={ciclo}
         onChange={(v) => setCiclo(v as CicloFacturacion)}
         opciones={[

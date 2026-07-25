@@ -94,7 +94,7 @@ body {
      en `cursor: default` — solo `<a>` trae `pointer` de fábrica. Sin esto,
      todo botón del sitio (formularios de auth, slide-overs, toggles, etc.)
      se veía "no clickeable" al pasar el mouse. */
-  button:not(:disabled), [role="button"] {
+  button:not(:disabled), [role="button"], summary {
     cursor: pointer;
   }
 }
@@ -207,6 +207,49 @@ input[type="number"]::-webkit-inner-spin-button {
   .link-underline:hover::after {
     transform: scaleX(1);
   }
+
+  /* ====== Acordeón (disclosure) ======
+     Construido sobre `<details>`/`<summary>` nativos, no sobre divs con
+     `onClick`: el navegador ya trae el comportamiento de teclado (Enter y
+     Espacio), el estado expandido expuesto a lectores de pantalla y la
+     búsqueda del navegador (Ctrl+F encuentra texto dentro de un panel
+     cerrado y lo abre). Reimplementarlo a mano solo serviría para perder
+     todo eso — por lo mismo NO se le agrega `aria-expanded`: sería
+     redundante y puede terminar contradiciendo al estado real.
+
+     El agrupado "solo uno abierto a la vez" lo hace el atributo `name`
+     compartido en el JSX, tampoco hace falta JS. */
+  .accordion-item > summary {
+    /* Oculta el triángulo por defecto: se dibuja un chevron propio, alineado
+       con el resto de la iconografía del sitio (lucide). Hacen falta las dos
+       reglas — `list-style` cubre los navegadores modernos y
+       `::-webkit-details-marker` los WebKit viejos. */
+    list-style: none;
+  }
+  .accordion-item > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Animación de apertura. `::details-content` es el pseudo-elemento que
+     envuelve el contenido revelado; animar su altura solo es posible con
+     `interpolate-size: allow-keywords`, que habilita transicionar HACIA
+     `auto` (sin eso el navegador no sabe interpolar una palabra clave).
+     `content-visibility` con `allow-discrete` evita que el contenido
+     desaparezca de golpe al cerrar, antes de que termine la transición.
+
+     Es mejora progresiva: en un navegador sin soporte de `::details-content`
+     el acordeón abre y cierra igual, solo que sin animación. */
+  .accordion-item {
+    interpolate-size: allow-keywords;
+  }
+  .accordion-item::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition: block-size 0.3s ease, content-visibility 0.3s allow-discrete;
+  }
+  .accordion-item[open]::details-content {
+    block-size: auto;
+  }
   /* Enlaces de texto (acciones de tabla, "← Inicio", links de auth): antes
      `hover:underline` en cada componente — se ve más plano/anticuado que un
      cambio de color, y el sitio ya transiciona `color` globalmente (ver la
@@ -240,6 +283,27 @@ input[type="number"]::-webkit-inner-spin-button {
   }
   .checkbox:checked {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+  }
+
+  /* Radio: elegir UNA de N opciones excluyentes (el checkbox de arriba es
+     para valores independientes; el switch, para un on/off que se aplica al
+     instante). Mismo lenguaje visual que `.checkbox` pero redondo y con
+     punto central en vez de tick — antes los radios del proyecto iban sin
+     clase, con el estilo nativo del navegador, y desentonaban al lado de un
+     checkbox custom.
+
+     El punto va como `radial-gradient` y no como pseudo-elemento: un
+     `<input>` es un elemento reemplazado y no renderiza `::before`/`::after`
+     de forma confiable entre navegadores. */
+  .radio {
+    @apply h-4 w-4 shrink-0 cursor-pointer appearance-none rounded-full border
+           border-slate-300 bg-white transition-colors
+           checked:border-primary
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
+           dark:border-slate-600 dark:bg-slate-800;
+  }
+  .radio:checked {
+    background-image: radial-gradient(circle at center, var(--color-primary) 0 4px, transparent 4px);
   }
 
   /* Patrón único de tabla/lista para las ~10 páginas de listado del

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Info, Plus } from "lucide-react";
 import { useData, type CampaniaEmail } from "@/components/providers/DataProvider";
 import { SlideOver } from "@/components/SlideOver";
@@ -31,10 +30,7 @@ export default function MarketingPage() {
 
   return (
     <main>
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-sm font-medium link">← Inicio</Link>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Marketing</h1>
-      </div>
 
       <div className="mt-4 flex items-start gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
         <Info size={16} className="mt-0.5 shrink-0 text-slate-400 dark:text-slate-500" />
