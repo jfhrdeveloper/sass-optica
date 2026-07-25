@@ -9,6 +9,8 @@ import { isMockMode, MOCK_EMAIL, MOCK_PASSWORD, MOCK_COOKIE } from "@/lib/mock/m
 import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
 import { Stepper } from "@/components/Stepper";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { GoogleIcon, DivisorO } from "@/components/auth/GoogleAuthUi";
+import { CreditoJFHR } from "@/components/CreditoJFHR";
 
 type Modo = "login" | "registro";
 type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponible" | "invalido";
@@ -18,31 +20,6 @@ const BENEFICIOS = [
   "Ventas con IGV calculado solo",
   "Cancela cuando quieras, sin permanencia",
 ];
-
-/* Logo oficial de Google (4 colores) — no hay ícono de marca en lucide-react,
-   así que va como SVG inline. Compartido entre LoginForm y RegistroForm. */
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.5-.4-3.5z" />
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 16.3 3 9.7 7.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 45c5.5 0 10.5-2.1 14.2-5.6l-6.6-5.4C29.6 35.7 27 36.6 24 36.6c-5.2 0-9.6-3.4-11.2-8.1l-6.6 5.1C9.6 40.4 16.3 45 24 45z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.9 2.6-2.5 4.8-4.6 6.3l6.6 5.4C41.4 36 45 30.5 45 24c0-1.4-.1-2.5-.4-3.5z" />
-    </svg>
-  );
-}
-
-/* Divisor "o continúa con..." entre el botón de Google y el formulario de
-   email/contraseña — mismo patrón visual en login y registro. */
-function DivisorO({ texto }: { texto: string }) {
-  return (
-    <div className="my-4 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-      <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-      {texto}
-      <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-    </div>
-  );
-}
 
 /* ================= LOGIN + REGISTRO — PANEL DESLIZANTE =================
    Patrón split-screen con panel de marca deslizante (idea tomada de las
@@ -340,6 +317,8 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
         ¿No tienes cuenta?{" "}
         <button type="button" onClick={onIrARegistro} className="font-medium link">Prueba gratis</button>
       </p>
+
+      <CreditoJFHR className="mt-8" />
     </div>
   );
 }
@@ -590,6 +569,8 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
         ¿Ya tienes cuenta?{" "}
         <button type="button" onClick={onIrALogin} className="font-medium link">Inicia sesión</button>
       </p>
+
+      <CreditoJFHR className="mt-8" />
     </div>
   );
 }

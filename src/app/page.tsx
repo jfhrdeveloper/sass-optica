@@ -1,8 +1,12 @@
 import Link from "next/link";
-import { ShieldCheck, Smartphone, Ban } from "lucide-react";
+import { ShieldCheck, Smartphone, Ban, MessageCircle } from "lucide-react";
 import { FuncionesShowcase } from "@/components/FuncionesShowcase";
 import { PreciosSection } from "@/components/PreciosSection";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { LandingHeader } from "@/components/LandingHeader";
+import { AvisoTransparencia } from "@/components/AvisoTransparencia";
+import { WhatsAppFab } from "@/components/WhatsAppFab";
+import { CreditoJFHR } from "@/components/CreditoJFHR";
+import { EMAIL_SOPORTE, urlWhatsApp } from "@/lib/contacto";
 
 /* Landing pública (dominio raíz), estructura de 10 secciones del brief §3.
    Paleta y estilo tomados del análisis de diseno-referencia/ (competidores
@@ -27,24 +31,14 @@ export default function LandingPage() {
   return (
     <>
       {/* ====== 1. Header ====== */}
-      <header className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <span className="font-display text-slate-900 dark:text-slate-100">SaaS Óptica</span>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 dark:text-slate-300 sm:flex">
-            <Link href="#funciones" className="hover:text-slate-900 dark:hover:text-slate-100">Funciones</Link>
-            <Link href="#precios" className="hover:text-slate-900 dark:hover:text-slate-100">Precios</Link>
-            <Link href="#contacto" className="hover:text-slate-900 dark:hover:text-slate-100">Contacto</Link>
-          </nav>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link href="/login" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100">Iniciar sesión</Link>
-            <Link href="/registro" className="btn-primary">Prueba gratis</Link>
-          </div>
-        </div>
-      </header>
+      <LandingHeader />
 
       {/* ====== 2. Hero ====== */}
-      <section className="mx-auto flex max-w-3xl flex-col items-center gap-5 px-6 py-20 text-center">
+      {/* `pt-32`: el header es `fixed` (ver LandingHeader.tsx), no ocupa
+          espacio en el flujo — sin este padding el hero arrancaría debajo
+          de la píldora flotante. */}
+      <section className="mx-auto flex max-w-3xl flex-col items-center gap-5 px-6 pb-20 pt-32 text-center">
+        <p className="text-sm font-semibold uppercase tracking-wide text-primary">Software para ópticas peruanas</p>
         <h1 className="text-4xl font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-5xl">
           Deja el cuaderno.<br />Gestiona tu <span className="text-primary">óptica</span> en un solo lugar.
         </h1>
@@ -54,7 +48,6 @@ export default function LandingPage() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link href="/registro" className="btn-primary px-6 py-3 text-base">Prueba gratis 30 días</Link>
-          <Link href="#funciones" className="btn-outline px-6 py-3 text-base">Ver funciones</Link>
         </div>
         <p className="text-xs text-slate-400 dark:text-slate-500">Sin tarjeta de crédito · Cancela cuando quieras</p>
         <div className="card mt-6 w-full max-w-2xl bg-slate-50 dark:bg-slate-900 p-8 text-sm text-slate-400 dark:text-slate-500">
@@ -93,7 +86,7 @@ export default function LandingPage() {
       </section>
 
       {/* ====== 5. Funciones ====== */}
-      <section id="funciones" className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
+      <section id="funciones" className="scroll-mt-24 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-primary">Todo lo que necesitas</p>
           <h2 className="mt-2 text-2xl text-slate-900 dark:text-slate-100">Una plataforma para gestionar toda tu óptica.</h2>
@@ -121,7 +114,7 @@ export default function LandingPage() {
       </section>
 
       {/* ====== 7. Precios ====== */}
-      <section id="precios" className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
+      <section id="precios" className="scroll-mt-24 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
         <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Precios</h2>
         <p className="mx-auto mt-1 max-w-md text-center text-sm text-slate-500 dark:text-slate-400">
           Prueba gratis 30 días. Sin tarjeta de crédito, sin compromiso.
@@ -147,29 +140,90 @@ export default function LandingPage() {
       {/* ====== 9. CTA final ====== */}
       <section className="border-t border-slate-200 dark:border-slate-800 bg-primary-dark px-6 py-16 text-center text-white">
         <h2 className="text-2xl font-semibold">Deja el cuaderno hoy mismo</h2>
-        <Link href="/registro" className="mt-4 inline-block rounded-lg bg-white px-6 py-3 font-medium text-primary-dark hover:bg-blue-50">
+        <Link href="/registro" className="mt-4 inline-block rounded-full bg-white px-6 py-3 font-medium text-primary-dark transition-colors hover:bg-blue-50">
           Prueba gratis 30 días
         </Link>
       </section>
 
-      {/* ====== 10. Footer ====== */}
-      <footer id="contacto" className="px-6 py-8 text-center text-xs text-slate-400 dark:text-slate-500">
-        <div className="flex flex-wrap items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1"><ShieldCheck size={14} /> Datos aislados por negocio</span>
-          <span>·</span>
-          <span className="inline-flex items-center gap-1"><Smartphone size={14} /> Funciona en cualquier dispositivo</span>
-          <span>·</span>
-          <span className="inline-flex items-center gap-1"><Ban size={14} /> Sin permanencia</span>
+      {/* ====== 10. Footer ======
+          Estructura de 4 columnas + barra inferior, patrón tomado de
+          ferdocs-web (src/components/layout/Footer.tsx de ese proyecto).
+          Solo se enlaza a rutas que EXISTEN — legal/soporte siguen sin
+          construirse, así que van como texto plano marcado, no como links
+          rotos (ver docs/pending-task.md). */}
+      {/* `pb-24` en móvil: el botón flotante de WhatsApp (WhatsAppFab) se
+          apoya abajo a la derecha y tapaba los links legales de la última
+          fila. En `sm:` hacia arriba el ancho alcanza y no hace falta. */}
+      <footer id="contacto" className="scroll-mt-24 border-t border-slate-200 bg-white px-6 pb-24 pt-16 dark:border-slate-800 dark:bg-slate-950 sm:pb-8">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <span className="font-display text-lg text-slate-900 dark:text-slate-100">SaaS Óptica</span>
+              <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                Mini-ERP para ópticas peruanas. Clientes, citas, recetas, ventas e inventario
+                en un solo panel, sin instalar nada.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Producto</h3>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link href="#funciones" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Funciones</Link></li>
+                <li><Link href="#precios" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Precios</Link></li>
+                <li><Link href="/registro" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Prueba gratis 30 días</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Cuenta</h3>
+              <ul className="space-y-2.5 text-sm">
+                <li><Link href="/login" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Iniciar sesión</Link></li>
+                <li><Link href="/registro" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Crear mi óptica</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Soporte</h3>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <a href={urlWhatsApp()} target="_blank" rel="noopener noreferrer" className="link-underline inline-flex items-center gap-1.5 text-slate-500 hover:text-primary dark:text-slate-400">
+                    <MessageCircle size={15} className="shrink-0" /> WhatsApp
+                  </a>
+                </li>
+                <li>
+                  <a href={`mailto:${EMAIL_SOPORTE}`} className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">
+                    {EMAIL_SOPORTE}
+                  </a>
+                </li>
+              </ul>
+              <ul className="mt-5 space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                <li className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-accent" /> Datos aislados por negocio</li>
+                <li className="flex items-start gap-2"><Smartphone size={14} className="mt-0.5 shrink-0 text-accent" /> Funciona en cualquier dispositivo</li>
+                <li className="flex items-start gap-2"><Ban size={14} className="mt-0.5 shrink-0 text-accent" /> Sin permanencia</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-12 flex justify-center">
+            <AvisoTransparencia />
+          </div>
+
+          <hr className="my-8 border-slate-200 dark:border-slate-800" />
+
+          <div className="flex flex-col items-center justify-between gap-4 text-xs text-slate-400 dark:text-slate-500 sm:flex-row">
+            <div className="flex flex-col items-center gap-1 sm:items-start">
+              <p>© {new Date().getFullYear()} SaaS Óptica</p>
+              <CreditoJFHR />
+            </div>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/legal?tab=terminos" className="transition-colors hover:text-primary">Términos y condiciones</Link>
+              <Link href="/legal?tab=privacidad" className="transition-colors hover:text-primary">Política de privacidad</Link>
+            </div>
+          </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/registro" className="hover:text-slate-600 dark:hover:text-slate-300">Prueba gratis</Link>
-          <Link href="/login" className="hover:text-slate-600 dark:hover:text-slate-300">Iniciar sesión</Link>
-          <span>Términos y condiciones (pendiente)</span>
-          <span>Política de privacidad (pendiente)</span>
-          <span>WhatsApp de soporte (pendiente)</span>
-        </div>
-        <p className="mt-3">© {new Date().getFullYear()} SaaS Óptica</p>
       </footer>
+
+      <WhatsAppFab />
     </>
   );
 }

@@ -43,5 +43,20 @@ export async function POST(req: Request) {
     proximo_cobro: proximoCobro.toISOString().slice(0, 10),
   }).eq("negocio_id", negocioId);
 
+  /* Registro para el panel admin (pagos_saas) — respaldo del insert que ya
+     intenta /api/pagos/culqi/cargo (vía primaria). culqi_cargo_id es UNIQUE:
+     si ese camino ya insertó este cargo, el conflicto se ignora sin duplicar. */
+  const cargoData = body?.data ?? body;
+  const montoCentimos = Number(cargoData?.amount ?? 0);
+  if (montoCentimos > 0) {
+    await admin.from("pagos_saas").insert({
+      negocio_id: negocioId,
+      monto: montoCentimos / 100,
+      moneda: cargoData?.currency_code ?? "PEN",
+      metodo_pago: cargoData?.source?.type === "yape" ? "yape" : "tarjeta",
+      culqi_cargo_id: cargoData?.id ?? null,
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

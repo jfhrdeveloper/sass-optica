@@ -56,14 +56,25 @@ cada negocio ES el tenant (no hay jerarquía de sub-grupos dentro de un owner ú
   `/dashboard/ventas`, `/dashboard/gastos` (solo `administrador`),
   `/dashboard/empleados` (solo `administrador`), `/dashboard/config` (solo `administrador`)
 
-**Admin del SaaS** (subdominio reservado `admin.dominio`, solo el dueño del SaaS):
-- Lista de negocios, trials activos, MRR, churn. Usa el cliente `admin.ts` (service role)
-  server-side únicamente — nunca se expone al navegador.
+**Admin del SaaS** (subdominio reservado `admin.dominio`, solo el dueño del SaaS, namespace
+interno `src/app/admin-panel/*` con su propio sidebar — `AdminShell`/`AdminNav`):
+- `/admin-panel` — resumen: KPIs (negocios/trial/pagando/por vencer/MRR estimado por plan) +
+  lista de trials que vencen en ≤7 días.
+- `/admin-panel/negocios` — tabla completa (búsqueda, filtro por estado incl. "por vencer").
+- `/admin-panel/negocios/[id]` — detalle de un negocio: datos de contacto, empleados,
+  suscripción, historial de pagos, y la acción de suspender/reactivar (`negocios.activo`,
+  reversible, nunca un DELETE — mismo criterio que la "Zona de peligro" del dashboard de negocio).
+- `/admin-panel/pagos` — historial cross-tenant de `pagos_saas` + gráfico de MRR por mes.
+- Todas usan el cliente `admin.ts` (service role) server-side únicamente — nunca se expone al
+  navegador.
 
 **API privilegiada** (server-only, `service_role`):
 - `/api/registro` — crea negocio + primer usuario admin + suscripción trial (atómico)
 - `/api/empleados/invitar`, `/api/empleados/eliminar`
-- `/api/webhooks/culqi` — confirma pago, reactiva suscripción
+- `/api/webhooks/culqi` — confirma pago, reactiva suscripción, registra el cobro en `pagos_saas`
+- `/api/pagos/culqi/cargo` — crea el cargo (vía primaria de pago), reactiva suscripción, registra
+  el cobro en `pagos_saas`
+- `/api/admin/negocios/toggle-activo` — suspende/reactiva un negocio (solo `super_admins`)
 
 ## 4. Autenticación y autorización
 - **Supabase Auth**, 3 clientes separados por privilegio: `client.ts` (browser, anon),

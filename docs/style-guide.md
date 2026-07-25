@@ -18,7 +18,7 @@ entrada de bitácora correspondiente en `pending-task.md`. Tokens definidos en
 - **Acento:** verde `#16A34A` (`--color-accent`) — estados positivos (ventas, stock ok, indicadores +%). Fondo suave: `#F0FDF4` (`--color-accent-light`).
 - **Neutrales:** escala `slate-*` de Tailwind tal cual (texto `slate-900`/`slate-500`/`slate-400`, bordes `slate-200`/`slate-100`).
 - **Estados (badges):** éxito → `.badge-success` (verde), aviso → `.badge-warning` (ámbar), error → `.badge-danger` (rojo), neutral → `.badge-neutral` (slate). Clases ya definidas en `globals.css`.
-- **Modo oscuro:** desactivado a propósito (ver `globals.css`) — el análisis de referencias mostró que el rubro casi no lo usa como default, y no hay componentes con variantes `dark:` reales todavía. Revisar si se pide soportarlo de verdad más adelante.
+- **Modo oscuro:** implementado de verdad (no solo `prefers-color-scheme`) — `@custom-variant dark` (Tailwind v4) + toggle manual (`ThemeToggle.tsx`) vía clase `.dark` en `<html>`, persistido en `localStorage` (clave `tema`) con fallback a la preferencia del SO, aplicado antes del primer paint por un script inline en `layout.tsx` (evita flash). Todas las clases reutilizables (`.btn-primary`, `.card`, `.input`, `.badge-*`) y las páginas del dashboard/landing/admin-panel tienen su variante `dark:`. Ver bitácora 2026-07-24 (9) para el detalle de la implementación.
 - **Regla:** nunca redefinir estos colores ad-hoc en componentes; usar las clases reutilizables (`.btn-primary`, `.btn-outline`, `.card`, `.input`, `.badge-*`) definidas en `globals.css`, o las utilidades Tailwind del theme (`bg-primary`, etc.) — nunca `bg-black`/`bg-blue-600` sueltos.
 
 ## Espaciado y breakpoints
@@ -44,6 +44,15 @@ Diseña primero para móvil y escala hacia arriba.
 
 ## Componentes UI
 - Botones: `.btn-primary` (sólido, acción principal) / `.btn-outline` (secundaria) — definidas en `globals.css`.
+  **Radio: `rounded-full` en TODO el sitio** (píldora), unificado en la sesión 2026-07-25 (6).
+  No agregar un `rounded-*` suelto en el JSX para cambiarlo caso por caso: si hace falta otro
+  radio, se discute como cambio del sistema, no como excepción local.
+- **Selector de opciones excluyentes (tabs/toggle): `SegmentedControl.tsx`** — un solo bloque
+  con indicador deslizante, no botones sueltos que se prenden y apagan. Ya lo usan las pestañas
+  de funciones y el toggle Mensual/Anual de precios.
+- **"Seleccionado" se ve igual en todo el sitio:** fondo primario sólido + texto blanco
+  (nav activo, indicador del segmented control). Nunca fondo tintado + texto del mismo tono:
+  no contrasta y el estado activo se pierde.
 - Inputs de texto/número/fecha: clase `.input`.
 - **Dropdowns (`<select>`): SIEMPRE clase `.select`, nunca `.input`.** Un `<select>` nativo
   dibuja su propia flecha pegada al borde del recuadro si no se le da espacio propio — `.select`

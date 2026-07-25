@@ -58,6 +58,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  const cargo = await culqiRes.json().catch(() => null);
 
   /* ====== 3. Reactivar la suscripción (service_role — nunca desde el cliente) ====== */
   const admin = createAdminClient();
@@ -83,6 +84,22 @@ export async function POST(req: Request) {
       { status: 207 },
     );
   }
+
+  /* ====== 4. Registrar el cobro para el panel admin (pagos_saas) ======
+     Vía primaria de registro — el webhook es solo respaldo async. NOTA: el
+     campo que indica el método real (tarjeta vs. Yape) hay que confirmarlo
+     contra la doc de Culqi con credenciales reales; `source?.type` es la
+     mejor lectura disponible hoy. culqi_cargo_id es UNIQUE — si el webhook
+     llega después para el mismo cargo, el conflicto lo ignora sin duplicar. */
+  await admin.from("pagos_saas").insert({
+    negocio_id: actor.negocio_id,
+    monto: montoCentimos / 100,
+    metodo_pago: cargo?.source?.type === "yape" ? "yape" : "tarjeta",
+    culqi_cargo_id: cargo?.id ?? null,
+  });
+  /* Un error acá (p. ej. culqi_cargo_id duplicado si el webhook ya insertó
+     este mismo cargo) no debe bloquear la respuesta al usuario — el pago
+     y la reactivación ya se confirmaron arriba. */
 
   return NextResponse.json({ ok: true });
 }

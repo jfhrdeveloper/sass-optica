@@ -89,6 +89,14 @@ body {
     transition-timing-function: ease;
     transition-duration: 0.2s;
   }
+
+  /* El Preflight de Tailwind v4 (y el UA stylesheet nativo) dejan `<button>`
+     en `cursor: default` — solo `<a>` trae `pointer` de fábrica. Sin esto,
+     todo botón del sitio (formularios de auth, slide-overs, toggles, etc.)
+     se veía "no clickeable" al pasar el mouse. */
+  button:not(:disabled), [role="button"] {
+    cursor: pointer;
+  }
 }
 
 /* Tipografía de títulos: Poppins (más pesada/geométrica que Geist a
@@ -120,13 +128,18 @@ input[type="number"]::-webkit-inner-spin-button {
    `dark:` — así una página que usa `.card`/`.input`/`.select`/`.badge-*` ya
    queda dark-mode-ready sin tocar nada más. */
 @layer components {
+  /* `rounded-full` (no `rounded-lg`): un solo radio de botón en TODO el
+     sitio, el mismo de "Iniciar sesión"/"Prueba gratis" del navbar — antes
+     esos dos eran la excepción (llevaban `rounded-full` suelto en el JSX) y
+     el resto del proyecto iba en `rounded-lg`. Cambiarlo acá lo unifica de
+     una sola vez, sin tocar cada botón (regla de docs/style-guide.md). */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2
+    @apply inline-flex items-center justify-center rounded-full bg-primary px-4 py-2
            text-sm font-medium text-white transition-colors hover:bg-primary-dark
            disabled:opacity-50;
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center rounded-lg border border-slate-300
+    @apply inline-flex items-center justify-center rounded-full border border-slate-300
            bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors
            hover:bg-slate-50 disabled:opacity-50
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
@@ -170,6 +183,29 @@ input[type="number"]::-webkit-inner-spin-button {
   .badge-neutral { @apply bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300; }
   .nav-section-label {
     @apply px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500;
+  }
+  /* Subrayado que crece de izquierda a derecha al hover (links de columna
+     del footer) — `scaleX` con `transform-origin: left` en vez de animar
+     `width`, para que corra en el compositor y no dispare layout en cada
+     frame. El nav superior NO lo usa: ahí el hover es una píldora de fondo
+     (patrón de ferdocs-web, ver LandingHeader.tsx). */
+  .link-underline {
+    @apply relative;
+  }
+  .link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s ease;
+  }
+  .link-underline:hover::after {
+    transform: scaleX(1);
   }
   /* Enlaces de texto (acciones de tabla, "← Inicio", links de auth): antes
      `hover:underline` en cada componente — se ve más plano/anticuado que un

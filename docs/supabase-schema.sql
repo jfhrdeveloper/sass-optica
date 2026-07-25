@@ -146,6 +146,26 @@ create table if not exists public.super_admins (
   created_at timestamptz not null default now()
 );
 
+-- pagos_saas (cobros de Culqi a las suscripciones — Fase 5, panel admin) ----
+-- Registro individual de cada cobro exitoso: `suscripciones` solo guarda el
+-- estado agregado (activa/vencida), esto es "quién pagó, cuánto y cómo" para
+-- el panel admin.dominio. Lo insertan /api/pagos/culqi/cargo (vía primaria) y
+-- /api/webhooks/culqi (respaldo async) — culqi_cargo_id único evita filas
+-- duplicadas si ambos caminos confirman el mismo cargo. Nunca se lee desde el
+-- cliente autenticado, solo admin.ts (service_role).
+create table if not exists public.pagos_saas (
+  id             uuid primary key default gen_random_uuid(),
+  negocio_id     uuid not null references public.negocios(id) on delete cascade,
+  monto          numeric(10,2) not null,
+  moneda         text not null default 'PEN',
+  metodo_pago    text,               -- 'tarjeta' | 'yape' | lo que informe Culqi
+  culqi_cargo_id text unique,
+  estado         text not null default 'exitoso',
+  created_at     timestamptz not null default now()
+);
+create index if not exists idx_pagos_saas_negocio on public.pagos_saas(negocio_id);
+create index if not exists idx_pagos_saas_fecha    on public.pagos_saas(created_at desc);
+
 -- ================================================================
 -- TRIGGERS updated_at
 -- ================================================================
@@ -252,6 +272,9 @@ alter table public.negocios      enable row level security;
 alter table public.empleados     enable row level security;
 alter table public.suscripciones enable row level security;
 alter table public.super_admins  enable row level security;
+alter table public.pagos_saas    enable row level security;
+-- pagos_saas: sin policies para anon/authenticated a propósito — deny-all,
+-- solo service_role (admin.ts) lo lee/escribe, nunca el cliente autenticado.
 
 -- ====== SUPER_ADMINS ======
 -- Cada quien solo confirma SU PROPIA membresía (lo usa el proxy para el

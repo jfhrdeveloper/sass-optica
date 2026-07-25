@@ -89,6 +89,57 @@ export const MOCK_COTIZACIONES: Cotizacion[] = [
   },
 ];
 
+/* ================= Vista cross-tenant del admin-panel =================
+   No reutiliza MOCK_NEGOCIO/MOCK_SUSCRIPCION de arriba (esas son el ÚNICO
+   negocio "logueado" en el dashboard mock) — acá se simulan VARIOS negocios
+   ajenos, tal como los vería el dueño del SaaS en admin.dominio, con sus
+   filas crudas (mismo shape que las queries reales en admin-panel/(protegido)/*). */
+export const MOCK_ADMIN_NEGOCIOS = [
+  { id: "adm-neg-1", nombre: "Óptica Demo", subdominio: "optica-demo", ruc: "10123456789", telefono: "999 999 999", direccion: "Av. Siempre Viva 123, Lima", activo: true, created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
+  { id: "adm-neg-2", nombre: "Óptica Visión Plus", subdominio: "vision-plus", ruc: "20512345678", telefono: "988 111 222", direccion: "Jr. Las Begonias 456, San Isidro", activo: true, created_at: new Date(Date.now() - 120 * 86400000).toISOString() },
+  { id: "adm-neg-3", nombre: "Óptica Los Olivos", subdominio: "los-olivos", ruc: "20598765432", telefono: "977 333 444", direccion: "Av. Carlos Izaguirre 890, Los Olivos", activo: true, created_at: new Date(Date.now() - 95 * 86400000).toISOString() },
+  { id: "adm-neg-4", nombre: "Óptica Puente Piedra", subdominio: "puente-piedra", ruc: "20487654321", telefono: "966 555 666", direccion: "Av. Zarumilla 321, Puente Piedra", activo: false, created_at: new Date(Date.now() - 90 * 86400000).toISOString() },
+  { id: "adm-neg-5", nombre: "Óptica San Juan", subdominio: "optica-sjl", ruc: null, telefono: "955 777 888", direccion: null, activo: true, created_at: new Date(Date.now() - 27 * 86400000).toISOString() },
+];
+
+export const MOCK_ADMIN_SUSCRIPCIONES = [
+  { negocio_id: "adm-neg-1", plan: "trial", estado: "trial", trial_fin: new Date(Date.now() + 25 * 86400000).toISOString().slice(0, 10) },
+  { negocio_id: "adm-neg-2", plan: "premium", estado: "activa", trial_fin: new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10) },
+  { negocio_id: "adm-neg-3", plan: "basico", estado: "activa", trial_fin: new Date(Date.now() - 15 * 86400000).toISOString().slice(0, 10) },
+  { negocio_id: "adm-neg-4", plan: "basico", estado: "vencida", trial_fin: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10) },
+  /* A 3 días de vencer — pensado para verse en el filtro "por vencer". */
+  { negocio_id: "adm-neg-5", plan: "trial", estado: "trial", trial_fin: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10) },
+];
+
+export const MOCK_ADMIN_EMPLEADOS = [
+  { id: "adm-emp-1", negocio_id: "adm-neg-1", nombres: "Ana", apellidos: "Demo", rol: "administrador", email: "demo@optica.pe", activo: true },
+  { id: "adm-emp-2", negocio_id: "adm-neg-2", nombres: "Rosa", apellidos: "Fernández", rol: "administrador", email: "rosa@visionplus.pe", activo: true },
+  { id: "adm-emp-3", negocio_id: "adm-neg-2", nombres: "Luis", apellidos: "Chávez", rol: "trabajador", email: "luis@visionplus.pe", activo: true },
+  { id: "adm-emp-4", negocio_id: "adm-neg-3", nombres: "Miguel", apellidos: "Torres", rol: "administrador", email: "miguel@losolivos.pe", activo: true },
+  { id: "adm-emp-5", negocio_id: "adm-neg-3", nombres: "Karina", apellidos: "Solís", rol: "encargado", email: "karina@losolivos.pe", activo: true },
+  { id: "adm-emp-6", negocio_id: "adm-neg-4", nombres: "Jorge", apellidos: "Ramos", rol: "administrador", email: "jorge@puentepiedra.pe", activo: true },
+  { id: "adm-emp-7", negocio_id: "adm-neg-5", nombres: "Vanessa", apellidos: "Quispe", rol: "administrador", email: "vanessa@opticasjl.pe", activo: true },
+];
+
+/* pagos_saas simulados — varios meses de historia para el gráfico de MRR de
+   /admin-panel/pagos. Montos calzan con los precios reales de la landing
+   (ver PreciosSection.tsx): Básico S/89.90/mes, Premium S/149.90/mes. */
+function haceMeses(n: number, dia: number) {
+  const d = new Date();
+  d.setMonth(d.getMonth() - n, dia);
+  return d.toISOString().slice(0, 10);
+}
+export const MOCK_ADMIN_PAGOS = [
+  { id: "pago-1", negocio_id: "adm-neg-2", monto: 149.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_1", estado: "exitoso", created_at: haceMeses(3, 12) },
+  { id: "pago-2", negocio_id: "adm-neg-2", monto: 149.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_2", estado: "exitoso", created_at: haceMeses(2, 12) },
+  { id: "pago-3", negocio_id: "adm-neg-2", monto: 149.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_3", estado: "exitoso", created_at: haceMeses(1, 12) },
+  { id: "pago-4", negocio_id: "adm-neg-2", monto: 149.9, moneda: "PEN", metodo_pago: "yape", culqi_cargo_id: "chr_mock_4", estado: "exitoso", created_at: haceMeses(0, 12) },
+  { id: "pago-5", negocio_id: "adm-neg-3", monto: 89.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_5", estado: "exitoso", created_at: haceMeses(2, 20) },
+  { id: "pago-6", negocio_id: "adm-neg-3", monto: 89.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_6", estado: "exitoso", created_at: haceMeses(1, 20) },
+  { id: "pago-7", negocio_id: "adm-neg-3", monto: 89.9, moneda: "PEN", metodo_pago: "yape", culqi_cargo_id: "chr_mock_7", estado: "exitoso", created_at: haceMeses(0, 20) },
+  { id: "pago-8", negocio_id: "adm-neg-4", monto: 89.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_8", estado: "exitoso", created_at: haceMeses(2, 5) },
+];
+
 export const MOCK_COTIZACION_ITEMS: CotizacionItem[] = [
   { id: "coti-1", cotizacionId: "cot-1", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
 ];

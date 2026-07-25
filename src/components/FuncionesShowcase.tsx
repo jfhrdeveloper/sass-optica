@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { SegmentedControl } from "@/components/SegmentedControl";
 
 /* Sección de funciones con pestañas + vista previa del panel — patrón
    tomado de la landing de Finegym (competidor real del rubro, research de
@@ -182,21 +183,14 @@ export function FuncionesShowcase() {
 
   return (
     <div>
-      <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
-        {MODULOS.map((m) => (
-          <button
-            key={m.clave}
-            onClick={() => setActiva(m.clave)}
-            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
-              activa === m.clave
-                ? "border-primary bg-primary text-white"
-                : "border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-slate-100"
-            }`}
-          >
-            {m.tab}
-          </button>
-        ))}
-      </div>
+      {/* Un solo bloque con indicador deslizante (antes: 7 píldoras sueltas
+          que se prendían y apagaban) — ver SegmentedControl.tsx. */}
+      <SegmentedControl
+        aria-label="Módulos del sistema"
+        opciones={MODULOS.map((m) => ({ valor: m.clave, label: m.tab }))}
+        valor={activa}
+        onChange={setActiva}
+      />
 
       <div className="mx-auto mt-10 grid max-w-4xl items-center gap-10 sm:grid-cols-2">
         <div>

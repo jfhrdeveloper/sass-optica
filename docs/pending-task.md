@@ -56,6 +56,25 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
 - [ ] Campañas de email (`/dashboard/marketing`) son SOLO scaffold — no hay proveedor de email
       conectado (Resend/Postmark vía Marketplace de Vercel); "Enviar" no manda correos reales
       todavía, ver bitácora (8)
+- [ ] Gestión de `super_admins` sigue siendo manual por SQL Editor a propósito (ver bitácora
+      2026-07-25 (1)) — no hay UI para dar de alta/baja accesos de este nivel, es deliberadamente
+      de mayor fricción que el resto del alta de usuarios del proyecto
+- [ ] **Revisión legal profesional de `/legal`** — los textos de Términos y Política de privacidad
+      existen y están redactados según la Ley N° 29733, pero NO los revisó un abogado. Es
+      obligatorio antes de operar con clientes reales: se tratan datos de salud (graduaciones y
+      recetas), que la ley clasifica como dato sensible con protección reforzada.
+- [x] Datos de contacto reales cargados en `src/lib/contacto.ts` (WhatsApp `51931314659`,
+      correo `jfhrdeveloper@gmail.com`) — ver bitácora 2026-07-25 (7)
+- [x] Oferta anual: resuelto con una unión discriminada (`OFERTA_ANUAL`) que hace imposible
+      configurar descuento Y meses gratis a la vez. Activo hoy: `{ tipo: "meses_gratis", meses: 2 }`
+- [ ] **Definir el RUC y el régimen tributario** (consultado en la sesión (7), sin decidir): RUC 10
+      (persona natural) es inmediato pero se responde con patrimonio personal; RUC 20 (EIRL/SAC)
+      separa el patrimonio, que pesa más de lo normal acá porque se custodian datos de salud de
+      pacientes de terceros. En ambos casos se puede operar con un **nombre comercial** distinto de
+      la razón social. Confirmar con un contador; de esta decisión depende también qué nombre ve el
+      cliente en el cobro de Culqi (el descriptor del comercio se registra en el onboarding de Culqi).
+- [ ] Tests de RLS (aislamiento entre ópticas) — el riesgo real del producto sigue sin cobertura;
+      necesita el proyecto Supabase creado para poder correrlos
 
 ## Ideas de UX de research de competencia (OkVet / Finegym) — ✅ LAS 13 IMPLEMENTADAS
 Research hecho en vivo contra las apps reales (landing + señal de cuenta creada + dashboard
@@ -109,6 +128,328 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-25 (7) — Oferta anual excluyente, datos de contacto reales, FAB de WhatsApp y crédito de autoría
+- **Qué cambió:** el usuario pidió cerrar la contradicción de la oferta anual, cargar sus datos
+  reales y sumar el crédito de autoría. Se explicó el plan ANTES de tocar código (a pedido
+  explícito: "antes de iniciar dime lo que harás") y se confirmaron dos decisiones con él:
+  1. **La oferta anual ahora es UNA sola, garantizado por el tipo** (`src/lib/precios.ts`):
+     `OFERTA_ANUAL` pasó de dos constantes sueltas (`DESCUENTO_ANUAL` + `MESES_GRATIS_ANUAL`, que
+     se comunicaban juntas y se contradecían — 30% ≈ 3.6 meses, no 2) a una **unión discriminada**:
+     `{ tipo: "descuento", porcentaje }` | `{ tipo: "meses_gratis", meses }`. TypeScript hace
+     imposible configurar ambas. El precio anual, el badge del toggle (`etiquetaOferta()`) y la
+     frase explicativa (`descripcionOferta()`) se derivan del tipo elegido y **siempre hablan en
+     la misma unidad**. Elegido por el usuario: `{ tipo: "meses_gratis", meses: 2 }` → vuelve a
+     S/899 y S/1499 (mensual × 10), que era el precio original y es el estándar del rubro.
+  2. **Datos reales** en `src/lib/contacto.ts`: WhatsApp `51931314659` (el `51` es el prefijo de
+     Perú; wa.me exige formato internacional sin `+` ni espacios) y `jfhrdeveloper@gmail.com`.
+  3. **`WhatsAppFab.tsx` (nuevo)**: botón flotante abajo a la derecha, solo en la landing (en el
+     dashboard estorbaría sobre las tablas). Server Component — es un `<a>` con href fijo, el
+     tooltip que se expande al hover es CSS puro. Verde oficial de WhatsApp a propósito, no la
+     paleta de marca: el color ES la señal de qué hace el botón.
+  4. **`CreditoJFHR.tsx` (nuevo)**: "Desarrollado por JFHR" → `jfhrdeveloper.com`, en el footer de
+     la landing y al pie de las TRES pantallas de acceso (login y registro de negocios, login del
+     panel del SaaS). Va del lado del formulario y no en el panel de marca porque ese panel está
+     oculto en móvil (`hidden md:flex`) y el crédito desaparecería en el celular.
+  - **Bug encontrado en la verificación**: en móvil el FAB de WhatsApp tapaba el link "Política de
+     privacidad" de la última fila del footer, dejándolo sin poder clickear. Corregido con
+     `pb-24 sm:pb-8` en el footer; verificado programáticamente comparando los `boundingBox` de
+     ambos elementos, no solo mirando la captura.
+  - `npm test` (38/38), `build`, `lint` y `tsc --noEmit` limpios. Verificado con Playwright: badge
+    "2 meses gratis" con precios S/899/S/1499, frase de oferta en la misma unidad, href real de
+    WhatsApp, crédito visible en las 3 pantallas de acceso, y el footer móvil sin solape.
+- **Por qué:** pedido explícito del usuario, que además pidió confirmar el entendimiento y el plan
+  antes de implementar.
+- **Pendiente:** los textos legales de `/legal` los va a redactar el propio usuario (la estructura
+  y el ruteo ya están listos, solo se reemplaza la prosa). Queda sin decidir el RUC/régimen
+  tributario — ver el pendiente activo nuevo arriba, del que depende qué nombre ve el cliente en
+  el cobro de Culqi.
+
+### 2026-07-25 (6) — Radio único de botón, segmented control deslizante, oferta anual, legales y PRIMEROS TESTS
+- **Qué cambió:** el usuario pidió implementar todo lo recomendado en el análisis del proyecto
+  (salvo lo que depende de Supabase) más varios ajustes de UI concretos:
+  1. **Un solo radio de botón en todo el sitio**: `.btn-primary`/`.btn-outline` pasaron de
+     `rounded-lg` a `rounded-full` en `globals.css`. Antes los únicos `rounded-full` eran los dos
+     botones del navbar, puestos a mano en el JSX — ahora es el default y esos overrides sueltos
+     se borraron. Un solo punto de cambio, sin tocar botón por botón.
+  2. **`SegmentedControl.tsx` (nuevo, reutilizable)**: un solo bloque (track) con una píldora que
+     se DESLIZA entre opciones. Reemplaza las 7 píldoras sueltas de las pestañas de funciones y
+     el toggle Mensual/Anual de precios (que ya era un segmented control pero sin animación).
+     - El indicador se posiciona escribiendo `transform`/`width` sobre el nodo vía ref, **no con
+       estado de React**: es una medida derivada del DOM ya pintado; pasarla por estado sumaría un
+       render por cada cambio y chocaría con la regla `react-hooks/set-state-in-effect` del
+       proyecto sin ganar nada. La transición se habilita recién tras el primer posicionamiento
+       (si no, al montar animaría desde `translateX(0)` con ancho 0 — se ve como un glitch).
+     - Re-mide en `resize`: los anchos cambian con el viewport y una medida única queda desfasada.
+  3. **Estado activo con contraste real**: el nav marcaba el link activo con fondo azul claro +
+     texto azul (todo el mismo tono, casi no se distinguía). Ahora es fondo primario sólido +
+     texto blanco, igual que el indicador del segmented control — "lo seleccionado" se ve igual
+     en toda la landing.
+  4. **Oferta anual configurable** (`src/lib/precios.ts`, nuevo): `DESCUENTO_ANUAL = 0.30` y
+     `MESES_GRATIS_ANUAL = 2` como constantes; el precio anual, el ahorro mostrado y el badge
+     "-30%" del toggle se DERIVAN de ellas (antes los montos anuales estaban escritos a mano en
+     el componente). El mensaje de "2 meses gratis" aparece solo al elegir Anual, justo encima de
+     la franja de confianza. La lógica salió del componente a `lib/` para poder testearla.
+  5. **Páginas legales reales** (`/legal?tab=terminos|privacidad`, patrón de ferdocs-web) +
+     **`AvisoTransparencia.tsx`** (modal desde el footer, contraparte del "aviso de transparencia"
+     de ferdocs — allá aclara que no son el Estado, acá cómo se tratan los datos de salud) +
+     `src/lib/contacto.ts` con WhatsApp/email/razón social configurables. Los tres "(pendiente)"
+     del footer se reemplazaron por links reales.
+  6. **PRIMEROS TESTS del proyecto** (vitest, entorno `node`, `npm test`): 38 tests sobre la
+     lógica pura que no depende de Supabase — `slug.ts` (es el subdominio del negocio y NO se
+     puede cambiar tras el registro, así que un slug mal generado es un error permanente),
+     `date.ts` (fija el bug de zona horaria de la sesión (12) para que nadie lo "simplifique" de
+     vuelta a `new Date()`) y `precios.ts` (aritmética de dinero mostrada al cliente). Los tests
+     de precios se escriben contra las CONSTANTES, no contra montos fijos: cambiar la oferta no
+     los rompe sin motivo.
+  - `npm test` (38/38), `npm run build`, `npm run lint` y `tsc --noEmit` limpios. Verificado con
+    Playwright: deslizamiento del indicador en funciones y en precios, badge -30% con precios
+    derivados (S/755.16 y S/1259.16), mensaje de meses gratis, modal de transparencia abriendo y
+    cerrando con Escape, ambas pestañas de `/legal`, y el dashboard/login con el radio nuevo de
+    botón (0 errores de consola en todas).
+- **Por qué:** pedido explícito de implementar el plan del análisis salvo lo que depende de crear
+  el proyecto Supabase real, más los ajustes de UI puntuales del mismo mensaje.
+- **Pendiente / a revisar con el usuario:**
+  - **Los textos legales NO están revisados por un abogado.** Son una base redactada según la Ley
+    N° 29733 y su reglamento, pero el tratamiento de datos de salud (graduaciones/recetas, dato
+    sensible) exige revisión profesional antes de operar con clientes reales. Está anotado también
+    dentro del propio `src/app/legal/page.tsx`.
+  - **`WHATSAPP_NUMERO` y `EMAIL_SOPORTE` son placeholders** (`51999999999`,
+    `soporte@saasoptica.pe`) en `src/lib/contacto.ts` — reemplazar por los reales antes de lanzar.
+  - **La oferta anual se contradice numéricamente:** 30% de descuento equivale a ~3.6 meses
+    gratis, no a 2. Hoy se comunican las dos cosas juntas (badge "-30%" + "2 meses gratis"), que
+    es contar el mismo beneficio dos veces y además subvalúa la oferta. Se implementó tal cual se
+    pidió y ambos valores son constantes, así que ajustarlo es cambiar una línea — pero conviene
+    decidir si el mensaje es el descuento O los meses, no ambos.
+  - Los tests cubren lógica pura; **la RLS (el aislamiento entre ópticas, que es el riesgo real
+    del producto) sigue sin cobertura** porque necesita un Supabase de verdad contra el cual
+    correr. Es el siguiente test a escribir apenas exista el proyecto.
+
+### 2026-07-25 (5) — Navbar "píldora flotante" + footer de 4 columnas (patrón ferdocs-web)
+- **Qué cambió:** el usuario pidió que el navbar de la landing fuera como el de su proyecto
+  hermano `ferdocs-web` (`../ferdocs-web/src/components/layout/Navbar.tsx`) y una recomendación
+  de footer. Se analizaron ambos componentes de ese proyecto y se portaron los patrones,
+  adaptados a la paleta de este (azul primario, no el gris "rosewood" de ferdocs):
+  1. **`LandingHeader.tsx` reescrito como píldora flotante**: `fixed` en vez de `sticky` (con
+     `sticky` la barra ocupa espacio en el flujo al inicio y empuja el hero, rompiendo el efecto
+     flotante — por eso el hero pasó de `py-20` a `pb-20 pt-32`). Transparente arriba →
+     `rounded-full` + `bg-white/80` + `backdrop-blur-xl` + sombra + borde al bajar, con
+     `pt-6`→`pt-4`. Divisores verticales que aparecen con el fondo. 2 CTAs (`Iniciar sesión`
+     outline + `Prueba gratis` sólido), ambos `rounded-full`.
+  2. **Estado activo por scroll-spy** (`IntersectionObserver` con `rootMargin` recortando a una
+     franja central): el link de la sección visible gana su propia píldora `bg-primary-light` +
+     `ring`. Es la adaptación del estado activo de ferdocs, que allá se deriva de `pathname`
+     porque tiene rutas reales; acá la landing es una sola página con anclas.
+     - **Caso borde encontrado y corregido**: la ÚLTIMA sección (`#contacto`, el footer) nunca
+       llega a la franja central del observer — se queda pegada al borde inferior del viewport,
+       así que "Contacto" no se marcaba activo NUNCA. Se agregó una comprobación de
+       "scroll al fondo" en el handler de scroll que fuerza la última sección.
+  3. **Menú móvil que antes no existía**: los links de sección eran `hidden sm:flex` sin
+     alternativa alguna — desde el celular no había forma de llegar a Funciones/Precios/Contacto.
+     Se agregó hamburguesa + panel lateral deslizante desde la derecha con overlay, bloqueo del
+     scroll de fondo y los 2 CTAs fijos abajo (mismo patrón que el panel móvil de ferdocs).
+  4. **Footer rehecho con la estructura de 4 columnas de ferdocs** (`Footer.tsx` de ese proyecto):
+     marca + descripción / Producto / Cuenta / Por qué nosotros (los 3 badges de confianza que
+     antes estaban sueltos en una línea), `<hr>` y barra inferior con copyright + legales. Antes
+     era una sola línea centrada de texto plano que se veía sin terminar.
+     - Se enlaza SOLO a rutas que existen (`#funciones`, `#precios`, `/login`, `/registro`);
+       términos/privacidad/WhatsApp siguen como texto marcado "(pendiente)" en vez de links
+       rotos, porque esas páginas no están construidas (ver Pendientes activos).
+  5. **`.nav-link-underline` renombrada a `.link-underline` y movida al footer**: el underline
+     izquierda→derecha que el usuario pidió en la sesión (4) era para el nav superior, pero el
+     patrón de ferdocs usa píldora de fondo en hover — las dos cosas juntas se ven cargadas. El
+     efecto se conservó aplicándolo a los links de columna del footer, donde no compite con nada.
+  - `npm run build`/`lint`/`tsc --noEmit` limpios. Verificado con Playwright: píldora transparente
+    → sólida en scroll, "Precios" marcándose activo al llegar a esa sección, "Contacto" activo al
+    fondo (aserción programática, no solo captura), panel móvil abriendo con overlay, footer de 4
+    columnas.
+- **Por qué:** pedido explícito del usuario de unificar el navbar con el de su otro proyecto, más
+  una recomendación de footer que se implementó directamente (mismo precedente de "IMPLEMENTA LO
+  QUE DICES" de la sesión (2)).
+- **Pendiente:** el navbar de ferdocs tiene 2 cosas más que NO se portaron por no aplicar todavía
+  acá — un buscador global con atajo `Ctrl+K`/`⌘K` (esta landing no tiene qué buscar; tendría
+  sentido dentro del dashboard, no en la landing) y un dropdown de sección con submenú (ferdocs
+  tiene 8 entidades; acá los 3 links caben planos). Revisar si el dashboard se beneficia del
+  buscador cuando haya datos reales.
+
+### 2026-07-25 (4) — Login admin: ancho + labels + Google real, underline nav, quitar "Ver funciones"
+- **Qué cambió:** feedback directo del usuario tras revisar el rediseño del login admin de la
+  sesión anterior — seguía sin verse igual al de negocios:
+  1. **Formulario "estirado" corregido**: el form del login admin ocupaba TODO el ancho de su
+     mitad de pantalla; `LoginForm` en `AuthPage.tsx` en cambio va en `mx-auto w-full max-w-sm`.
+     Se aplicó el mismo wrapper + labels arriba de cada input (antes solo placeholder, sin label).
+  2. **Botón "Continuar con Google" real, no decorativo** — `GoogleIcon`/`DivisorO` (antes
+     locales a `AuthPage.tsx`) se extrajeron a `src/components/auth/GoogleAuthUi.tsx`,
+     compartidos entre ambos logins. El botón funciona de verdad, no es solo visual:
+     - `src/app/auth/callback/route.ts` ahora chequea `super_admins` ANTES que `empleados` —
+       antes, un super_admin autenticándose con Google cascaba siempre a `/registro/completar`
+       (`empleados.negocio_id` es NULL para un super_admin, nunca tiene negocio).
+     - `src/proxy.ts`: el bloque del subdominio `admin` ahora deja pasar `/auth/callback` sin
+       exigir sesión (mismo criterio que `/auth/confirm` en el dominio raíz) — sin este bypass,
+       el exchange de código de Supabase (que crea la sesión) nunca llegaba a ejecutarse, porque
+       el gate "sin sesión → /login" del subdominio admin lo interceptaba antes.
+  3. **Underline de izquierda a derecha en el nav de la landing** (`Funciones`/`Precios`/
+     `Contacto`) — clase nueva `.nav-link-underline` en `globals.css` (`scaleX` + `transform-origin:
+     left`, no anima `width` a propósito, corre en el compositor).
+  4. **Botón "Ver funciones" del hero eliminado** (a un costado de "Prueba gratis 30 días") — a
+     pedido explícito, aclarando que la sección `#funciones` en sí y su link en el nav quedan
+     intactos, solo se quitó ese botón puntual del hero.
+  - `npm run build`/`lint`/`tsc --noEmit` limpios. Verificado con Playwright: ancho del form
+    (comparado visualmente con el login de negocios), botón de Google presente, login por email
+    sigue funcionando de punta a punta en modo mock, underline visible en hover, hero sin el
+    botón.
+- **Por qué:** el usuario señaló que el login admin seguía sin sentirse "igual" al de negocios
+  pese al rediseño de la sesión anterior — el gap real era el ancho del form + labels + Google,
+  no el layout general (panel de marca + form), que ya estaba bien.
+- **Pendiente:**
+  - Quedó una duda sin resolver del mismo mensaje del usuario ("al hacer hover en estos botones
+    se oscurece, es medio raro") — no se identificó con certeza a qué botones se refería
+    exactamente (candidato más probable: `.btn-primary` oscurece de `#2563EB` a `#1E40AF` en
+    hover, un patrón usado en TODO el sitio). Se dejó sin tocar a propósito para no cambiar un
+    patrón global sin confirmar qué se ve mal — pendiente de que el usuario aclare o mande una
+    captura.
+  - El usuario dejó material de diseño nuevo en `diseno-referencia/` (`MedTrackr Dashboard`,
+    `Optica Recsad Patterns`, `Oripio Calendar`, `Sidebar Nav`, `Zendenta Stocks`, + imágenes/
+    videos) — un fork quedó analizándolo en paralelo, resultado pendiente de revisar con el
+    usuario cuando termine.
+  - El flujo de Google para super_admins nunca se probó contra credenciales reales (Supabase real
+    + Google OAuth siguen sin configurar, ver "Pendientes activos" — mismo bloqueo que el resto
+    del proyecto). El bootstrapping de un super_admin vía Google (primero inicia sesión para
+    generar el `auth.users`, luego se inserta a mano en `super_admins` con ese UUID) no está
+    documentado todavía en el POST-INSTALACIÓN del schema — solo el flujo de email/password.
+
+### 2026-07-25 (3) — Cursor pointer global, navbar transparente, ancla tapada, login admin split-screen
+- **Qué cambió:** 4 correcciones puntuales pedidas por el usuario tras usar el sitio:
+  1. **Cursor pointer en botones, sitio completo** (`globals.css`, `@layer base`): el Preflight
+     de Tailwind v4 (y el UA stylesheet nativo) dejan `<button>` en `cursor: default` — solo
+     `<a>` trae `pointer` de fábrica. Confirmado con Playwright (`getComputedStyle`) que TODOS
+     los `<button>` del sitio (login, registro, slide-overs, toggles) tenían `cursor: default`;
+     "¿Olvidaste tu contraseña?", "Prueba gratis"/"Inicia sesión" (toggle login↔registro),
+     "Ingresar", "Continuar con Google", etc. Regla nueva `button:not(:disabled), [role="button"]
+     { cursor: pointer }` — corrige los mencionados y cualquier otro botón del proyecto de una
+     sola vez, sin parchear componente por componente.
+  2. **Navbar de la landing transparente** — nuevo `LandingHeader.tsx` (client component,
+     reemplaza el `<header>` inline de `page.tsx`). Primer intento (`bg-transparent` fijo) rompía
+     visualmente: verificado con Playwright que al hacer scroll el texto de las secciones de
+     abajo pasaba por detrás del nav y se superponía con los links ("lugar." del H1 solapado con
+     "Contacto"). Corregido con el patrón estándar: transparente solo en el tope (`scrollY <= 8`),
+     gana `bg-white/90 backdrop-blur` (mismo estilo que antes) recién al bajar — listener de
+     scroll con `useState`+`useEffect`.
+  3. **"Ver funciones" quedaba tapado por el navbar sticky** — la sección `#funciones` no tenía
+     `scroll-mt-*`, así que el ancla saltaba justo debajo del header (parcialmente oculta). Se
+     agregó `scroll-mt-20` a la sección. Verificado con Playwright: clic en "Ver funciones" ahora
+     deja "TODO LO QUE NECESITAS" completamente visible bajo el nav.
+  4. **Login del admin-panel sin el mismo lenguaje visual que el login de negocios** — antes era
+     una card centrada simple; `AuthPage.tsx` (login/registro de negocios) usa un patrón
+     split-screen con panel de marca en gradiente + círculos decorativos (sesión previa, "panel
+     split-screen animado"). Reescrito `admin-panel/login/page.tsx` con el mismo lenguaje visual
+     (gradiente `from-primary-dark via-primary to-primary-light`, círculos, heading + bullets con
+     `Check`, footer de copyright, cabecera compacta en mobile) — sin el toggle animado
+     login↔registro de `AuthPage.tsx`: el admin-panel no tiene alta self-service, un solo
+     formulario no necesitaba esa complejidad.
+  - `npm run build`/`lint`/`tsc --noEmit` limpios. Verificado con Playwright: cursor pointer
+    (`getComputedStyle`), navbar transparente→sólido en scroll (capturas antes/después), ancla de
+    funciones sin solape, login admin en desktop y mobile, y el flujo de login completo
+    (mock → redirige a `/admin-panel`) tras el rediseño.
+- **Por qué:** feedback directo del usuario tras probar la landing y ambos logins ("IMPLEMENTA LO
+  QUE DICES" en el mensaje anterior ya había sentado el precedente de aplicar sin pedir
+  confirmación intermedia).
+- **Pendiente:** nada nuevo.
+
+### 2026-07-25 (2) — Research de diseño de Finegym + 3 ajustes de landing
+- **Qué cambió:** un fork analizó el DISEÑO VISUAL (paleta/tipografía/componentes reales vía
+  `getComputedStyle()`, no solo el HTML) del material de Finegym en `diseno-referencia/`,
+  comparado contra `docs/style-guide.md`. Halló que el azul primario de Finegym coincide
+  exactamente con `--color-primary` (sin gap), que su tipografía no vale la pena copiar (usa el
+  stack default del navegador, no una fuente custom real pese al `<link>`), y que su tabla de
+  precios distingue el plan destacado SOLO con un `ring-2` de color, sin invertir el fondo de la
+  card. A pedido explícito del usuario ("IMPLEMENTA LO QUE DICES") se aplicaron 2 de las 3
+  recomendaciones (la 3ª ya estaba implementada):
+  1. **Eyebrow en el hero** (`src/app/page.tsx`): línea "SOFTWARE PARA ÓPTICAS PERUANAS" en
+     `text-primary` sobre el H1, mismo patrón de clase que ya usaba la sección de Funciones.
+  2. **Tarjeta de plan destacado sin relleno** (`PreciosSection.tsx`): el plan Premium pasó de
+     `bg-primary` sólido + texto blanco a `card` normal + `ring-2 ring-primary`, con el botón
+     "Empezar gratis" como `btn-primary` (antes botón blanco sobre fondo azul). Se ve más
+     consistente con el resto de cards del sitio y menos "grito visual".
+  3. **CTA final full-bleed en azul oscuro** — el fork lo marcó como recomendación, pero
+     revisando el código ya existía (`bg-primary-dark` a pantalla completa antes del footer,
+     construido en una sesión anterior). No se tocó, solo se confirmó.
+  - Además se corrigió una desactualización real que encontró el fork: `docs/style-guide.md`
+    decía "modo oscuro desactivado a propósito" cuando en realidad está implementado de verdad
+    desde la sesión 2026-07-24 (9) (toggle, persistencia, `dark:` en todas las clases
+    reutilizables) — el doc nunca se había actualizado después de esa sesión.
+  - `npm run build`/`lint`/`tsc --noEmit` limpios. Verificado con Playwright (hero, precios, CTA
+    final) que los 2 cambios visuales renderizan como se esperaba.
+- **Por qué:** el usuario pidió analizar el diseño de Finegym en un fork (separado del análisis
+  de contenido/precios de la sesión anterior) y luego implementar directamente las
+  recomendaciones resultantes, sin paso intermedio de confirmación.
+- **Pendiente:** nada nuevo — mismos pendientes que el resto del proyecto (ver "Pendientes
+  activos" arriba, todo sigue en modo mock sin Supabase/Culqi real).
+
+### 2026-07-25 (1) — Admin panel completo: sidebar, negocios, detalle + suspender, pagos + MRR
+- **Qué cambió:** el usuario preguntó cómo visualizar el panel admin (Fase 5) sin credenciales
+  reales, y luego pidió explícitamente ampliarlo ("dime que mas se puede añadir" → eligió "todo"
+  en una pregunta de priorización). Dos partes:
+  1. **Modo mock extendido al admin-panel** (antes solo cubría el dashboard de negocio): cookie
+     separada `mock_admin_session` (credenciales `admin@saas.pe`/`admin1234`), gate por cookie en
+     `admin-panel/(protegido)/layout.tsx` igual que `dashboard/layout.tsx`, datos falsos nuevos en
+     `mock-data.ts` (`MOCK_ADMIN_NEGOCIOS/SUSCRIPCIONES/EMPLEADOS/PAGOS`, 5 negocios con estados
+     variados incluido uno a 3 días de vencer el trial).
+  2. **Admin panel real, no solo el resumen de una página que ya existía:**
+     - `AdminShell`/`AdminNav` (nuevos, `src/components/`): sidebar fijo propio del namespace
+       admin-panel (Resumen/Negocios/Pagos), sin depender de `DataProvider`/`SessionProvider`
+       (esos son del namespace de negocio). `admin-panel/layout.tsx` perdió su wrapper
+       `max-w-4xl` (ahora cada sub-área trae el suyo: `AdminShell` o el login centrado).
+     - Login del admin (`admin-panel/login/page.tsx`) rediseñado: card centrada, ícono de marca,
+       tipografía `font-display`, consistente con el resto del sitio (antes era un form suelto
+       sin ningún tratamiento visual).
+     - `/admin-panel/negocios` (nuevo): tabla completa vía `NegociosTable.tsx` — búsqueda,
+       filtro por estado incluido **"por vencer"** (trial a ≤7 días, `badge-warning "Vence en Nd"`).
+     - `/admin-panel/negocios/[id]` (nuevo): detalle cross-tenant — datos de contacto, lista de
+       empleados, suscripción, historial de pagos, y `SuspenderNegocioButton` (reversible,
+       `negocios.activo`, mismo criterio que la "Zona de peligro" del dashboard de negocio).
+     - `/api/admin/negocios/toggle-activo` (nuevo): la acción de suspender/reactivar, autorizada
+       por membresía en `super_admins` (server-side, `admin.ts`).
+     - `pagos_saas` (tabla nueva en `supabase-schema.sql`): registro individual de cada cobro de
+       Culqi (monto/método/`culqi_cargo_id` único) — `suscripciones` solo tenía el estado
+       agregado, no alcanzaba para "quién pagó, cuánto y cómo". La insertan tanto
+       `/api/pagos/culqi/cargo` (vía primaria) como `/api/webhooks/culqi` (respaldo async);
+       `culqi_cargo_id` UNIQUE evita duplicar si ambos caminos confirman el mismo cargo. RLS
+       deny-all para anon/authenticated (solo `service_role` la toca).
+     - `/admin-panel/pagos` (nuevo): tabla cross-tenant de pagos + `MrrBarChart.tsx` (gráfico de
+       barras de una sola serie, sin librería nueva — solo 4-6 puntos no lo justificaba; se
+       consultó la skill `dataviz` para los criterios de mark spec/color/tooltip).
+     - `/admin-panel` (resumen, reescrito): quitó la tabla cruda de negocios (ahora vive en su
+       propia página con mejor UI) y sumó tarjeta "Por vencer" + lista de trials próximos a
+       vencer + MRR estimado recalculado por precio real de cada plan (antes usaba
+       `CULQI_MONTO_PLAN_PRO_CENTIMOS`, una constante de un solo plan que quedó obsoleta desde
+       que hay 2 planes pagos — ver bitácora 2026-07-24 (12)).
+  - **2 bugs propios encontrados y corregidos en el camino:**
+    a) El primer intento de "suspender/reactivar" en modo mock mutaba el array
+       `MOCK_ADMIN_NEGOCIOS` directamente en memoria — funcionaba en teoría pero **no en la
+       práctica**: verificado con `curl` que el route handler y el Server Component que renderiza
+       la página no comparten de forma confiable la misma instancia de módulo bajo Turbopack en
+       dev, así que la mutación se perdía. Corregido con una cookie de "overrides"
+       (`mock_negocios_override`, `mock-admin-overrides.ts`) — estado real compartido entre
+       requests en vez de depender de un singleton de módulo. Re-verificado con `curl`
+       (cookie jar) de punta a punta: suspender → aparece "Inactivo" en la lista y el detalle →
+       reactivar → desaparece.
+    b) El gráfico de MRR no pintaba ninguna barra (verificado con Playwright, no se notaba solo
+       con `build`/`lint`): la altura estaba en `%` sobre una columna flex hija de un contenedor
+       con `items-end`, que se encoge a su contenido — sin alto "definido" en el sentido del spec
+       de CSS, el `%` colapsaba a 0. Corregido calculando la altura en píxeles fijos en el
+       servidor (no hay ambigüedad de layout con un valor absoluto).
+  - `npm run build`/`npm run lint`/`tsc --noEmit` limpios. Verificado con Playwright (headless,
+    claro y oscuro) contra las 5 rutas nuevas/reescritas en modo mock: login → resumen → negocios
+    → detalle → pagos, más el flujo completo de suspender/reactivar vía `curl` con cookie jar.
+- **Por qué:** el usuario quería ver el panel admin sin depender de Supabase real, y al mostrarle
+  el gap (solo tenía una página resumen) pidió ampliarlo con todo lo que hiciera falta para que
+  se sintiera completo — priorizó explícitamente "todo de una vez" sobre ir por partes.
+- **Pendiente:** nada de esto se ha probado contra Supabase/Culqi reales (sigue en modo mock) —
+  en particular, el shape exacto de la respuesta de Culqi que alimenta `metodo_pago`/
+  `culqi_cargo_id` en `pagos_saas` (`cargo?.source?.type`) es la mejor lectura disponible sin
+  credenciales reales, igual que el resto de la integración Culqi (ver "Pendientes activos").
+  Gestión de `super_admins` sigue sin UI a propósito (ver pendiente nuevo arriba).
 
 ### 2026-07-24 (12) — Rediseño de tablas del dashboard, toasts/paginación/switch/focus-ring, formato de fecha PE y precios reales
 - **Qué cambió:** a pedido explícito del usuario ("la lista se ve horrible" en clientes/stock/

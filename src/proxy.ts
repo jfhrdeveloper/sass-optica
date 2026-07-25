@@ -129,6 +129,17 @@ export async function proxy(request: NextRequest) {
       return reescribir(destino);
     }
 
+    /* Google "Iniciar sesión" del admin-panel (ver admin-panel/login/page.tsx)
+       redirige a admin.dominio/auth/callback?code=... — esa ruta real vive
+       en src/app/auth/callback/*, no en admin-panel/. En ese punto de la
+       request la sesión TODAVÍA no existe (el exchange de código pasa
+       dentro del propio route handler): sin este bypass, el `if (!user)`
+       de abajo la mandaría a /login antes de completar el login. Mismo
+       criterio que /auth/confirm para el dominio raíz, más arriba. */
+    if (pathname.startsWith("/auth/callback")) {
+      return supabaseResponse;
+    }
+
     if (!user) {
       return redirigir(new URL("/login", request.url));
     }
