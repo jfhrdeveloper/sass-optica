@@ -121,6 +121,32 @@ create trigger trg_empleados_lock_tenant
   before update on public.empleados
   for each row execute function public.bloquear_cambio_tenant_empleado();
 
+-- Un self-update (policy empleados_self_update más abajo, `using (id =
+-- auth.uid())`) nunca puede tocar rol/permisos — esa policy solo filtra POR
+-- FILA, no por columna, así que sin este trigger cualquier trabajador o
+-- encargado podría auto-ascenderse a administrador con un UPDATE directo
+-- (vía supabase-js) sobre su propia fila, sin pasar por ninguna pantalla.
+-- Un administrador gestionando a OTRO empleado entra por
+-- empleados_admin_update (auth.uid() distinto de la fila objetivo) y no
+-- pasa por acá. service_role (altas/invitaciones, admin.ts) queda exento
+-- explícitamente — BYPASSRLS salta las policies pero NO los triggers.
+create or replace function public.bloquear_autoescalada_empleado()
+returns trigger language plpgsql
+set search_path = public as $$
+begin
+  if (new.rol is distinct from old.rol or new.permisos is distinct from old.permisos)
+     and auth.uid() = old.id
+     and coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'No puedes modificar tu propio rol o permisos.';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_empleados_lock_privilegios on public.empleados;
+create trigger trg_empleados_lock_privilegios
+  before update on public.empleados
+  for each row execute function public.bloquear_autoescalada_empleado();
+
 -- suscripciones (una por negocio: trial → básico/premium vía Culqi) --------
 create table if not exists public.suscripciones (
   id                     uuid primary key default gen_random_uuid(),
@@ -363,10 +389,17 @@ create table if not exists public.clientes (
   fecha_nacimiento date,
   direccion        text,
   notas            text,
+  -- Papelera (soft delete): NULL = activo. "Eliminar" desde la UI solo
+  -- setea esta columna; la fila se purga sola a los 30 días
+  -- (purgar_clientes_papelera(), más abajo) o antes si alguien la borra a
+  -- mano desde la papelera. citas/recetas siguen en cascada al PURGAR, no
+  -- al mandar a papelera (ver comentario en purgar_clientes_papelera).
+  eliminado_en     timestamptz,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
 create index if not exists idx_clientes_negocio    on public.clientes(negocio_id);
+create index if not exists idx_clientes_eliminado  on public.clientes(eliminado_en) where eliminado_en is not null;
 create index if not exists idx_clientes_apellidos  on public.clientes(apellidos);
 
 -- Citas / turnos ----------------------------------------------------------
@@ -379,6 +412,10 @@ create table if not exists public.citas (
   motivo       text,
   estado       estado_cita not null default 'programada',
   notas        text,
+  -- Duración en minutos: NULL = no especificada (la UI asume 30 min). Se
+  -- llena al agendar arrastrando en la vista Día/N días/Semana (de la hora
+  -- X a la hora Y) o eligiéndola a mano en el formulario.
+  duracion_min integer,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
@@ -831,6 +868,29 @@ exception when others then null; end $$;
 
 select cron.schedule('opticaly_revisar_trials', '0 3 * * *',
   $$ select public.revisar_trials_vencidos(); $$);
+
+-- ================================================================
+-- pg_cron: purga diaria de la papelera de clientes (más de 30 días
+-- eliminados) — el DELETE real dispara la cascada a citas/recetas y queda
+-- registrado en audit_log vía trg_audit_clientes, así que la purga sigue
+-- siendo trazable aunque ya no se pueda restaurar.
+-- ================================================================
+create or replace function public.purgar_clientes_papelera()
+returns void language plpgsql security definer
+set search_path = public as $$
+begin
+  delete from public.clientes
+   where eliminado_en is not null
+     and eliminado_en < now() - interval '30 days';
+end $$;
+
+revoke execute on function public.purgar_clientes_papelera() from public, anon, authenticated;
+
+do $$ begin perform cron.unschedule('opticaly_purgar_clientes_papelera');
+exception when others then null; end $$;
+
+select cron.schedule('opticaly_purgar_clientes_papelera', '0 4 * * *',
+  $$ select public.purgar_clientes_papelera(); $$);
 
 -- ================================================================
 -- REALTIME + REPLICA IDENTITY FULL

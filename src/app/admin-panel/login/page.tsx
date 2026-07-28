@@ -141,7 +141,10 @@ export default function AdminLoginPage() {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/50">© {new Date().getFullYear()} SaaS Óptica</p>
+        <div className="relative flex flex-col gap-1.5">
+          <p className="text-xs text-white/50">© {new Date().getFullYear()} SaaS Óptica</p>
+          <CreditoJFHR variant="brand" align="left" />
+        </div>
       </div>
 
       {/* ====== Formulario — anclado a la izquierda (mismo lado que
@@ -190,9 +193,9 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          <Link href="/" className="mt-6 inline-block text-xs font-medium link">← Volver al sitio</Link>
+          <Link href="/" className="link-underline mt-6 inline-block text-xs font-medium link">← Volver al sitio</Link>
 
-          <CreditoJFHR className="mt-8" />
+          <CreditoJFHR className="mt-8 md:hidden" />
         </div>
       </div>
     </div>

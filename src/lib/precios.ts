@@ -44,6 +44,7 @@ export const PLANES: Plan[] = [
       "Clientes, citas y recetas",
       "Ventas, inventario y gastos",
       "Proveedores, cotizaciones e informes",
+      "Marketing (campañas de email)",
       "Empleados ilimitados",
     ],
   },

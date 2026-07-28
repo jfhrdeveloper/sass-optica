@@ -5,12 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, CalendarDays, Package, ShoppingCart,
-  Wallet, UserCog, LogOut, Settings, Tag, Megaphone, Truck, FileText, BarChart3,
+  Wallet, UserCog, Settings, Tag, Megaphone, Truck, FileText, BarChart3,
   PanelLeftClose, PanelLeftOpen, ChevronDown,
 } from "lucide-react";
-import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 type Restriccion = { soloAdmin?: boolean; permiso?: string };
 type Hijo = Restriccion & { href: string; label: string; icon: typeof LayoutDashboard };
@@ -22,9 +20,7 @@ type NavItem =
    tramys-rrhh/src/components/layout/Sidebar.tsx, a pedido explícito del
    usuario): ítems sueltos de alto uso quedan siempre visibles; los que se
    pueden agrupar quedan detrás de un acordeón (un solo grupo abierto a la
-   vez, se auto-expande el que contiene la ruta activa). El conector tipo
-   árbol (ver diseno-referencia/sidebardmodelo.webp) solo se dibuja sobre
-   los hijos de un grupo ABIERTO, no sobre los links sueltos. */
+   vez, se auto-expande el que contiene la ruta activa). */
 const NAV: NavItem[] = [
   { kind: "link", href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { kind: "link", href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -67,8 +63,7 @@ const NAV: NavItem[] = [
    nunca se desincronizan. */
 export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onToggle: () => void }) {
   const pathname = usePathname();
-  const { negocio } = useData();
-  const { empleado, signOut } = useSession();
+  const { empleado } = useSession();
   const esAdmin = empleado?.rol === "administrador";
   const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
   const puedeVer = (i: Restriccion) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso);
@@ -93,7 +88,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
   const grupoAbierto = override && override.path === pathname ? override.key : grupoPorDefecto;
   const alternarGrupo = (key: string) => setOverride({ path: pathname, key: grupoAbierto === key ? null : key });
 
-  function filaLink(href: string, label: string, Icon: typeof LayoutDashboard, activo: boolean) {
+  function filaLink(href: string, label: string, Icon: typeof LayoutDashboard, activo: boolean, esHijo = false) {
     return (
       <Link
         key={href}
@@ -107,7 +102,14 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
             : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
         }`}
       >
-        <Icon size={18} strokeWidth={activo ? 2.5 : 2} />
+        {esHijo ? (
+          <span
+            aria-hidden="true"
+            className={`h-1 w-1 shrink-0 rounded-full ${activo ? "bg-primary/50" : "bg-slate-300 dark:bg-slate-600"}`}
+          />
+        ) : (
+          <Icon size={18} strokeWidth={activo ? 2.5 : 2} />
+        )}
         {!colapsado && label}
       </Link>
     );
@@ -119,24 +121,24 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
         colapsado ? "w-16" : "w-60"
       }`}
     >
+      {/* Identidad del negocio/empleado y ThemeToggle viven en
+          DashboardTopbar.tsx — este header queda solo con la marca de la
+          app (genérica, no del tenant) y el botón de colapsar, así el
+          sidebar es puramente navegación. */}
       <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-3 py-4 dark:border-slate-800">
         {!colapsado && (
-          <div className="min-w-0 pl-1">
-            <p className="truncate font-display text-base text-slate-900 dark:text-slate-100">{negocio?.nombre ?? "Panel"}</p>
-            <p className="truncate text-xs text-slate-400 dark:text-slate-500">{empleado?.nombres} {empleado?.apellidos}</p>
-          </div>
+          <span className="truncate pl-1 font-display text-base text-slate-900 dark:text-slate-100">SaaS Óptica</span>
         )}
-        <div className={`flex items-center gap-1 ${colapsado ? "w-full justify-center" : "shrink-0"}`}>
-          {!colapsado && <ThemeToggle />}
-          <button
-            onClick={onToggle}
-            className="flex items-center justify-center rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            aria-label={colapsado ? "Expandir menú" : "Colapsar menú"}
-            title={colapsado ? "Expandir menú" : "Colapsar menú"}
-          >
-            {colapsado ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
-        </div>
+        <button
+          onClick={onToggle}
+          className={`flex items-center justify-center rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${
+            colapsado ? "w-full" : "shrink-0"
+          }`}
+          aria-label={colapsado ? "Expandir menú" : "Colapsar menú"}
+          title={colapsado ? "Expandir menú" : "Colapsar menú"}
+        >
+          {colapsado ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-4">
@@ -163,7 +165,6 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
 
           const abierto = grupoAbierto === item.key;
           const activo = grupoTieneActivo(hijos);
-          const conLineas = hijos.length > 1;
           const Icon = item.icon;
 
           return (
@@ -182,26 +183,10 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
               </button>
 
               {abierto && (
-                <div className="relative ml-4 mt-0.5 space-y-0.5 px-2">
-                  {/* Tronco: `left-2` cae justo en el borde izquierdo de cada
-                      fila (misma cuenta que el `px-2` de este contenedor), así
-                      coincide con el origen `left-0` de las ramas de abajo —
-                      sin ese calce ambas líneas quedan descuadradas. */}
-                  {conLineas && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute top-[17px] bottom-[17px] left-2 w-px rounded-full bg-slate-200 dark:bg-slate-700"
-                    />
-                  )}
+                <div className="ml-4 mt-0.5 space-y-0.5 px-2">
                   {hijos.map((h) => (
-                    <div key={h.href} className="relative">
-                      {conLineas && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2 rounded-full bg-slate-200 dark:bg-slate-700"
-                        />
-                      )}
-                      {filaLink(h.href, h.label, h.icon, esActivo(h.href))}
+                    <div key={h.href}>
+                      {filaLink(h.href, h.label, h.icon, esActivo(h.href), true)}
                     </div>
                   ))}
                 </div>
@@ -210,19 +195,6 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
           );
         })}
       </nav>
-
-      <div className="border-t border-slate-100 p-2 dark:border-slate-800">
-        <button
-          onClick={signOut}
-          title={colapsado ? "Cerrar sesión" : undefined}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800 ${
-            colapsado ? "justify-center" : ""
-          }`}
-        >
-          <LogOut size={18} />
-          {!colapsado && "Cerrar sesión"}
-        </button>
-      </div>
     </aside>
   );
 }

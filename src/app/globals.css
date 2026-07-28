@@ -59,6 +59,21 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Respeta `prefers-reduced-motion` en TODO el sitio. Cubre esta animación
+   CSS (`.page-enter`) y sirve de defensa en profundidad para el resto del
+   proyecto — las animaciones de framer-motion de la landing (`HeroSection`,
+   `Reveal`, `LandingHeader`) ya lo manejan aparte vía `MotionConfig
+   reducedMotion="user"` en `LandingMotionProvider.tsx`, pero esta regla no
+   dependía de ninguna librería y no existía. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -143,6 +158,11 @@ input[type="number"]::-webkit-inner-spin-button {
            bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors
            hover:bg-slate-50 disabled:opacity-50
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-2
+           text-sm font-medium text-white transition-colors hover:bg-red-700
+           disabled:opacity-50;
   }
   .card {
     @apply rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow duration-150

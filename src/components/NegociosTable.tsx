@@ -6,6 +6,7 @@ import { Search, Building2, ChevronRight } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
+import { coincideBusqueda } from "@/lib/texto";
 
 export type NegocioFila = {
   id: string;
@@ -47,7 +48,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
   }
 
   const filtrados = negocios
-    .filter((n) => `${n.nombre} ${n.subdominio}`.toLowerCase().includes(busqueda.toLowerCase()))
+    .filter((n) => coincideBusqueda(`${n.nombre} ${n.subdominio}`, busqueda))
     .filter((n) => {
       switch (filtro) {
         case "todos": return true;

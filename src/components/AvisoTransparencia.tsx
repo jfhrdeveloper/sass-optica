@@ -10,8 +10,11 @@ import { X } from "lucide-react";
    graduación y las recetas son datos sensibles bajo la Ley N° 29733, y a un
    dueño de óptica le pesa saber quién puede verlos.
 
-   Modal propio y no una librería: el proyecto no usa framer-motion (ferdocs
-   sí) y no vale la pena sumar una dependencia por una transición de opacidad. */
+   Modal propio, no framer-motion: esta pantalla puntual (una sola transición
+   de opacidad) no lo justificaba. La landing SÍ usa framer-motion desde la
+   sesión de animaciones de entrada/scroll (`HeroSection.tsx`, `Reveal.tsx`,
+   `LandingMotionProvider.tsx`) — este modal se queda con su implementación
+   propia porque no la necesita, no por seguir evitando la librería. */
 export function AvisoTransparencia() {
   const [abierto, setAbierto] = useState(false);
 

@@ -107,7 +107,10 @@ export function AuthPage({ modoInicial }: { modoInicial: Modo }) {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/50">© {new Date().getFullYear()} SaaS Óptica</p>
+        <div className="relative flex flex-col gap-1.5">
+          <p className="text-xs text-white/50">© {new Date().getFullYear()} SaaS Óptica</p>
+          <CreditoJFHR variant="brand" align="left" />
+        </div>
       </div>
 
       {/* ====== Formulario: Login — anclado a la izquierda, siempre ====== */}
@@ -281,7 +284,7 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
               <input type="checkbox" checked={recordarme} onChange={(ev) => setRecordarme(ev.target.checked)} className="checkbox" />
               Recuérdame
             </label>
-            <button type="button" onClick={() => { setModoReset(true); setResetMensaje(null); }} className="text-xs font-medium link">
+            <button type="button" onClick={() => { setModoReset(true); setResetMensaje(null); }} className="link-underline text-xs font-medium text-primary">
               ¿Olvidaste tu contraseña?
             </button>
           </div>
@@ -315,10 +318,10 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
 
       <p className="mt-6 text-sm text-slate-600 dark:text-slate-300">
         ¿No tienes cuenta?{" "}
-        <button type="button" onClick={onIrARegistro} className="font-medium link">Prueba gratis</button>
+        <button type="button" onClick={onIrARegistro} className="link-underline font-medium text-primary">Prueba gratis</button>
       </p>
 
-      <CreditoJFHR className="mt-8" />
+      <CreditoJFHR className="mt-8 md:hidden" />
     </div>
   );
 }
@@ -443,8 +446,8 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
 
   return (
     <div className="mx-auto w-full max-w-sm">
-      <h1 className="font-display text-2xl text-slate-900 dark:text-slate-100">Prueba gratis 30 días</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sin tarjeta de crédito · Cancela cuando quieras</p>
+      <h1 className="font-display text-2xl text-slate-900 dark:text-slate-100">Crea tu cuenta gratis</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sin tarjeta de crédito · Gratis para siempre</p>
 
       {/* mt-6: sin este margen el stepper queda pegado al subtítulo (no tiene
          un header de panel arriba como en el SlideOver, que sí trae su
@@ -583,10 +586,10 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
 
       <p className="mt-6 text-sm text-slate-600 dark:text-slate-300">
         ¿Ya tienes cuenta?{" "}
-        <button type="button" onClick={onIrALogin} className="font-medium link">Inicia sesión</button>
+        <button type="button" onClick={onIrALogin} className="link-underline font-medium text-primary">Inicia sesión</button>
       </p>
 
-      <CreditoJFHR className="mt-8" />
+      <CreditoJFHR className="mt-8 md:hidden" />
     </div>
   );
 }

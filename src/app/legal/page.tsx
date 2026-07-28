@@ -94,13 +94,13 @@ function Terminos() {
         sistema.
       </p>
 
-      <H>3. Prueba gratuita, planes y pagos</H>
+      <H>3. Plan gratuito, planes pagos y pagos</H>
       <p>
-        El servicio incluye un periodo de prueba de 30 días sin costo y sin necesidad de tarjeta.
-        Al terminar la prueba, para seguir usando el sistema se debe contratar un plan pago. Los
-        precios vigentes se publican en la página de inicio e incluyen los impuestos que
-        correspondan. Los pagos se procesan a través de una pasarela de pagos externa; {RAZON_SOCIAL}{" "}
-        no almacena los datos completos de tu tarjeta.
+        El servicio incluye un plan gratuito permanente, sin costo y sin necesidad de tarjeta, con
+        los límites de uso publicados en la página de inicio. Para levantar esos límites se puede
+        contratar un plan pago en cualquier momento. Los precios vigentes se publican en la página
+        de inicio e incluyen los impuestos que correspondan. Los pagos se procesan a través de una
+        pasarela de pagos externa; {RAZON_SOCIAL} no almacena los datos completos de tu tarjeta.
       </p>
 
       <H>4. Cancelación</H>

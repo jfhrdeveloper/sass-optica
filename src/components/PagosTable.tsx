@@ -6,6 +6,7 @@ import { Search, CreditCard } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
+import { coincideBusqueda } from "@/lib/texto";
 
 export type PagoFila = {
   id: string;
@@ -27,7 +28,7 @@ export function PagosTable({ pagos }: { pagos: PagoFila[] }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
   const filtrados = pagos
-    .filter((p) => p.negocioNombre.toLowerCase().includes(busqueda.toLowerCase()))
+    .filter((p) => coincideBusqueda(p.negocioNombre, busqueda))
     .filter((p) => filtro === "todos" || p.metodoPago === filtro)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const { pagina, setPagina, totalPaginas, visibles } = usePaginado(filtrados);

@@ -13,9 +13,19 @@ export const EMAIL_SOPORTE = "jfhrdeveloper@gmail.com";
 export const RAZON_SOCIAL = "SaaS Óptica";
 
 /* ====== Autoría (crédito en footer y pantallas de acceso) ====== */
-export const DESARROLLADOR = "JFHR";
+export const DESARROLLADOR = "jfhrdev";
 export const DESARROLLADOR_URL = "https://jfhrdeveloper.com";
 
 export function urlWhatsApp(mensaje: string = WHATSAPP_MENSAJE): string {
   return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
+}
+
+/** Link de WhatsApp para el teléfono de un cliente/contacto del negocio (no
+ *  el fijo del sistema, ver `urlWhatsApp`). Asume Perú (51) si el número
+ *  guardado no trae ya código de país — así el usuario puede escribir el
+ *  celular a 9 dígitos, como lo hace normalmente. */
+export function urlWhatsAppContacto(telefono: string): string {
+  const digitos = telefono.replace(/\D/g, "");
+  const conCodigo = digitos.startsWith("51") ? digitos : `51${digitos}`;
+  return `https://wa.me/${conCodigo}`;
 }

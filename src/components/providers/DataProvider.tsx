@@ -80,11 +80,19 @@ export interface Cliente {
   documentoTipo: string; documentoNumero?: string;
   telefono?: string; email?: string; fechaNacimiento?: string;
   direccion?: string; notas?: string;
+  /* Papelera (soft delete): si tiene valor, el cliente está eliminado pero
+     recuperable — se purga solo a los 30 días (pg_cron, ver
+     purgar_clientes_papelera() en supabase-schema.sql). `deleteCliente` solo
+     setea este campo; el borrado real de fila queda en `purgarCliente`. */
+  eliminadoEn?: string;
 }
 
 export interface Cita {
   id: string; negocioId: string; clienteId: string; empleadoId?: string;
   fechaHora: string; motivo?: string; estado: string; notas?: string;
+  /** Minutos que dura la cita — opcional: si no viene (citas antiguas o
+   *  agendadas sin arrastrar), la UI asume DURACION_DEFECTO_MIN (30). */
+  duracionMin?: number;
 }
 
 export interface Receta {
@@ -186,6 +194,8 @@ interface DataCtx {
   addCliente:     (c: Partial<Cliente>) => Promise<string | null>;
   updateCliente:  (id: string, patch: Partial<Cliente>) => Promise<void>;
   deleteCliente:  (id: string) => Promise<void>;
+  restaurarCliente: (id: string) => Promise<void>;
+  purgarCliente:  (id: string) => Promise<void>;
   addCita:        (c: Partial<Cita>) => Promise<string | null>;
   updateCita:     (id: string, patch: Partial<Cita>) => Promise<void>;
   deleteCita:     (id: string) => Promise<void>;
@@ -351,7 +361,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (mock) { setClientes((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); return; }
     await supabase.from("clientes").update(clienteToRow(patch)).eq("id", id);
   }, [supabase, mock]);
+  /* "Eliminar" desde la tabla es soft delete (papelera): solo marca
+     eliminado_en, la fila sigue existiendo hasta que alguien la restaure o
+     hasta la purga automática a los 30 días (pg_cron, ver
+     purgar_clientes_papelera() en supabase-schema.sql). El borrado real de
+     fila queda en `purgarCliente`, solo desde la papelera. */
   const deleteCliente = useCallback(async (id: string) => {
+    const eliminadoEn = new Date().toISOString();
+    if (mock) { setClientes((prev) => prev.map((c) => (c.id === id ? { ...c, eliminadoEn } : c))); return; }
+    await supabase.from("clientes").update({ eliminado_en: eliminadoEn }).eq("id", id);
+  }, [supabase, mock]);
+  const restaurarCliente = useCallback(async (id: string) => {
+    if (mock) { setClientes((prev) => prev.map((c) => (c.id === id ? { ...c, eliminadoEn: undefined } : c))); return; }
+    await supabase.from("clientes").update({ eliminado_en: null }).eq("id", id);
+  }, [supabase, mock]);
+  const purgarCliente = useCallback(async (id: string) => {
     if (mock) { setClientes((prev) => prev.filter((c) => c.id !== id)); return; }
     await supabase.from("clientes").delete().eq("id", id);
   }, [supabase, mock]);
@@ -584,7 +608,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     movimientosStock, ventas, ventaItems, gastos, descuentos, campanias,
     proveedores, cotizaciones, cotizacionItems, ready,
     updateEmpleado, updateNegocio,
-    addCliente, updateCliente, deleteCliente,
+    addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
     addReceta, addProducto, updateProducto, ajustarStock,
     addVenta, addGasto, deleteGasto,

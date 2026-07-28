@@ -16,7 +16,7 @@ import type { Cita } from "@/components/providers/DataProvider";
    filtros y el formulario siguen viviendo en citas/page.tsx, este
    componente es puramente de presentación. */
 
-const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -48,10 +48,13 @@ function claveDia(d: Date): string {
 /* Grilla de 42 celdas (6 semanas × 7 días) que siempre completa el mes con
    los días sobrantes del mes anterior/siguiente atenuados — el mismo truco
    que usa cualquier calendario tipo Google Calendar para no tener que
-   calcular cuántas filas hacen falta según el mes. */
+   calcular cuántas filas hacen falta según el mes. Semana Lunes-primero:
+   `getDay()` de JS devuelve 0=Domingo, así que se convierte a un índice
+   Lunes=0..Domingo=6 antes de retroceder hasta el inicio de la grilla. */
 function construirGrilla(anio: number, mes: number): Date[] {
   const primerDia = new Date(anio, mes, 1);
-  const inicioGrilla = new Date(anio, mes, 1 - primerDia.getDay());
+  const diaSemanaLunesPrimero = (primerDia.getDay() + 6) % 7;
+  const inicioGrilla = new Date(anio, mes, 1 - diaSemanaLunesPrimero);
   return Array.from({ length: 42 }, (_, i) => {
     const d = new Date(inicioGrilla);
     d.setDate(inicioGrilla.getDate() + i);

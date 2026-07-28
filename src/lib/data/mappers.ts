@@ -78,6 +78,7 @@ export function rowToCliente(r: Record<string, unknown>): Cliente {
     fechaNacimiento: r.fecha_nacimiento ? String(r.fecha_nacimiento) : undefined,
     direccion: r.direccion ? String(r.direccion) : undefined,
     notas: r.notas ? String(r.notas) : undefined,
+    eliminadoEn: r.eliminado_en ? String(r.eliminado_en) : undefined,
   };
 }
 export function clienteToRow(c: Partial<Cliente>): Record<string, unknown> {
@@ -103,6 +104,7 @@ export function rowToCita(r: Record<string, unknown>): Cita {
     motivo: r.motivo ? String(r.motivo) : undefined,
     estado: String(r.estado ?? "programada"),
     notas: r.notas ? String(r.notas) : undefined,
+    duracionMin: r.duracion_min != null ? Number(r.duracion_min) : undefined,
   };
 }
 export function citaToRow(c: Partial<Cita>): Record<string, unknown> {
@@ -113,6 +115,7 @@ export function citaToRow(c: Partial<Cita>): Record<string, unknown> {
   if (c.motivo      !== undefined) out.motivo      = c.motivo;
   if (c.estado      !== undefined) out.estado      = c.estado;
   if (c.notas        !== undefined) out.notas        = c.notas;
+  if (c.duracionMin  !== undefined) out.duracion_min  = c.duracionMin;
   return out;
 }
 

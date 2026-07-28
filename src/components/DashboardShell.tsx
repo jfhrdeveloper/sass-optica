@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DashboardNav } from "@/components/DashboardNav";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { DashboardTopbar } from "@/components/DashboardTopbar";
 
 const CLAVE_COLAPSADO = "sidebar-colapsado";
 
@@ -32,12 +32,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <DashboardNav colapsado={colapsado} onToggle={alternar} />
-      <div className={`min-h-screen p-6 transition-[margin-left] duration-200 ${colapsado ? "ml-16" : "ml-60"}`}>
-        {/* Breadcrumbs acá y no en cada page.tsx: un solo punto de
-            aplicación, igual que `.page-enter`. Se oculta solo en
-            /dashboard (ver el componente). */}
-        <div className="page-enter mx-auto max-w-4xl">
-          <Breadcrumbs />
+      <div className={`min-h-screen transition-[margin-left] duration-200 ${colapsado ? "ml-16" : "ml-60"}`}>
+        <DashboardTopbar />
+        {/* `.page-enter` acá y no en cada page.tsx: un solo punto de
+            aplicación, igual que antes. */}
+        <div className="page-enter mx-auto max-w-[1440px] px-6 pb-6">
           {children}
         </div>
       </div>

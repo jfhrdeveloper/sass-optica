@@ -10,6 +10,18 @@ export function formatearFechaPE(iso: string): string {
   return `${dia}-${mes}-${anio}`;
 }
 
+/* ================= FORMATO DE TIMESTAMPTZ =================
+   A diferencia de `formatearFechaPE` (fecha civil, sin hora ni huso), estas
+   dos sí reciben un instante real (timestamptz: citas, papelera, audit_log)
+   y por eso SÍ pasan por `new Date(iso)` — acá es correcto, porque el string
+   ya trae huso y el navegador lo convierte a la hora local del usuario. */
+export function formatearFecha(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+}
+export function formatearFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString("es-PE", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 /* ================= PUENTE FECHA CIVIL <-> Date =================
    El resto del sistema guarda fechas como strings "YYYY-MM-DD" (fechas
    civiles: un día del calendario, sin hora ni huso). react-day-picker en

@@ -32,6 +32,9 @@ const RUTAS: Record<string, { label: string; grupo?: string }> = {
   empleados:    { label: "Empleados",    grupo: "Administración" },
   ajustes:      { label: "Ajustes",      grupo: "Administración" },
   facturacion:  { label: "Ajustes",      grupo: "Administración" },
+  /* Sin `grupo`: se llega acá desde el menú de cuenta en DashboardTopbar.tsx,
+     no desde el sidebar — no pertenece al cluster de Administración. */
+  perfil:       { label: "Mi perfil" },
 };
 
 function Separador() {
@@ -51,17 +54,17 @@ function Separador() {
    acá el rastro llega como máximo a 3 niveles (Inicio / Grupo / Página):
    nunca hay ancestros intermedios "de bajo valor" que esconder. Si algún
    día se anidan rutas de detalle, ahí sí haría falta. */
-export function Breadcrumbs() {
+export function Breadcrumbs({ sinMargen = false }: { sinMargen?: boolean } = {}) {
   const pathname = usePathname();
   const seccion = pathname.split("/")[2] ?? "";
   const actual = RUTAS[seccion];
 
   /* En /dashboard (la raíz) el rastro sería un único ítem apuntándose a sí
      mismo: no se muestra nada. */
-  if (!actual) return null;
+  if (!actual) return sinMargen ? <span /> : null;
 
   return (
-    <nav aria-label="Breadcrumb" className="mb-4">
+    <nav aria-label="Breadcrumb" className={sinMargen ? "" : "mb-4"}>
       {/* <ol> y no <div>: los breadcrumbs son una lista ORDENADA — el orden
           ES la jerarquía. Con divs se ve igual pero se pierde esa semántica. */}
       <ol className="flex flex-wrap items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">

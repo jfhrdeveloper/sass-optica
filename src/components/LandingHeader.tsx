@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { m } from "framer-motion";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TransitionLink } from "@/components/PageTransition";
 
 const LINKS = [
+  { href: "#inicio", label: "Inicio", id: "inicio" },
   { href: "#funciones", label: "Funciones", id: "funciones" },
   { href: "#precios", label: "Precios", id: "precios" },
   { href: "#contacto", label: "Contacto", id: "contacto" },
@@ -34,7 +37,7 @@ const LINKS = [
 export function LandingHeader() {
   const [scrolleado, setScrolleado] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [activo, setActivo] = useState<string | null>(null);
+  const [activo, setActivo] = useState<string | null>("inicio");
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -95,20 +98,34 @@ export function LandingHeader() {
 
   const cerrar = () => setMenuAbierto(false);
 
-  /* Activo = fondo sólido primario + texto BLANCO. Antes era fondo azul
-     claro con el texto también azul: todo del mismo tono, sin contraste —
-     el link activo casi no se distinguía de los demás. Es el mismo
-     tratamiento que el indicador del SegmentedControl, así "lo seleccionado"
-     se ve igual en toda la landing. */
+  /* Activo = fondo primario SUAVE (`bg-primary-light`, el mismo tono usado
+     en `.row-avatar` del dashboard) + texto primario. Antes era fondo sólido
+     + texto blanco, igual que el CTA "Crear cuenta gratis" del propio nav — se
+     distinguía bien del resto de links, pero competía visualmente con el
+     CTA (mismo peso, mismo azul sólido, a centímetros de distancia). Este
+     tono intermedio sigue siendo legible (no es el azul-claro-sobre-azul
+     original, que casi no se notaba) sin igualar al botón de conversión. */
   const claseLink = (id: string) =>
     `rounded-full px-4 py-2 text-sm font-medium transition-colors ${
       activo === id
-        ? "bg-primary font-semibold text-white shadow-sm"
+        ? "bg-primary-light font-semibold text-primary"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
     }`;
 
   return (
-    <nav ref={navRef} className="fixed inset-x-0 top-0 z-40" aria-label="Navegación principal">
+    /* Un solo fade + slide-down al montar, NO un stagger por link — el nav
+       es chrome fijo que persiste en cada scroll, no contenido; escalonar
+       cada link cada vez que se monta se siente como ruido en vez de foco.
+       El "momento wow" escalonado se reserva para el hero (`HeroSection.tsx`),
+       que sí es contenido nuevo. */
+    <m.nav
+      ref={navRef}
+      className="fixed inset-x-0 top-0 z-40"
+      aria-label="Navegación principal"
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+    >
       {/* ====== Desktop — píldora flotante ====== */}
       <div className={`hidden w-full justify-center transition-all duration-500 ease-in-out sm:flex ${scrolleado ? "pt-4" : "pt-6"}`}>
         <div
@@ -138,12 +155,12 @@ export function LandingHeader() {
             <div className="scale-90"><ThemeToggle /></div>
             {/* Sin `rounded-full` explícito: ya es el radio por defecto de
                 `.btn-*` en globals.css (unificado en todo el sitio). */}
-            <Link href="/login" className="btn-outline px-4 py-2 text-sm font-normal">
+            <TransitionLink href="/login" className="btn-outline px-4 py-2 text-sm font-normal">
               Iniciar sesión
-            </Link>
-            <Link href="/registro" className="btn-primary px-4 py-2 text-sm font-normal">
-              Prueba gratis
-            </Link>
+            </TransitionLink>
+            <TransitionLink href="/registro" className="btn-primary px-4 py-2 text-sm font-normal">
+              Crear cuenta gratis
+            </TransitionLink>
           </div>
         </div>
       </div>
@@ -204,7 +221,7 @@ export function LandingHeader() {
               onClick={cerrar}
               className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                 activo === l.id
-                  ? "bg-primary font-semibold text-white"
+                  ? "bg-primary-light font-semibold text-primary"
                   : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
               }`}
             >
@@ -214,10 +231,10 @@ export function LandingHeader() {
         </div>
 
         <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 p-4 pb-8 dark:border-slate-800">
-          <Link href="/login" onClick={cerrar} className="btn-outline w-full py-3">Iniciar sesión</Link>
-          <Link href="/registro" onClick={cerrar} className="btn-primary w-full py-3">Prueba gratis</Link>
+          <TransitionLink href="/login" onClick={cerrar} className="btn-outline w-full py-3">Iniciar sesión</TransitionLink>
+          <TransitionLink href="/registro" onClick={cerrar} className="btn-primary w-full py-3">Crear cuenta gratis</TransitionLink>
         </div>
       </div>
-    </nav>
+    </m.nav>
   );
 }

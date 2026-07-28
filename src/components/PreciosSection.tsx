@@ -14,9 +14,13 @@ import {
    src/lib/precios.ts, para poder cambiarlos en un solo lugar y testear la
    aritmética sin renderizar. Este componente solo los presenta.
 
-   Dos planes pagos, no tres/cuatro como los competidores: el brief definió
-   el modelo como trial 30 días → básico/premium (premium = facturación
-   SUNAT), y no vale la pena romper eso solo por copiar cantidad de tiers. */
+   Modelo freemium (no trial con fecha de corte): la tarjeta "Gratis" es un
+   plan PERMANENTE con límites (empleados, ventas/mes, sin Marketing), no
+   una prueba de 30 días — la prioridad ahora es que se registren sin
+   fricción; la conversión a Básico/Premium se resuelve más adelante,
+   cuando el negocio crece y choca con esos límites. Los planes pagos
+   agregan capacidad y funciones (premium = + facturación SUNAT), nunca
+   quitan algo que el plan gratis ya tenía. */
 export function PreciosSection() {
   const [ciclo, setCiclo] = useState<CicloFacturacion>("mensual");
   const anual = ciclo === "anual";
@@ -54,23 +58,24 @@ export function PreciosSection() {
       />
 
       <div className="mx-auto mt-8 grid max-w-4xl gap-6 sm:grid-cols-3">
-        <div className="card p-6">
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Prueba gratuita</h3>
+        <div className="card flex flex-col p-6">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Gratis</h3>
           <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            Gratis <span className="text-sm font-normal text-slate-400 dark:text-slate-500">/ 30 días</span>
+            S/ 0 <span className="text-sm font-normal text-slate-400 dark:text-slate-500">/ para siempre</span>
           </p>
-          <ul className="mt-4 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
-            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Todas las funciones del sistema</li>
-            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta 3 empleados</li>
-            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Sin tarjeta de crédito</li>
+          <ul className="mt-4 flex-1 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
+            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Clientes, citas y recetas</li>
+            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Ventas e inventario</li>
+            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta 2 empleados</li>
+            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta 30 ventas al mes</li>
           </ul>
-          <Link href="/registro" className="btn-outline mt-4 w-full">Empezar gratis</Link>
+          <Link href="/registro" className="btn-outline mt-4 w-full">Crear cuenta gratis</Link>
         </div>
 
         {PLANES.map((p) => {
           const precio = precioSegunCiclo(p.mensual, ciclo);
           return (
-            <div key={p.id} className={p.destacado ? "card p-6 ring-2 ring-primary" : "card p-6"}>
+            <div key={p.id} className={p.destacado ? "card flex flex-col p-6 ring-2 ring-primary" : "card flex flex-col p-6"}>
               <h3 className="font-semibold text-slate-900 dark:text-slate-100">{p.nombre}</h3>
               <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
                 S/ {precio.toFixed(2)}
@@ -81,7 +86,7 @@ export function PreciosSection() {
                   Ahorras S/ {ahorroAnual(p.mensual).toFixed(2)} al año
                 </p>
               )}
-              <ul className="mt-4 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
+              <ul className="mt-4 flex-1 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
                 {p.bullets.map((b) => (
                   <li key={b} className="flex items-start gap-2">
                     <Check size={15} className="mt-0.5 shrink-0 text-accent" />
@@ -90,7 +95,7 @@ export function PreciosSection() {
                 ))}
               </ul>
               <Link href="/registro" className={p.destacado ? "btn-primary mt-4 w-full" : "btn-outline mt-4 w-full"}>
-                Empezar gratis
+                Empezar con {p.nombre}
               </Link>
             </div>
           );
@@ -109,10 +114,10 @@ export function PreciosSection() {
 
       {/* "¿Por qué nuestros precios son diferentes?" (patrón del research de
           Finegym) — construye confianza justo al lado del precio real. */}
-      <div className="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
+      <div className="mx-auto mt-6 flex max-w-4xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
         <span>Sin cuota de instalación</span>
         <span>·</span>
-        <span>Sin límite de clientes ni productos</span>
+        <span>Básico y Premium sin límite de clientes ni ventas</span>
         <span>·</span>
         <span>Sin permanencia, cancela cuando quieras</span>
       </div>

@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { ShieldCheck, Smartphone, Ban, MessageCircle, ChevronDown } from "lucide-react";
+import { ShieldCheck, Smartphone, Ban, ChevronDown } from "lucide-react";
 import { FuncionesShowcase } from "@/components/FuncionesShowcase";
 import { PreciosSection } from "@/components/PreciosSection";
 import { LandingHeader } from "@/components/LandingHeader";
+import { HeroSection } from "@/components/HeroSection";
+import { Reveal } from "@/components/Reveal";
+import { LandingMotionProvider } from "@/components/LandingMotionProvider";
 import { AvisoTransparencia } from "@/components/AvisoTransparencia";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 import { CreditoJFHR } from "@/components/CreditoJFHR";
+import { TransitionLink } from "@/components/PageTransition";
 import { EMAIL_SOPORTE, urlWhatsApp } from "@/lib/contacto";
 
 /* Landing pública (dominio raíz), estructura de 10 secciones del brief §3.
@@ -29,99 +34,102 @@ const FAQ = [
 
 export default function LandingPage() {
   return (
-    <>
+    <LandingMotionProvider>
       {/* ====== 1. Header ====== */}
       <LandingHeader />
 
       {/* ====== 2. Hero ====== */}
       {/* `pt-32`: el header es `fixed` (ver LandingHeader.tsx), no ocupa
           espacio en el flujo — sin este padding el hero arrancaría debajo
-          de la píldora flotante. */}
-      <section className="mx-auto flex max-w-3xl flex-col items-center gap-5 px-6 pb-20 pt-32 text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary">Software para ópticas peruanas</p>
-        <h1 className="text-4xl font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-5xl">
-          Deja el cuaderno.<br />Gestiona tu <span className="text-primary">óptica</span> en un solo lugar.
-        </h1>
-        <p className="max-w-xl text-lg text-slate-600 dark:text-slate-300">
-          Clientes, citas, recetas, ventas e inventario. Todo en un panel simple, pensado para
-          ópticas peruanas de 3 a 10 trabajadores.
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Link href="/registro" className="btn-primary px-6 py-3 text-base">Prueba gratis 30 días</Link>
-        </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500">Sin tarjeta de crédito · Cancela cuando quieras</p>
-        <div className="card mt-6 w-full max-w-2xl bg-slate-50 dark:bg-slate-900 p-8 text-sm text-slate-400 dark:text-slate-500">
-          [ mockup del dashboard, pendiente de capturas reales ]
-        </div>
-      </section>
+          de la píldora flotante. Animación de entrada (stagger de carga)
+          movida a `HeroSection.tsx` — es la única sección animada al
+          MONTAR en vez de al hacer scroll, porque es lo primero que se ve. */}
+      <HeroSection />
 
       {/* ====== 3. Prueba social ====== */}
-      <section className="border-y border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-        Diseñado para ópticas peruanas. No es un ERP genérico adaptado a la fuerza.
-      </section>
+      {/* Card semitransparente en vez de franja completa — mismo lenguaje
+          visual que la píldora flotante del header (bg blanco translúcido +
+          backdrop-blur + borde sutil), para que no se sienta como una barra
+          de aviso sino como un elemento flotante más dentro del hero. */}
+      <Reveal as="section" className="px-6 py-10">
+        <div className="mx-auto max-w-xl rounded-2xl border border-slate-200/60 bg-white/70 px-6 py-5 text-center shadow-md shadow-black/[0.06] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Hecho a la medida de tus necesidades. Un sistema fácil de usar, sin menús enredados
+            ni funciones que no necesitas.
+          </p>
+        </div>
+      </Reveal>
 
       {/* ====== 4. Problema → Solución ====== */}
+      {/* Cada fila se revela por separado (no la sección entera de una)
+          con un pequeño delay creciente — el mismo efecto escalonado del
+          hero, pero disparado por scroll en vez de al cargar. */}
       <section className="mx-auto max-w-3xl space-y-10 px-6 py-16">
-        <div className="grid items-center gap-4 sm:grid-cols-2">
+        <Reveal className="grid items-center gap-4 sm:grid-cols-2">
           <div>
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">¿Se te pierde el control de stock?</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Sabe al instante cuántas lunas y armazones te quedan, con aviso antes de que se agoten.</p>
           </div>
           <div className="card bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-400 dark:text-slate-500">[ captura: inventario ]</div>
-        </div>
-        <div className="grid items-center gap-4 sm:grid-cols-2">
+        </Reveal>
+        <Reveal delay={0.1} className="grid items-center gap-4 sm:grid-cols-2">
           <div className="card order-2 bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-400 dark:text-slate-500 sm:order-1">[ captura: agenda ]</div>
           <div className="order-1 sm:order-2">
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">¿Turnos desordenados o por WhatsApp?</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Agenda todas las citas en un calendario simple, con la receta del paciente a la mano.</p>
           </div>
-        </div>
-        <div className="grid items-center gap-4 sm:grid-cols-2">
+        </Reveal>
+        <Reveal delay={0.2} className="grid items-center gap-4 sm:grid-cols-2">
           <div>
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">¿No sabes cuánto ganaste este mes?</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Ventas y gastos en un solo lugar, con el total del mes siempre a la vista.</p>
           </div>
           <div className="card bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-400 dark:text-slate-500">[ captura: caja/gastos ]</div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ====== 5. Funciones ====== */}
+      {/* Solo se envuelven los contenedores propios de esta página
+          (encabezado + wrapper de `FuncionesShowcase`) — el componente en
+          sí no se toca, ya trae su propia lógica de pestañas. */}
       <section id="funciones" className="scroll-mt-24 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
-        <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-primary">Todo lo que necesitas</p>
           <h2 className="mt-2 text-2xl text-slate-900 dark:text-slate-100">Una plataforma para gestionar toda tu óptica.</h2>
           <p className="mt-3 text-slate-600 dark:text-slate-300">
             Deja el cuaderno, el WhatsApp y la hoja de cálculo. Clientes, citas, recetas, ventas y gastos, todo en un panel simple.
           </p>
-        </div>
-        <div className="mt-10">
+        </Reveal>
+        <Reveal delay={0.1} className="mt-10">
           <FuncionesShowcase />
-        </div>
+        </Reveal>
       </section>
 
       {/* ====== 6. Cómo funciona ====== */}
       <section className="mx-auto max-w-3xl px-6 py-16">
         <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Cómo funciona</h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
-          {PASOS.map((p) => (
-            <div key={p.n} className="text-center">
+          {PASOS.map((p, i) => (
+            <Reveal key={p.n} delay={i * 0.12} className="text-center">
               <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">{p.n}</div>
               <h3 className="mt-2 font-medium text-slate-900 dark:text-slate-100">{p.t}</h3>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{p.d}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* ====== 7. Precios ====== */}
       <section id="precios" className="scroll-mt-24 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-16">
-        <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Precios</h2>
-        <p className="mx-auto mt-1 max-w-md text-center text-sm text-slate-500 dark:text-slate-400">
-          Prueba gratis 30 días. Sin tarjeta de crédito, sin compromiso.
-        </p>
-        <div className="mt-8">
+        <Reveal as="div" className="mx-auto max-w-md text-center">
+          <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Precios</h2>
+          <p className="mt-1 text-center text-sm text-slate-500 dark:text-slate-400">
+            Empieza gratis, para siempre. Sin tarjeta de crédito, sin compromiso.
+          </p>
+        </Reveal>
+        <Reveal delay={0.1} className="mt-8">
           <PreciosSection />
-        </div>
+        </Reveal>
       </section>
 
       {/* ====== 8. FAQ — acordeón nativo ======
@@ -130,7 +138,7 @@ export default function LandingPage() {
           gratis (ver .accordion-item en globals.css). El `name` compartido
           es lo que hace que solo una respuesta quede abierta a la vez —
           sin una línea de JavaScript. */}
-      <section className="mx-auto max-w-2xl px-6 py-16">
+      <Reveal as="section" className="mx-auto w-[450px] max-w-full px-6 py-16">
         <h2 className="text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">Preguntas frecuentes</h2>
         <div className="mt-8">
           {FAQ.map((f) => (
@@ -161,15 +169,22 @@ export default function LandingPage() {
             </details>
           ))}
         </div>
-      </section>
+      </Reveal>
 
       {/* ====== 9. CTA final ====== */}
-      <section className="border-t border-slate-200 dark:border-slate-800 bg-primary-dark px-6 py-16 text-center text-white">
+      <Reveal as="section" className="border-t border-slate-200 dark:border-slate-800 bg-primary-dark px-6 py-16 text-center text-white">
         <h2 className="text-2xl font-semibold">Deja el cuaderno hoy mismo</h2>
-        <Link href="/registro" className="mt-4 inline-block rounded-full bg-white px-6 py-3 font-medium text-primary-dark transition-colors hover:bg-blue-50">
-          Prueba gratis 30 días
-        </Link>
-      </section>
+        <p className="mx-auto mt-2 max-w-md text-sm text-white/80">
+          Únete a las ópticas peruanas que ya modernizaron su administración.
+        </p>
+        <TransitionLink
+          href="/registro"
+          className="mt-5 inline-block rounded-full bg-white px-6 py-3 font-medium text-primary-dark shadow-lg shadow-blue-950/30 transition-all hover:scale-105 hover:bg-blue-50"
+        >
+          Crear cuenta gratis
+        </TransitionLink>
+        <p className="mt-3 text-xs text-white/70">Sin tarjeta de crédito · Gratis para siempre</p>
+      </Reveal>
 
       {/* ====== 10. Footer ======
           Estructura de 4 columnas + barra inferior, patrón tomado de
@@ -196,15 +211,15 @@ export default function LandingPage() {
               <ul className="space-y-2.5 text-sm">
                 <li><Link href="#funciones" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Funciones</Link></li>
                 <li><Link href="#precios" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Precios</Link></li>
-                <li><Link href="/registro" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Prueba gratis 30 días</Link></li>
+                <li><TransitionLink href="/registro" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Crear cuenta gratis</TransitionLink></li>
               </ul>
             </div>
 
             <div>
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Cuenta</h3>
               <ul className="space-y-2.5 text-sm">
-                <li><Link href="/login" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Iniciar sesión</Link></li>
-                <li><Link href="/registro" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Crear mi óptica</Link></li>
+                <li><TransitionLink href="/login" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Iniciar sesión</TransitionLink></li>
+                <li><TransitionLink href="/registro" className="link-underline text-slate-500 hover:text-primary dark:text-slate-400">Crear mi óptica</TransitionLink></li>
               </ul>
             </div>
 
@@ -213,7 +228,7 @@ export default function LandingPage() {
               <ul className="space-y-2.5 text-sm">
                 <li>
                   <a href={urlWhatsApp()} target="_blank" rel="noopener noreferrer" className="link-underline inline-flex items-center gap-1.5 text-slate-500 hover:text-primary dark:text-slate-400">
-                    <MessageCircle size={15} className="shrink-0" /> WhatsApp
+                    <WhatsAppIcon size={15} className="shrink-0" /> WhatsApp
                   </a>
                 </li>
                 <li>
@@ -236,20 +251,25 @@ export default function LandingPage() {
 
           <hr className="my-8 border-slate-200 dark:border-slate-800" />
 
-          <div className="flex flex-col items-center justify-between gap-4 text-xs text-slate-400 dark:text-slate-500 sm:flex-row">
-            <div className="flex flex-col items-center gap-1 sm:items-start">
-              <p>© {new Date().getFullYear()} SaaS Óptica</p>
-              <CreditoJFHR />
-            </div>
+          <div className="flex flex-col items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500 sm:flex-row sm:justify-between">
+            <p>© {new Date().getFullYear()} SaaS Óptica</p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/legal?tab=terminos" className="transition-colors hover:text-primary">Términos y condiciones</Link>
-              <Link href="/legal?tab=privacidad" className="transition-colors hover:text-primary">Política de privacidad</Link>
+              <Link href="/legal?tab=terminos" className="link-underline transition-colors hover:text-primary">Términos y condiciones</Link>
+              <Link href="/legal?tab=privacidad" className="link-underline transition-colors hover:text-primary">Política de privacidad</Link>
             </div>
+          </div>
+
+          {/* Barra de créditos separada, debajo de todo — patrón de
+              tramys-landing (`Footer` + `Creditos` son secciones DISTINTAS,
+              una debajo de la otra, no columnas del mismo bloque). Una sola
+              línea centrada, con su propio borde superior. */}
+          <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
+            <CreditoJFHR />
           </div>
         </div>
       </footer>
 
       <WhatsAppFab />
-    </>
+    </LandingMotionProvider>
   );
 }

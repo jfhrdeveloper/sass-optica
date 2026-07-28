@@ -9,8 +9,8 @@ subdominio propio, arranca en trial (30 días) y pasa a plan pago vía Culqi.
 - **Stack:** Next.js (App Router) · React · TypeScript · Tailwind CSS v4 · **Supabase**
   (PostgreSQL + auth + storage) · **Culqi** (pagos, Yape incluido) · Vercel.
 - **Dev:** `npm run dev`
-- **Modelo:** multi-tenant real. Ver `docs/architecture.md` para el detalle completo.
-- **Brief de producto:** `brief-saas-proyecto.md` (mercado, roles, pagos, SUNAT, checklist de lanzamiento).
+- **Modelo:** multi-tenant real. Ver `docs/architecture.md` para el detalle completo (incluye
+  el brief de producto: mercado, roles, pagos, SUNAT, checklist de lanzamiento).
 
 ## Documentos relacionados
 
