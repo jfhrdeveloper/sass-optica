@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { m } from "framer-motion";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { TransitionLink } from "@/components/PageTransition";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { TransitionLink } from "@/components/landing/PageTransition";
 
 const LINKS = [
   { href: "#inicio", label: "Inicio", id: "inicio" },

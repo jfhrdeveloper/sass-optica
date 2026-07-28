@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 
 function iniciales(nombres?: string, apellidos?: string): string {
   return `${nombres?.[0] ?? ""}${apellidos?.[0] ?? ""}`.toUpperCase() || "?";

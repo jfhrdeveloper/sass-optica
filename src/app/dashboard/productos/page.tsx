@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Plus, Package, PackageSearch, Pencil } from "lucide-react";
 import { useData, type Producto } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { SlideOver } from "@/components/SlideOver";
-import { Stepper } from "@/components/Stepper";
-import { Pagination } from "@/components/Pagination";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { Stepper } from "@/components/ui/Stepper";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const CATEGORIAS = ["montura", "luna", "lente_contacto", "liquido", "accesorio", "servicio"] as const;

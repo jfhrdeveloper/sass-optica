@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, Loader2, X } from "lucide-react";
 import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponible" | "invalido";
 

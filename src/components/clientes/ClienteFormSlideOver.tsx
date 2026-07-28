@@ -1,8 +1,8 @@
 "use client";
 
-import { SlideOver } from "@/components/SlideOver";
-import { Stepper } from "@/components/Stepper";
-import { DatePicker } from "@/components/DatePicker";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { Stepper } from "@/components/ui/Stepper";
+import { DatePicker } from "@/components/calendario/DatePicker";
 import type { ClienteFormState } from "@/lib/hooks/useClienteForm";
 
 /* Wizard de alta/edición de cliente — compartido entre clientes/page.tsx

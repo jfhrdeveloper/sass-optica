@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { SegmentedControl } from "@/components/SegmentedControl";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 /* Sección de funciones con pestañas + vista previa del panel — patrón
    tomado de la landing de Finegym (competidor real del rubro, research de

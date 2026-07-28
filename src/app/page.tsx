@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { ShieldCheck, Smartphone, Ban, ChevronDown } from "lucide-react";
-import { FuncionesShowcase } from "@/components/FuncionesShowcase";
-import { PreciosSection } from "@/components/PreciosSection";
-import { LandingHeader } from "@/components/LandingHeader";
-import { HeroSection } from "@/components/HeroSection";
-import { Reveal } from "@/components/Reveal";
-import { LandingMotionProvider } from "@/components/LandingMotionProvider";
-import { AvisoTransparencia } from "@/components/AvisoTransparencia";
-import { WhatsAppFab } from "@/components/WhatsAppFab";
-import { WhatsAppIcon } from "@/components/WhatsAppIcon";
-import { CreditoJFHR } from "@/components/CreditoJFHR";
-import { TransitionLink } from "@/components/PageTransition";
+import { FuncionesShowcase } from "@/components/landing/FuncionesShowcase";
+import { PreciosSection } from "@/components/landing/PreciosSection";
+import { LandingHeader } from "@/components/landing/LandingHeader";
+import { HeroSection } from "@/components/landing/HeroSection";
+import { Reveal } from "@/components/landing/Reveal";
+import { LandingMotionProvider } from "@/components/landing/LandingMotionProvider";
+import { AvisoTransparencia } from "@/components/landing/AvisoTransparencia";
+import { WhatsAppFab } from "@/components/landing/WhatsAppFab";
+import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
+import { CreditoJFHR } from "@/components/landing/CreditoJFHR";
+import { TransitionLink } from "@/components/landing/PageTransition";
 import { EMAIL_SOPORTE, urlWhatsApp } from "@/lib/contacto";
 
 /* Landing pública (dominio raíz), estructura de 10 secciones del brief §3.

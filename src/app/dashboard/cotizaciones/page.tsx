@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { FileText, ArrowRightCircle } from "lucide-react";
 import { useData, type Cotizacion, type CotizacionItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { Pagination } from "@/components/Pagination";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
-import { DatePicker } from "@/components/DatePicker";
+import { DatePicker } from "@/components/calendario/DatePicker";
 
 const IGV = 0.18;
 type ItemForm = Omit<CotizacionItem, "id" | "cotizacionId">;

@@ -7,10 +7,10 @@ import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode, MOCK_EMAIL, MOCK_PASSWORD, MOCK_COOKIE } from "@/lib/mock/mock-mode";
 import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
-import { Stepper } from "@/components/Stepper";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Stepper } from "@/components/ui/Stepper";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { GoogleIcon, DivisorO } from "@/components/auth/GoogleAuthUi";
-import { CreditoJFHR } from "@/components/CreditoJFHR";
+import { CreditoJFHR } from "@/components/landing/CreditoJFHR";
 
 type Modo = "login" | "registro";
 type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponible" | "invalido";

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Plus, Tag, Trash2 } from "lucide-react";
 import { useData, type Descuento } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { SlideOver } from "@/components/SlideOver";
-import { DateRangePicker } from "@/components/DateRangePicker";
-import { Pagination } from "@/components/Pagination";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { DateRangePicker } from "@/components/calendario/DateRangePicker";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
 

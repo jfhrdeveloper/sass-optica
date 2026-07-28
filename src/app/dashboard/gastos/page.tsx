@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import { Receipt, Trash2 } from "lucide-react";
 import { useData, type Gasto } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { Pagination } from "@/components/Pagination";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/date";
-import { DateRangePicker } from "@/components/DateRangePicker";
-import { DatePicker } from "@/components/DatePicker";
+import { DateRangePicker } from "@/components/calendario/DateRangePicker";
+import { DatePicker } from "@/components/calendario/DatePicker";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
 const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };

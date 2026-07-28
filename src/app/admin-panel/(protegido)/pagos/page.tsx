@@ -1,8 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_PAGOS } from "@/lib/mock/mock-data";
-import { PagosTable, type PagoFila } from "@/components/PagosTable";
-import { MrrBarChart, type PuntoMrr } from "@/components/MrrBarChart";
+import { PagosTable, type PagoFila } from "@/components/admin/PagosTable";
+import { MrrBarChart, type PuntoMrr } from "@/components/admin/MrrBarChart";
 
 const MESES_HISTORIAL = 6;
 

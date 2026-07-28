@@ -5,8 +5,8 @@ import { AlertTriangle } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { SettingsTabs } from "@/components/SettingsTabs";
-import { ColorWell } from "@/components/ColorWell";
+import { SettingsTabs } from "@/components/dashboard/SettingsTabs";
+import { ColorWell } from "@/components/ui/ColorWell";
 import { prepararImagen, ImagenInvalidaError } from "@/lib/imagen";
 
 const COLOR_DEFECTO = "#2563eb";

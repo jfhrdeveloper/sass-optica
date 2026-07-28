@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { Receipt } from "lucide-react";
 import { useData, type VentaItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { Pagination } from "@/components/Pagination";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { DateRangePicker } from "@/components/DateRangePicker";
+import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 
 const IGV = 0.18;
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;

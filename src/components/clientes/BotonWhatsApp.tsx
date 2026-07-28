@@ -1,6 +1,6 @@
 "use client";
 
-import { WhatsAppIcon } from "@/components/WhatsAppIcon";
+import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 import { urlWhatsAppContacto } from "@/lib/contacto";
 
 /* Ícono que abre WhatsApp con el teléfono del cliente — junto al teléfono en

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Info, Plus } from "lucide-react";
 import { useData, type CampaniaEmail } from "@/components/providers/DataProvider";
-import { SlideOver } from "@/components/SlideOver";
+import { SlideOver } from "@/components/ui/SlideOver";
 
 const VACIO: Partial<CampaniaEmail> = { nombre: "", asunto: "", cuerpo: "" };
 

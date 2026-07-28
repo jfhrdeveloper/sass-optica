@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES } from "@/lib/mock/mock-data";
 import { leerOverridesActivo, aplicarOverridesActivo } from "@/lib/mock/mock-admin-overrides";
-import { NegociosTable, type NegocioFila } from "@/components/NegociosTable";
+import { NegociosTable, type NegocioFila } from "@/components/admin/NegociosTable";
 
 /* Server Component puro — mismo criterio que (protegido)/page.tsx: admin.ts
    (service role) nunca se importa desde un componente "use client". El

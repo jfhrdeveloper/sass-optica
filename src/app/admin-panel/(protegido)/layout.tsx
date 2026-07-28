@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isMockMode, MOCK_ADMIN_COOKIE } from "@/lib/mock/mock-mode";
-import { AdminShell } from "@/components/AdminShell";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 /* Defensa en profundidad, mismo patrón que src/app/dashboard/layout.tsx: el
    proxy ya exige sesión + membresía en super_admins antes de reescribir

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { urlWhatsApp } from "@/lib/contacto";
-import { WhatsAppIcon } from "@/components/WhatsAppIcon";
+import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 
 /* Botón flotante de WhatsApp — solo en la landing (el dashboard tiene su
    propio soporte y ahí estorbaría sobre las tablas).

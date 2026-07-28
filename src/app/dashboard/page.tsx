@@ -4,9 +4,9 @@ import Link from "next/link";
 import { Users, CalendarDays, PackageX, ShoppingCart } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
-import { OnboardingChecklist } from "@/components/OnboardingChecklist";
-import { CoachTooltip } from "@/components/CoachTooltip";
-import { ChangelogBanner } from "@/components/ChangelogBanner";
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
+import { CoachTooltip } from "@/components/dashboard/CoachTooltip";
+import { ChangelogBanner } from "@/components/dashboard/ChangelogBanner";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },

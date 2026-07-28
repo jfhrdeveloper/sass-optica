@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Building2, Wallet, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode, MOCK_ADMIN_COOKIE } from "@/lib/mock/mock-mode";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV = [
   { href: "/admin-panel", label: "Resumen", icon: LayoutDashboard },

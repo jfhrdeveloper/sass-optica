@@ -1,7 +1,7 @@
 "use client";
 
 import { m } from "framer-motion";
-import { TransitionLink } from "@/components/PageTransition";
+import { TransitionLink } from "@/components/landing/PageTransition";
 
 /* Secuencia de entrada al cargar la página: eyebrow → título → subtítulo →
    CTA → nota → mockup, cada uno 130ms después del anterior

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DashboardNav } from "@/components/DashboardNav";
-import { DashboardTopbar } from "@/components/DashboardTopbar";
+import { DashboardNav } from "@/components/dashboard/DashboardNav";
+import { DashboardTopbar } from "@/components/dashboard/DashboardTopbar";
 
 const CLAVE_COLAPSADO = "sidebar-colapsado";
 

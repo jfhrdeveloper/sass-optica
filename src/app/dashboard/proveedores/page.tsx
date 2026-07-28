@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Plus, Truck, Pencil, Trash2 } from "lucide-react";
 import { useData, type Proveedor } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { SlideOver } from "@/components/SlideOver";
-import { Pagination } from "@/components/Pagination";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const VACIO: Partial<Proveedor> = { nombre: "", activo: true };

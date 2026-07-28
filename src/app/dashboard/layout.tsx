@@ -1,8 +1,8 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Providers } from "@/components/providers/Providers";
-import { HydrationGate } from "@/components/HydrationGate";
-import { DashboardShell } from "@/components/DashboardShell";
+import { HydrationGate } from "@/components/ui/HydrationGate";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { isMockMode, MOCK_COOKIE } from "@/lib/mock/mock-mode";
 
 /* Defensa en profundidad: el proxy ya exige sesión + tenant resuelto antes

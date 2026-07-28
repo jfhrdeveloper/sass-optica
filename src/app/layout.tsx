@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
-import { PageTransitionProvider } from "@/components/PageTransition";
+import { PageTransitionProvider } from "@/components/landing/PageTransition";
 import "./globals.css";
 
 const geistSans = Geist({

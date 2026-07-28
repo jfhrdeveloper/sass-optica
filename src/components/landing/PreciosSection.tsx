@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Sparkles } from "lucide-react";
-import { SegmentedControl } from "@/components/SegmentedControl";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import {
   PLANES, precioSegunCiclo, ahorroAnual, etiquetaOferta, descripcionOferta,
   type CicloFacturacion,

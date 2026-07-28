@@ -5,9 +5,9 @@ import Link from "next/link";
 import { Check, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode, MOCK_ADMIN_EMAIL, MOCK_ADMIN_PASSWORD, MOCK_ADMIN_COOKIE } from "@/lib/mock/mock-mode";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { GoogleIcon, DivisorO } from "@/components/auth/GoogleAuthUi";
-import { CreditoJFHR } from "@/components/CreditoJFHR";
+import { CreditoJFHR } from "@/components/landing/CreditoJFHR";
 
 const BENEFICIOS = [
   "Negocios, trials y pagos en un solo lugar",

@@ -1,4 +1,4 @@
-import { AdminNav } from "@/components/AdminNav";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 /* Contraparte de DashboardShell.tsx para el namespace admin-panel — sin
    estado de colapso (el menú es chico, no lo necesita). */

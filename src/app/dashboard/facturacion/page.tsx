@@ -2,9 +2,9 @@
 
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
-import { CulqiCheckoutButton } from "@/components/CulqiCheckoutButton";
-import { FeatureGateBanner } from "@/components/FeatureGateBanner";
-import { SettingsTabs } from "@/components/SettingsTabs";
+import { CulqiCheckoutButton } from "@/components/ui/CulqiCheckoutButton";
+import { FeatureGateBanner } from "@/components/dashboard/FeatureGateBanner";
+import { SettingsTabs } from "@/components/dashboard/SettingsTabs";
 
 const MONTO_PLAN_PRO_CENTIMOS = 4900; // S/ 49.00 — placeholder, ver brief §12
 

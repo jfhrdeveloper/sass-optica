@@ -5,8 +5,8 @@ import { Plus, Settings2, Trash2, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { SlideOver } from "@/components/SlideOver";
-import { Pagination } from "@/components/Pagination";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const MODULOS_DELEGABLES = [
