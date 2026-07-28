@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Search, CreditCard } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { formatearFechaPE } from "@/lib/date";
-import { coincideBusqueda } from "@/lib/texto";
+import { formatearFechaPE } from "@/lib/formato/date";
+import { coincideBusqueda } from "@/lib/formato/texto";
 
 export type PagoFila = {
   id: string;

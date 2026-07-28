@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import { es } from "react-day-picker/locale";
 import { CalendarDays, X } from "lucide-react";
-import { aCadenaISO, aFechaLocal, formatearFechaPE } from "@/lib/date";
+import { aCadenaISO, aFechaLocal, formatearFechaPE } from "@/lib/formato/date";
 
 interface Props {
   valor: string; // "YYYY-MM-DD" o "" — mismo lenguaje de fecha civil que el resto del sistema

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizarBusqueda, coincideBusqueda } from "@/lib/texto";
+import { normalizarBusqueda, coincideBusqueda } from "@/lib/formato/texto";
 
 describe("normalizarBusqueda", () => {
   it("quita tildes sin romper la letra base", () => {

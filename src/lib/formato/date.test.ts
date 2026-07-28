@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatearFechaPE, aFechaLocal, aCadenaISO, ordenarRango } from "@/lib/date";
+import { formatearFechaPE, aFechaLocal, aCadenaISO, ordenarRango } from "@/lib/formato/date";
 
 /* Este helper existe por un bug real (ver bitácora 2026-07-24 (12)): usar
    `new Date("2026-07-24").toLocaleDateString()` interpreta el string como

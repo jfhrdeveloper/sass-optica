@@ -6,7 +6,7 @@ import { useData, type Gasto } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { formatearFechaPE } from "@/lib/date";
+import { formatearFechaPE } from "@/lib/formato/date";
 import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 import { DatePicker } from "@/components/calendario/DatePicker";
 

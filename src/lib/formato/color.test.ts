@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   PALETA_MARCA, CONTRASTE_MINIMO,
   contraste, esHexValido, sirveParaTextoBlanco,
-} from "@/lib/color";
+} from "@/lib/formato/color";
 
 /* El color de marca termina siendo el fondo de `.btn-primary`, que lleva
    texto blanco. Un color demasiado claro deja los botones ilegibles en la

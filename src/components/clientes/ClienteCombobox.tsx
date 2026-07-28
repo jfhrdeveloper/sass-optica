@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, User, X } from "lucide-react";
 import type { Cliente } from "@/components/providers/DataProvider";
-import { coincideBusqueda } from "@/lib/texto";
+import { coincideBusqueda } from "@/lib/formato/texto";
 
 interface Props {
   clientes: Cliente[];

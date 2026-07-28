@@ -11,8 +11,8 @@ import { BotonWhatsApp } from "@/components/clientes/BotonWhatsApp";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { useClienteForm } from "@/lib/hooks/useClienteForm";
-import { coincideBusqueda } from "@/lib/texto";
-import { formatearFecha } from "@/lib/date";
+import { coincideBusqueda } from "@/lib/formato/texto";
+import { formatearFecha } from "@/lib/formato/date";
 
 const DIAS_RIESGO = 180;
 

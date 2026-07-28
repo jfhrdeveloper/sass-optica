@@ -9,7 +9,7 @@ import { useSession } from "@/components/providers/SessionProvider";
 import { useClienteForm } from "@/lib/hooks/useClienteForm";
 import { ClienteFormSlideOver } from "@/components/clientes/ClienteFormSlideOver";
 import { BotonWhatsApp } from "@/components/clientes/BotonWhatsApp";
-import { formatearFecha, formatearFechaHora } from "@/lib/date";
+import { formatearFecha, formatearFechaHora } from "@/lib/formato/date";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";

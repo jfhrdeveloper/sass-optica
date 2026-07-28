@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Pipette } from "lucide-react";
-import { PALETA_MARCA, esHexValido, sirveParaTextoBlanco, contraste } from "@/lib/color";
+import { PALETA_MARCA, esHexValido, sirveParaTextoBlanco, contraste } from "@/lib/formato/color";
 
 interface Props {
   valor: string;

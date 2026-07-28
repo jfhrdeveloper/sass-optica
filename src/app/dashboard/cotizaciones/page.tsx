@@ -6,7 +6,7 @@ import { useData, type Cotizacion, type CotizacionItem } from "@/components/prov
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { formatearFechaPE } from "@/lib/date";
+import { formatearFechaPE } from "@/lib/formato/date";
 import { DatePicker } from "@/components/calendario/DatePicker";
 
 const IGV = 0.18;

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { es } from "react-day-picker/locale";
 import { CalendarDays, X } from "lucide-react";
-import { aCadenaISO, aFechaLocal, formatearFechaPE, ordenarRango } from "@/lib/date";
+import { aCadenaISO, aFechaLocal, formatearFechaPE, ordenarRango } from "@/lib/formato/date";
 
 interface Props {
   desde: string;

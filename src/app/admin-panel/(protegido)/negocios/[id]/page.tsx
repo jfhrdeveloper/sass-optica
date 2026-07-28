@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EMPLEADOS, MOCK_ADMIN_PAGOS } from "@/lib/mock/mock-data";
 import { leerOverridesActivo, aplicarOverridesActivo } from "@/lib/mock/mock-admin-overrides";
-import { formatearFechaPE } from "@/lib/date";
+import { formatearFechaPE } from "@/lib/formato/date";
 import { SuspenderNegocioButton } from "@/components/admin/SuspenderNegocioButton";
 
 const PLAN_LABEL: Record<string, string> = { trial: "Prueba", basico: "Básico", premium: "Premium" };

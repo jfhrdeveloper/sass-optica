@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Search, Building2, ChevronRight } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { formatearFechaPE } from "@/lib/date";
-import { coincideBusqueda } from "@/lib/texto";
+import { formatearFechaPE } from "@/lib/formato/date";
+import { coincideBusqueda } from "@/lib/formato/texto";
 
 export type NegocioFila = {
   id: string;

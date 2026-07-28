@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES } from "@/lib/mock/mock-data";
-import { formatearFechaPE } from "@/lib/date";
+import { formatearFechaPE } from "@/lib/formato/date";
 
 const DIAS_POR_VENCER = 7;
 /* Precios reales de los planes pagos (ver PreciosSection.tsx) — el MRR

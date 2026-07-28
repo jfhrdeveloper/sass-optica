@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useData } from "@/components/providers/DataProvider";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { formatearFechaPE } from "@/lib/date";
+import { formatearFechaPE } from "@/lib/formato/date";
 import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 
 type Movimiento = { fecha: string; tipo: "ingreso" | "egreso"; concepto: string; monto: number };
