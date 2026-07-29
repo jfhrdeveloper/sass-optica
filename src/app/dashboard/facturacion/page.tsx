@@ -12,6 +12,7 @@ import {
   PLANES, precioSegunCiclo, montoCentimosSegunCiclo, etiquetaOferta, descripcionOferta,
   type CicloFacturacion,
 } from "@/lib/precios";
+import { formatearFechaPE } from "@/lib/formato/date";
 
 export default function FacturacionPage() {
   const { negocio, suscripcion } = useData();
@@ -35,8 +36,8 @@ export default function FacturacionPage() {
       <div className="card mt-4 p-4 text-sm">
         <p>Plan actual: <span className="font-medium capitalize">{suscripcion?.plan ?? "—"}</span></p>
         <p>Estado: <span className="font-medium">{suscripcion?.estado ?? "—"}</span></p>
-        {suscripcion?.estado === "trial" && <p>Prueba gratuita hasta el {suscripcion.trialFin}.</p>}
-        {suscripcion?.estado === "activa" && <p>Próximo cobro: {suscripcion.proximoCobro ?? "—"}</p>}
+        {suscripcion?.estado === "trial" && <p>Prueba gratuita hasta el {formatearFechaPE(suscripcion.trialFin)}.</p>}
+        {suscripcion?.estado === "activa" && <p>Próximo cobro: {suscripcion.proximoCobro ? formatearFechaPE(suscripcion.proximoCobro) : "—"}</p>}
       </div>
 
       {suscripcion?.estado === "vencida" && (

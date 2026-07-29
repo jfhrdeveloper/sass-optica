@@ -10,6 +10,7 @@ import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist"
 import { CoachTooltip } from "@/components/dashboard/CoachTooltip";
 import { ChangelogBanner } from "@/components/dashboard/ChangelogBanner";
 import { coincideBusqueda } from "@/lib/formato/texto";
+import { formatearFechaPE } from "@/lib/formato/date";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -151,7 +152,7 @@ export default function DashboardPage() {
 
       {suscripcion?.estado === "trial" && (
         <p className="badge badge-warning mt-4 px-3 py-1.5">
-          Estás en prueba gratuita hasta el {suscripcion.trialFin}.
+          Estás en prueba gratuita hasta el {formatearFechaPE(suscripcion.trialFin)}.
         </p>
       )}
       {suscripcion?.estado === "vencida" && (
