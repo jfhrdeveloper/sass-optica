@@ -1,39 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Building2, Wallet, LogOut } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { isMockMode, MOCK_ADMIN_COOKIE } from "@/lib/mock/mock-mode";
+import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-
-const NAV = [
-  { href: "/admin-panel", label: "Resumen", icon: LayoutDashboard },
-  { href: "/admin-panel/negocios", label: "Negocios", icon: Building2 },
-  { href: "/admin-panel/pagos", label: "Pagos", icon: Wallet },
-];
+import { ADMIN_NAV } from "@/lib/admin-nav";
+import { useAdminSignOut } from "@/lib/hooks/useAdminSignOut";
 
 /* Sidebar fijo del panel admin — versión reducida de DashboardNav.tsx (solo
    3 rutas, sin grupos/colapso: no hace falta esa complejidad para un menú
    tan chico). Sin dependencia de DataProvider/SessionProvider (esos
-   providers son del namespace de negocio, el admin-panel nunca los monta). */
+   providers son del namespace de negocio, el admin-panel nunca los monta).
+   `hidden md:flex`: en mobile la navegación vive en AdminBottomTabBar.tsx +
+   AdminMobileHeader.tsx (mismo patrón que DashboardNav/BottomTabBar del
+   lado de negocio) — antes este sidebar de 240px quedaba fijo SIEMPRE,
+   sin importar el ancho de pantalla, y `AdminShell` le sumaba `ml-60`
+   también sin condición: en un celular eso dejaba el contenido real
+   comprimido a un ~30% del ancho de la pantalla. */
 export function AdminNav() {
   const pathname = usePathname();
-  const router = useRouter();
-
-  async function signOut() {
-    if (isMockMode()) {
-      document.cookie = `${MOCK_ADMIN_COOKIE}=; path=/; max-age=0`;
-      router.replace("/admin-panel/login");
-      return;
-    }
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
-  }
+  const signOut = useAdminSignOut();
 
   return (
-    <aside className="fixed inset-y-0 left-0 flex w-60 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
       <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-4 py-4 dark:border-slate-800">
         <div className="min-w-0">
           <p className="truncate font-display text-base text-slate-900 dark:text-slate-100">Panel del SaaS</p>
@@ -43,7 +32,7 @@ export function AdminNav() {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {ADMIN_NAV.map(({ href, label, icon: Icon }) => {
           const activo = pathname === href;
           return (
             <Link
