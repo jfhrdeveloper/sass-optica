@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validarFormatoSlug } from "@/lib/slug";
+import { limiteExcedido, ipDelRequest } from "@/lib/rate-limit";
+
+/* 5 altas cada 10 min por IP — generoso para un uso legítimo (nadie registra
+   5 ópticas seguidas desde la misma red en 10 minutos) pero corta el loop
+   obvio de un script creando negocios/cuentas en cadena. Ver rate-limit.ts:
+   esto es best-effort hasta desplegar y configurar la regla real en Vercel
+   Firewall. */
+const MAX_INTENTOS = 5;
+const VENTANA_MS = 10 * 60 * 1000;
 
 /* ================= REGISTRO SELF-SERVICE ================= */
 /* Flujo que NO es parte del patrón base de invitación: un visitante anónimo  */
@@ -9,6 +18,10 @@ import { validarFormatoSlug } from "@/lib/slug";
 /* es atómico": si cualquier paso falla, no debe quedar un negocio huérfano    */
 /* sin administrador ni un usuario de Auth sin perfil completo.                */
 export async function POST(req: Request) {
+  if (limiteExcedido(`registro:${ipDelRequest(req)}`, MAX_INTENTOS, VENTANA_MS)) {
+    return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos e intenta de nuevo." }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => ({}));
   const nombreNegocio = String(body.nombreNegocio ?? "").trim();
   const subdominio    = String(body.subdominio ?? "").trim().toLowerCase();

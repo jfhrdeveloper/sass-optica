@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 /* Este test no ejercita proxy() completo (requeriría mockear el cliente de
    Supabase) — verifica, contra la API real de Next.js, el mecanismo exacto
-   que causó el bug encontrado en la sesión 2026-07-29 (13): un header
+   que causó el bug encontrado en la sesión 2026-07-28 (13): un header
    puesto con `response.headers.set(...)` DESPUÉS de construir la respuesta
    nunca llega al request que ve un Server Component vía `headers()`; solo
    los headers pasados dentro de `{ request: { headers } }` AL CONSTRUIR la

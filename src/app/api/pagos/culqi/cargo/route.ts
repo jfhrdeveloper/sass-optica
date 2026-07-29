@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { montoCentimosSegunCiclo, type CicloFacturacion } from "@/lib/precios";
+import { limiteExcedido, ipDelRequest } from "@/lib/rate-limit";
+
+/* 10 intentos de cargo cada 5 min por IP — un administrador legítimo
+   reintentando una tarjeta rechazada no llega ni cerca; corta el loop de
+   un script probando tarjetas robadas contra el endpoint. Best-effort, ver
+   rate-limit.ts. */
+const MAX_INTENTOS = 10;
+const VENTANA_MS = 5 * 60 * 1000;
 
 /* ================= CONFIRMAR CARGO DE CULQI ================= */
 /* Recibe el token que entregó el Checkout embebido (ver CulqiCheckoutButton) */
@@ -13,6 +21,10 @@ import { montoCentimosSegunCiclo, type CicloFacturacion } from "@/lib/precios";
 /* que confirmarlo contra la documentación oficial al conectar credenciales   */
 /* reales — esto es la mejor forma conocida al momento de escribir esto. */
 export async function POST(req: Request) {
+  if (limiteExcedido(`culqi-cargo:${ipDelRequest(req)}`, MAX_INTENTOS, VENTANA_MS)) {
+    return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos e intenta de nuevo." }, { status: 429 });
+  }
+
   const secretKey = process.env.CULQI_SECRET_KEY;
   if (!secretKey) {
     return NextResponse.json({ error: "Culqi no está configurado en el servidor." }, { status: 503 });

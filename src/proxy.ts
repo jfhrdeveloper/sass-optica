@@ -84,7 +84,7 @@ export async function proxy(request: NextRequest) {
      con `res.headers.set(...)` DESPUÉS de crear la respuesta (como hacía
      antes esta función) solo lo agrega a la respuesta HTTP saliente —
      nunca llega a `headers()` del lado del Server Component. Bug real
-     encontrado en la sesión 2026-07-29 (13): x-negocio-id/x-super-admin
+     encontrado en la sesión 2026-07-28 (13): x-negocio-id/x-super-admin
      nunca llegaban a destino, así que dashboard/layout.tsx y
      admin-panel/(protegido)/layout.tsx redirigían a /login SIEMPRE que se
      conectara Supabase real (enmascarado en dev porque el modo mock usa

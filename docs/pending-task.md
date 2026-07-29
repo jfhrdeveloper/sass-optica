@@ -39,6 +39,22 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
 - [ ] Probar el flujo completo con subdominios reales (`[slug].dominio.pe`) — en `localhost` la
       cookie de sesión NO comparte dominio entre root y subdominios (ver `cookie-domain.ts`),
       revisar si esto complica probar el flujo login→subdominio en dev local
+- [ ] Configurar rate limiting real en Vercel Firewall una vez desplegado y enlazado (`vercel
+      link`) — hoy `src/lib/rate-limit.ts` da una protección best-effort en memoria (por
+      instancia, no compartida), ver bitácora 2026-07-28 (13). Comandos listos para pegar:
+      ```
+      vercel firewall rules add "Rate limit registro" \
+        --condition '{"type":"path","op":"eq","value":"/api/registro"}' \
+        --action rate_limit --rate-limit-window 600 --rate-limit-requests 5 \
+        --rate-limit-keys ip --rate-limit-action deny --yes
+      vercel firewall rules add "Rate limit cargo Culqi" \
+        --condition '{"type":"path","op":"eq","value":"/api/pagos/culqi/cargo"}' \
+        --action rate_limit --rate-limit-window 300 --rate-limit-requests 10 \
+        --rate-limit-keys ip --rate-limit-action deny --yes
+      vercel firewall publish --yes
+      ```
+      Seguir el rollout escalonado recomendado (log → preview → producción) antes de publicar en
+      `deny` directo si el tráfico real es incierto.
 
 ## Pendientes activos (no bloquean, pero quedan abiertos)
 - [x] Decidir permisos exactos de `gastos` para el rol `encargado` — resuelto de forma más
@@ -133,6 +149,60 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-28 (13) — Adaptación mobile del admin panel, fix de fechas, SEO, bug crítico del proxy, tokens de diseño y rate limiting
+- **Qué cambió:** sesión de "usa las skills disponibles y dime/hazlo todo" — seis piezas
+  independientes, en orden:
+  1. **Adaptación mobile del admin panel** (`b4ae8e1`) — el usuario pidió que el patrón mobile ya
+     aplicado al dashboard de negocio (sidebar oculto + tab bar, sesión anterior) se extendiera a
+     TODAS las vistas. Se encontró que `AdminNav`/`AdminShell` nunca lo habían recibido: sidebar
+     fijo de 240px sin `hidden md:flex` y `ml-60` sin condición — en un celular eso dejaba el
+     contenido real comprimido a ~30% del ancho. Nuevos `AdminMobileHeader.tsx` (título + tema +
+     cerrar sesión, cerrar sesión deliberadamente FUERA del tab bar por ser una acción distinta en
+     peso a "ir a Resumen/Negocios/Pagos") y `AdminBottomTabBar.tsx` (los 3 destinos completos, sin
+     "Más" — a diferencia del dashboard de negocio que sí colapsa ~10 secciones). `lib/admin-nav.ts`
+     nuevo como fuente única, mismo criterio que `lib/dashboard-nav.ts`.
+  2. **Fix de formato de fecha** (`6d324ab`) — `trialFin`/`proximoCobro` se mostraban como ISO
+     crudo (`2026-08-28`) en `/dashboard` y `/dashboard/facturacion` en vez de `DD-MM-AAAA` (la
+     convención de TODO el proyecto, que el usuario reiteró explícitamente). Bug puntual de las
+     páginas reescritas en la sesión de Culqi (11), el resto del proyecto ya lo hacía bien.
+  3. **SEO técnico completo** (`5c092e9`, skill `seo-optimizer`) — la landing no tenía nada:
+     `metadataBase`/OpenGraph/Twitter card, `icon.tsx`/`apple-icon.tsx`/`opengraph-image.tsx`
+     (generados con `next/og` — no hay logo real todavía, ver pendiente de marca), `robots.ts`/
+     `sitemap.ts`, JSON-LD (`Organization` + `SoftwareApplication` con los planes reales de
+     `lib/precios.ts` + `FAQPage` reusando el array del acordeón existente) y `generateMetadata`
+     por pestaña en `/legal`. `noindex` en dashboard/admin-panel como defensa en profundidad.
+  4. **Bug crítico encontrado en la revisión de seguridad manual** (`3fa33c0`) — sin remoto
+     configurado, `/security-review` no pudo correr (`git diff` contra `origin/HEAD` falla), así
+     que la revisión fue manual. Hallazgo: `proxy.ts` seteaba `x-negocio-id`/`x-super-admin` con
+     `response.headers.set(...)` DESPUÉS de construir la respuesta — verificado contra el código
+     fuente de Next.js y con un test real (`src/proxy.test.ts`) que Next.js solo reconstruye el
+     request que ve un Server Component a partir de headers pasados dentro de `{ request: {
+     headers } }` AL CONSTRUIR la respuesta. Con el bug, `dashboard/layout.tsx` y
+     `admin-panel/(protegido)/layout.tsx` habrían redirigido a `/login` a CUALQUIER usuario real
+     (autenticado, con tenant válido) apenas se conectara Supabase real — nunca se detectó porque
+     el modo mock usa una cookie en su lugar. No es una vulnerabilidad de acceso (falla cerrado) pero
+     sí un bug que hubiera roto el producto completo justo al "validar con negocios reales". La RLS
+     seguía protegiendo los datos independientemente, tal como documentaba el comentario original.
+  5. **Tokens de diseño formalizados** (skill `ui-design-system`, cuyo script generador tiene un
+     bug real — `SyntaxError` en `design_token_generator.py`, no se pudo usar) — `docs/design-tokens.json`
+     nuevo, formato W3C Design Tokens, a mano a partir de los valores YA validados en
+     `globals.css`/`style-guide.md` (no regenerado desde un color base, para no divergir de los
+     ajustes de accesibilidad/dark-mode ya hechos sesión a sesión). De paso, corregida una
+     referencia obsoleta a `middleware.ts` en `style-guide.md` (Next.js 16 lo renombró a `proxy.ts`).
+  6. **Rate limiting defensivo** (`src/lib/rate-limit.ts`, con tests) en `/api/registro` (5 cada
+     10 min por IP) y `/api/pagos/culqi/cargo` (10 cada 5 min por IP) — best-effort en memoria
+     (no compartido entre instancias serverless) mientras no exista un proyecto Vercel desplegado
+     y enlazado para configurar la regla real de Vercel Firewall (comandos exactos dejados en
+     "Pendientes activos" arriba, listos para pegar tras el despliegue).
+  - `npm run build`/`lint`/`tsc --noEmit` limpios y `npm test` 108/108 (eran 98) en cada paso.
+- **Por qué:** pedido explícito del usuario de analizar las skills disponibles, decir qué más
+  sumar al proyecto, y luego "hazlo todo" — más la corrección puntual de fechas y la adaptación
+  mobile global del admin panel, pedidas en mensajes separados de la misma sesión.
+- **Pendiente:** `vercel:marketplace` para retomar el email marketing (scaffold retirado en una
+  sesión anterior por no tener proveedor real conectado) queda sin tocar a propósito — reconstruir
+  esa UI sin una integración real provisionada repetiría el mismo error que ya se corrigió una vez.
+  Ver conversación: se le preguntó al usuario en qué estado quiere dejarlo.
 
 ### 2026-07-28 (12) — Pase de accesibilidad (skills de diseño) + analítica de uso en el admin panel
 - **Qué cambió:** el usuario pidió usar las skills de diseño disponibles sobre el dashboard de
