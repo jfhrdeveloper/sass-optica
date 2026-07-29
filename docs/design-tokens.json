@@ -1,0 +1,69 @@
+{
+  "$description": "Tokens de diseño de SaaS Óptica en formato W3C Design Tokens (DTCG) — para handoff a herramientas de diseño (Figma Tokens Studio, Style Dictionary) o a cualquier persona que no vaya a leer src/app/globals.css directamente. Fuente de la verdad real: docs/style-guide.md (prosa) + src/app/globals.css (implementación). Este archivo NO se consume en build — es documentación formal, generada a mano a partir de esos dos, no regenerada desde un color base (evita divergir de los ajustes de accesibilidad/dark-mode ya hechos y verificados sesión a sesión, ver docs/pending-task.md).",
+
+  "color": {
+    "$description": "Modo claro (:root en globals.css). El modo oscuro no es una paleta aparte: solo *-light cambia (ver color-dark abajo) — el resto de los tokens es el mismo en ambos modos.",
+    "primary": { "$type": "color", "$value": "#2563eb", "$description": "blue-600 — acción principal, nav activo, indicador de segmented control" },
+    "primary-dark": { "$type": "color", "$value": "#1e40af", "$description": "blue-800 — hover de primary, sidebar activo" },
+    "primary-light": { "$type": "color", "$value": "#eff6ff", "$description": "blue-50 — fondos suaves (chips, hover de filas)" },
+    "accent": { "$type": "color", "$value": "#16a34a", "$description": "green-600 — estados positivos (ventas, stock ok, +%)" },
+    "accent-light": { "$type": "color", "$value": "#f0fdf4", "$description": "green-50" },
+    "background": { "$type": "color", "$value": "#ffffff" },
+    "foreground": { "$type": "color", "$value": "#0f172a", "$description": "slate-900" },
+    "neutral": {
+      "$description": "Escala slate de Tailwind tal cual, sin token propio — se referencia por clase (text-slate-500, border-slate-200, etc.), no por variable CSS.",
+      "text-strong": { "$type": "color", "$value": "{slate.900}" },
+      "text-muted": { "$type": "color", "$value": "{slate.500}" },
+      "text-faint": { "$type": "color", "$value": "{slate.400}" },
+      "border": { "$type": "color", "$value": "{slate.200}" },
+      "border-subtle": { "$type": "color", "$value": "{slate.100}" }
+    },
+    "status": {
+      "success": { "$type": "color", "$value": "{green}", "$description": ".badge-success" },
+      "warning": { "$type": "color", "$value": "{amber}", "$description": ".badge-warning" },
+      "danger": { "$type": "color", "$value": "{red}", "$description": ".badge-danger" },
+      "neutral": { "$type": "color", "$value": "{slate}", "$description": ".badge-neutral" }
+    }
+  },
+
+  "color-dark": {
+    "$description": "Overrides bajo la clase .dark en globals.css — SOLO estos 4 tokens cambian; primary/accent/primary-dark se mantienen idénticos al modo claro.",
+    "background": { "$type": "color", "$value": "#020617", "$description": "slate-950" },
+    "foreground": { "$type": "color", "$value": "#f1f5f9", "$description": "slate-100" },
+    "primary-light": { "$type": "color", "$value": "rgba(37, 99, 235, 0.18)", "$description": "tinte translúcido, no pastel sólido — un bg-blue-50 sobre fondo oscuro se ve \"lavado\"" },
+    "accent-light": { "$type": "color", "$value": "rgba(22, 163, 74, 0.18)" }
+  },
+
+  "typography": {
+    "font-sans": { "$type": "fontFamily", "$value": ["Geist", "system-ui", "sans-serif"], "$description": "cuerpo de texto, vía next/font/google" },
+    "font-mono": { "$type": "fontFamily", "$value": ["Geist Mono", "monospace"] },
+    "font-heading": { "$type": "fontFamily", "$value": ["Poppins", "system-ui", "sans-serif"], "$description": "h1/h2/h3 y nombre de marca — más pesada/geométrica que Geist a propósito, para diferenciar del cuerpo" },
+    "weight": {
+      "heading": { "$type": "fontWeight", "$value": 600, "$description": "font-semibold, títulos y montos" },
+      "label": { "$type": "fontWeight", "$value": 500, "$description": "font-medium, labels/botones" },
+      "body": { "$type": "fontWeight", "$value": 400 }
+    },
+    "scale": { "$description": "Escala por defecto de Tailwind (text-sm/base/xl/2xl/4xl…) — sin escala custom. Headline de landing: text-4xl/text-5xl." }
+  },
+
+  "radius": {
+    "default": { "$type": "dimension", "$value": "9999px", "$description": "rounded-full en TODO el sitio (botones, badges, avatares) — decisión de sistema unificada en la sesión 2026-07-25 (6), no una excepción por componente" }
+  },
+
+  "breakpoint": {
+    "$description": "Mobile-first — diseñar para <640px primero y escalar hacia arriba. Valores = defaults de Tailwind, documentados acá porque style-guide.md los prescribe explícitamente por dispositivo objetivo.",
+    "sm": { "$type": "dimension", "$value": "640px", "$description": "móvil grande / paisaje" },
+    "md": { "$type": "dimension", "$value": "768px", "$description": "tablet — sidebar pasa a overlay/colapsable" },
+    "lg": { "$type": "dimension", "$value": "1024px", "$description": "laptop 13-14\" — sidebar fijo en el dashboard" },
+    "xl": { "$type": "dimension", "$value": "1280px", "$description": "laptop 15-16\" — grid de 3+ columnas" },
+    "2xl": { "$type": "dimension", "$value": "1536px", "$description": "monitor 17\"+ — contenido centrado, no estirar al 100%" }
+  },
+
+  "touch-target": {
+    "min": { "$type": "dimension", "$value": "44px", "$description": "WCAG + uso real desde el mostrador de la óptica en celular/tablet" }
+  },
+
+  "motion": {
+    "duration-base": { "$type": "duration", "$value": "300ms", "$description": "transición base a reutilizar; no esparcir duraciones ad-hoc distintas por componente (pendiente auditar consistencia total, ver style-guide.md § Animación)" }
+  }
+}

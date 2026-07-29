@@ -1,6 +1,8 @@
 # Guía de estilo
 
 > Fuente única de verdad para estilo visual y convenciones de código. No duplicar en CLAUDE.md.
+> Versión formal/machine-readable de los tokens de color, tipografía y breakpoints de abajo:
+> `docs/design-tokens.json` (formato W3C Design Tokens, para handoff a Figma/Style Dictionary).
 
 ## Tipografía
 - Familia(s): **Geist** (sans) / **Geist Mono** — ya instaladas vía `next/font/google` en `src/app/layout.tsx`. Coincide con el estilo sans-serif geométrico moderno de todas las referencias de competidores analizadas (ver `diseno-referencia/`), no hizo falta cambiarla.
@@ -195,4 +197,4 @@ atemporal. **No** narra quién lo escribió ni cuándo: eso vive en el git log /
 - **No** usar tamaños de tipografía fijos; usar escala responsiva o clases globales con `clamp()`.
 - **No** usar `//` dentro del JSX (en el `return`); solo `{/* ... */}`.
 - **No** importar el cliente `service_role` de Supabase (`admin.ts`) fuera de código server-side.
-- **No** duplicar lógica de resolución de tenant fuera del `middleware.ts` (una sola fuente de verdad).
+- **No** duplicar lógica de resolución de tenant fuera de `src/proxy.ts` (una sola fuente de verdad — Next.js 16 renombró `middleware.ts` a `proxy.ts`, mismo contrato).
