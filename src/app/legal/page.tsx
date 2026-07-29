@@ -3,10 +3,23 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { LegalHub } from "@/components/legal/LegalHub";
 
-export const metadata: Metadata = {
-  title: "Términos y privacidad · SaaS Óptica",
-  description: "Términos y condiciones del servicio y política de privacidad y protección de datos personales.",
+const METADATA_POR_TAB: Record<string, Metadata> = {
+  terminos: { title: "Términos y condiciones", description: "Términos y condiciones del servicio de gestión para ópticas." },
+  privacidad: { title: "Política de privacidad", description: "Cómo se tratan los datos personales y de salud (recetas ópticas) de tus pacientes, conforme a la Ley N° 29733." },
+  proteccion: { title: "Protección de datos", description: "Los mecanismos técnicos reales de seguridad: RLS, aislamiento por negocio, auditoría y papelera con recuperación." },
 };
+
+/* Metadata distinta por pestaña (title/description), no una sola genérica —
+   son 3 páginas con contenido de verdad distinto (legal, privacidad,
+   seguridad técnica), cada una indexable por separado (ver sitemap.ts). */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}): Promise<Metadata> {
+  const { tab } = await searchParams;
+  return METADATA_POR_TAB[tab ?? "terminos"] ?? METADATA_POR_TAB.terminos;
+}
 
 /* Página legal con sidebar + sub-índice (ver LegalHub.tsx), patrón tomado de
    ferdocs-web. El Server Component solo resuelve el tab inicial desde la URL

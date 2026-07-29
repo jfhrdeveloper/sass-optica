@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Providers } from "@/components/providers/Providers";
 import { HydrationGate } from "@/components/ui/HydrationGate";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { isMockMode, MOCK_COOKIE } from "@/lib/mock/mock-mode";
+
+/* Defensa en profundidad además de robots.ts (que solo bloquea el RASTREO):
+   si alguna vez alguien enlaza una URL de /dashboard/* desde afuera, este
+   noindex evita que Google la indexe igual. */
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 /* Defensa en profundidad: el proxy ya exige sesión + tenant resuelto antes
    de dejar pasar a /dashboard/*, pero esta ruta solo debe existir dentro de

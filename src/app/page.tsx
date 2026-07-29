@@ -9,7 +9,10 @@ import { LandingMotionProvider } from "@/components/landing/LandingMotionProvide
 import { WhatsAppFab } from "@/components/landing/WhatsAppFab";
 import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 import { TransitionLink } from "@/components/landing/PageTransition";
-import { EMAIL_SOPORTE, urlWhatsApp } from "@/lib/contacto";
+import { EMAIL_SOPORTE, RAZON_SOCIAL, urlWhatsApp } from "@/lib/contacto";
+import { PLANES } from "@/lib/precios";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 /* Landing pública (dominio raíz), estructura de 10 secciones del brief §3.
    Paleta y estilo tomados del análisis de diseno-referencia/ (competidores
@@ -30,9 +33,46 @@ const FAQ = [
   { q: "¿Emiten factura electrónica?", a: "Sí, es una función del plan Premium (SUNAT)." },
 ];
 
+/* Datos estructurados (schema.org) para resultados enriquecidos en Google —
+   Organization + SoftwareApplication (con los planes reales de
+   lib/precios.ts, no montos escritos a mano) + FAQPage (reusa el mismo
+   array FAQ que ya renderiza el acordeón, una sola fuente). */
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      name: RAZON_SOCIAL,
+      url: SITE_URL,
+      email: EMAIL_SOPORTE,
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: RAZON_SOCIAL,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: SITE_URL,
+      description: "Sistema de gestión para ópticas: clientes, citas, recetas, ventas, inventario y facturación electrónica SUNAT.",
+      offers: [
+        { "@type": "Offer", name: "Gratis", price: "0", priceCurrency: "PEN" },
+        ...PLANES.map((p) => ({ "@type": "Offer", name: p.nombre, price: p.mensual.toFixed(2), priceCurrency: "PEN" })),
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQ.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    },
+  ],
+};
+
 export default function LandingPage() {
   return (
     <LandingMotionProvider>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       {/* ====== 1. Header ====== */}
       <LandingHeader />
 

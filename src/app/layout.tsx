@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { PageTransitionProvider } from "@/components/landing/PageTransition";
+import { RAZON_SOCIAL } from "@/lib/contacto";
 import "./globals.css";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const TITULO = `${RAZON_SOCIAL} — Software de gestión para ópticas en Perú`;
+const DESCRIPCION =
+  "Sistema de gestión para ópticas peruanas: clientes, citas, recetas, ventas, inventario y facturación electrónica SUNAT en un solo lugar. Prueba gratis, sin tarjeta.";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,8 +29,32 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "SaaS Óptica — Gestión para ópticas",
-  description: "Sistema de gestión para ópticas: clientes, citas, recetas, ventas e inventario en un solo lugar.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITULO, template: `%s · ${RAZON_SOCIAL}` },
+  description: DESCRIPCION,
+  keywords: [
+    "software para ópticas", "sistema de gestión para ópticas", "software óptica Perú",
+    "sistema para ópticas Perú", "gestión de óptica", "facturación electrónica óptica",
+    "programa para óptica", "ERP óptica",
+  ],
+  authors: [{ name: RAZON_SOCIAL }],
+  /* index/follow explícito en la raíz — dashboard/layout.tsx y
+     admin-panel/layout.tsx lo pisan con `false` (defensa en profundidad,
+     ver robots.ts). */
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "es_PE",
+    siteName: RAZON_SOCIAL,
+    title: TITULO,
+    description: DESCRIPCION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITULO,
+    description: DESCRIPCION,
+  },
 };
 
 /* Hardening móvil (ver docs/style-guide.md): sin auto-zoom al tocar inputs. */
