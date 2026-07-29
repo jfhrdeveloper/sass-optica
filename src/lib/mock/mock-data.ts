@@ -1,6 +1,6 @@
 import type {
   Empleado, Negocio, Suscripcion, Cliente, Cita, Receta,
-  Producto, MovimientoStock, Venta, VentaItem, Gasto, Descuento, CampaniaEmail,
+  Producto, MovimientoStock, Venta, VentaItem, Gasto, Descuento,
   Proveedor, Cotizacion, CotizacionItem,
 } from "@/components/providers/DataProvider";
 
@@ -70,10 +70,8 @@ export const MOCK_GASTOS: Gasto[] = [
 ];
 
 export const MOCK_DESCUENTOS: Descuento[] = [
-  { id: "desc-1", negocioId: MOCK_NEGOCIO.id, codigo: "VERANO10", tipo: "porcentaje", valor: 10, limiteUsos: 50, usos: 12, activo: true },
+  { id: "desc-1", negocioId: MOCK_NEGOCIO.id, codigo: "VERANO10", tipo: "porcentaje", valor: 10, aplicaA: "ambos", limiteUsos: 50, usos: 12, activo: true },
 ];
-
-export const MOCK_CAMPANIAS: CampaniaEmail[] = [];
 
 export const MOCK_PROVEEDORES: Proveedor[] = [
   { id: "prov-1", negocioId: MOCK_NEGOCIO.id, nombre: "Óptica Distribuidora SAC", ruc: "20345678901", contacto: "Jorge Salinas", telefono: "01 234 5678", email: "ventas@opticadist.pe", activo: true },

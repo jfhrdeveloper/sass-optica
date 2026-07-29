@@ -12,7 +12,6 @@ import { usePaginado } from "@/lib/hooks/usePaginado";
 const MODULOS_DELEGABLES = [
   { clave: "gastos", label: "Gastos y caja" },
   { clave: "descuentos", label: "Descuentos y cupones" },
-  { clave: "marketing", label: "Marketing (campañas)" },
 ] as const;
 
 /* Ruta protegida a nivel de proxy y de RLS. El alta/baja NUNCA llama a

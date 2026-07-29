@@ -10,7 +10,21 @@ import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 
 const CATEGORIAS = ["montura", "luna", "lente_contacto", "liquido", "accesorio", "servicio"] as const;
+const CATEGORIA_LABEL: Record<(typeof CATEGORIAS)[number], string> = {
+  montura: "Montura",
+  luna: "Luna",
+  lente_contacto: "Lente de contacto",
+  liquido: "Líquido",
+  accesorio: "Accesorio",
+  servicio: "Servicio",
+};
 const TIPOS_MOVIMIENTO = ["entrada", "salida", "ajuste", "devolucion"] as const;
+const TIPO_MOVIMIENTO_LABEL: Record<(typeof TIPOS_MOVIMIENTO)[number], string> = {
+  entrada: "Entrada",
+  salida: "Salida",
+  ajuste: "Ajuste",
+  devolucion: "Devolución",
+};
 const VACIO: Partial<Producto> = { categoria: "montura", precioVenta: 0, precioCosto: 0, activo: true };
 
 export default function ProductosPage() {
@@ -116,7 +130,7 @@ export default function ProductosPage() {
         <div className="table-filter-bar">
           <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
             <option value="todas">Todas las categorías</option>
-            {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIAS.map((c) => <option key={c} value={c}>{CATEGORIA_LABEL[c]}</option>)}
           </select>
           <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
             <option value="todos">Todos los estados</option>
@@ -154,7 +168,7 @@ export default function ProductosPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-600 capitalize dark:text-slate-300">{p.categoria.replace("_", " ")}</td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{CATEGORIA_LABEL[p.categoria as (typeof CATEGORIAS)[number]] ?? p.categoria}</td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">S/ {p.precioVenta.toFixed(2)}</td>
                   <td className={`table-cell ${p.stockActual <= p.stockMinimo ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}>
                     {p.stockActual}
@@ -203,16 +217,31 @@ export default function ProductosPage() {
           {paso === 1 ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Datos básicos</p>
-              <input placeholder="Nombre" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input w-full text-sm" />
-              <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select w-full text-sm">
-                {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <input placeholder="Marca" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="input w-full text-sm" />
-              <input placeholder="Código" value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input w-full text-sm" />
-              <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select w-full text-sm">
-                <option value="">Sin proveedor</option>
-                {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Nombre del producto</label>
+                <input placeholder="Ej. Ray-Ban Aviator" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input mt-1 w-full text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Categoría</label>
+                <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select mt-1 w-full text-sm">
+                  {CATEGORIAS.map((c) => <option key={c} value={c}>{CATEGORIA_LABEL[c]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Marca (opcional)</label>
+                <input placeholder="Ej. Ray-Ban" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="input mt-1 w-full text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Código o SKU (opcional)</label>
+                <input placeholder="Tu código interno para identificarlo" value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input mt-1 w-full text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Proveedor (opcional)</label>
+                <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select mt-1 w-full text-sm">
+                  <option value="">Sin proveedor</option>
+                  {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
               <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <input type="checkbox" checked={form.activo ?? true} onChange={(e) => setForm({ ...form, activo: e.target.checked })} className="checkbox" />
                 Publicado como Activo (desmarca para dejarlo en Borrador)
@@ -225,13 +254,26 @@ export default function ProductosPage() {
             <>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Precios y stock</p>
               <div className="grid grid-cols-2 gap-2">
-                <input placeholder="Precio venta (S/)" type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input text-sm" />
-                <input placeholder="Precio costo (S/)" type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input text-sm" />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de venta (S/)</label>
+                  <input type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de costo (S/)</label>
+                  <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
+                </div>
               </div>
               {!editandoId && (
                 <div className="grid grid-cols-2 gap-2">
-                  <input placeholder="Stock inicial" type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="input text-sm" />
-                  <input placeholder="Stock mínimo" type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="input text-sm" />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Stock inicial</label>
+                    <input type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="input mt-1 w-full text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Stock mínimo</label>
+                    <input type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="input mt-1 w-full text-sm" />
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Se marca en rojo cuando el stock baje de aquí.</p>
+                  </div>
                 </div>
               )}
               <div className="mt-2 flex gap-2">
@@ -254,7 +296,7 @@ export default function ProductosPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tipo de movimiento</label>
               <select value={tipoMov} onChange={(e) => setTipoMov(e.target.value as typeof tipoMov)} className="select mt-1 w-full text-sm">
-                {TIPOS_MOVIMIENTO.map((t) => <option key={t} value={t}>{t}</option>)}
+                {TIPOS_MOVIMIENTO.map((t) => <option key={t} value={t}>{TIPO_MOVIMIENTO_LABEL[t]}</option>)}
               </select>
             </div>
             {/* El label cambia de significado según el tipo: en "ajuste" el

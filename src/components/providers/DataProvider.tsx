@@ -20,14 +20,14 @@ import {
   rowToCliente, clienteToRow, rowToCita, citaToRow, rowToReceta, recetaToRow,
   rowToProducto, productoToRow, rowToMovimientoStock, rowToVenta, ventaToRow,
   rowToVentaItem, rowToGasto, gastoToRow, rowToDescuento, descuentoToRow,
-  rowToCampania, campaniaToRow, rowToProveedor, proveedorToRow,
+  rowToProveedor, proveedorToRow,
   rowToCotizacion, cotizacionToRow, rowToCotizacionItem,
 } from "@/lib/data/mappers";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import {
   MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_GASTOS,
-  MOCK_DESCUENTOS, MOCK_CAMPANIAS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
+  MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
 } from "@/lib/mock/mock-data";
 
 /* ================= TIPOS: capa de auth/tenant ================= */
@@ -43,9 +43,9 @@ export interface Empleado {
   telefono?:     string;
   avatarBase64?: string;
   /* Permisos granulares aditivos por encima del rol fijo — ver columna
-     `permisos` en supabase-schema.sql. Claves: 'gastos' | 'descuentos' |
-     'marketing'. Nunca incluye gestión de empleados/ajustes, eso queda
-     siempre exclusivo de `administrador`. */
+     `permisos` en supabase-schema.sql. Claves: 'gastos' | 'descuentos'.
+     Nunca incluye gestión de empleados/ajustes, eso queda siempre
+     exclusivo de `administrador`. */
   permisos:      Record<string, boolean>;
   activo:        boolean;
 }
@@ -157,17 +157,10 @@ export interface CotizacionItem {
 export interface Descuento {
   id: string; negocioId: string; codigo: string;
   tipo: "porcentaje" | "monto"; valor: number;
+  /** A qué documento se le puede aplicar este cupón. */
+  aplicaA: "cotizaciones" | "ventas" | "ambos";
   vigenciaDesde?: string; vigenciaHasta?: string;
   limiteUsos?: number; usos: number; activo: boolean;
-}
-
-/* Scaffold de campañas de email — sin envío real, ver comentario en el
-   schema. `enviados/fallidos/desuscritos` quedan en 0 hasta integrar un
-   proveedor de email real (Resend/Postmark vía Marketplace de Vercel). */
-export interface CampaniaEmail {
-  id: string; negocioId: string; nombre: string; asunto: string; cuerpo: string;
-  estado: "borrador" | "enviada";
-  enviados: number; fallidos: number; desuscritos: number;
 }
 
 interface DataCtx {
@@ -183,7 +176,6 @@ interface DataCtx {
   ventaItems:       VentaItem[];
   gastos:           Gasto[];
   descuentos:       Descuento[];
-  campanias:        CampaniaEmail[];
   proveedores:      Proveedor[];
   cotizaciones:     Cotizacion[];
   cotizacionItems:  CotizacionItem[];
@@ -204,14 +196,12 @@ interface DataCtx {
   updateProducto: (id: string, patch: Partial<Producto>) => Promise<void>;
   ajustarStock:   (productoId: string, tipo: string, cantidad: number, motivo?: string) => Promise<void>;
   addVenta:       (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => Promise<string | null>;
+  anularVenta:    (id: string) => Promise<void>;
   addGasto:       (g: Partial<Gasto>) => Promise<void>;
   deleteGasto:    (id: string) => Promise<void>;
   addDescuento:    (d: Partial<Descuento>) => Promise<void>;
   updateDescuento: (id: string, patch: Partial<Descuento>) => Promise<void>;
   deleteDescuento: (id: string) => Promise<void>;
-  addCampania:     (c: Partial<CampaniaEmail>) => Promise<void>;
-  updateCampania:  (id: string, patch: Partial<CampaniaEmail>) => Promise<void>;
-  deleteCampania:  (id: string) => Promise<void>;
   addProveedor:    (p: Partial<Proveedor>) => Promise<void>;
   updateProveedor: (id: string, patch: Partial<Proveedor>) => Promise<void>;
   deleteProveedor: (id: string) => Promise<void>;
@@ -226,7 +216,7 @@ const Ctx = createContext<DataCtx | null>(null);
 const TABLAS_DOMINIO = [
   "clientes", "citas", "recetas", "productos", "inventario",
   "movimientos_stock", "ventas", "venta_items", "gastos",
-  "descuentos", "campanias_email",
+  "descuentos",
   "proveedores", "cotizaciones", "cotizacion_items",
 ] as const;
 
@@ -246,7 +236,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [ventaItems, setVentaItems]   = useState<VentaItem[]>(mock ? MOCK_VENTA_ITEMS : []);
   const [gastos, setGastos]           = useState<Gasto[]>(mock ? MOCK_GASTOS : []);
   const [descuentos, setDescuentos]   = useState<Descuento[]>(mock ? MOCK_DESCUENTOS : []);
-  const [campanias, setCampanias]     = useState<CampaniaEmail[]>(mock ? MOCK_CAMPANIAS : []);
   const [proveedores, setProveedores] = useState<Proveedor[]>(mock ? MOCK_PROVEEDORES : []);
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>(mock ? MOCK_COTIZACIONES : []);
   const [cotizacionItems, setCotizacionItems] = useState<CotizacionItem[]>(mock ? MOCK_COTIZACION_ITEMS : []);
@@ -265,7 +254,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let activo = true;
 
     async function cargar() {
-      const [e, n, s, cl, ci, re, pr, inv, ms, ve, vi, ga, de, ca, pv, co, coi] = await Promise.all([
+      const [e, n, s, cl, ci, re, pr, inv, ms, ve, vi, ga, de, pv, co, coi] = await Promise.all([
         supabase.from("empleados").select("*"),
         supabase.from("negocios").select("*"),
         supabase.from("suscripciones").select("*"),
@@ -279,7 +268,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabase.from("venta_items").select("*"),
         supabase.from("gastos").select("*"),
         supabase.from("descuentos").select("*"),
-        supabase.from("campanias_email").select("*"),
         supabase.from("proveedores").select("*"),
         supabase.from("cotizaciones").select("*"),
         supabase.from("cotizacion_items").select("*"),
@@ -312,7 +300,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setVentaItems((vi.data ?? []).map(rowToVentaItem));
       setGastos((ga.data ?? []).map(rowToGasto));
       setDescuentos((de.data ?? []).map(rowToDescuento));
-      setCampanias((ca.data ?? []).map(rowToCampania));
       setProveedores((pv.data ?? []).map(rowToProveedor));
       setCotizaciones((co.data ?? []).map(rowToCotizacion));
       setCotizacionItems((coi.data ?? []).map(rowToCotizacionItem));
@@ -488,6 +475,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return ventaId;
   }, [supabase, negocio, ajustarStock, mock]);
 
+  /* Anular ≠ borrar: la venta queda como registro (trazabilidad para SUNAT
+     y para caja), pero el stock que descontó `addVenta` se devuelve vía
+     "devolucion" — el mismo tipo de movimiento que ya existe para cuando un
+     cliente devuelve un producto, es exactamente esa semántica. */
+  const anularVenta = useCallback(async (id: string) => {
+    const venta = ventas.find((v) => v.id === id);
+    if (!venta || venta.estado === "anulada") return;
+    const items = ventaItems.filter((it) => it.ventaId === id);
+    for (const it of items) {
+      if (it.productoId) await ajustarStock(it.productoId, "devolucion", it.cantidad, `Anulación de venta`);
+    }
+    if (mock) { setVentas((prev) => prev.map((v) => (v.id === id ? { ...v, estado: "anulada" } : v))); return; }
+    await supabase.from("ventas").update({ estado: "anulada" }).eq("id", id);
+  }, [supabase, ventas, ventaItems, ajustarStock, mock]);
+
   const addGasto = useCallback(async (g: Partial<Gasto>) => {
     if (!negocio) return;
     if (mock) {
@@ -504,7 +506,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addDescuento = useCallback(async (d: Partial<Descuento>) => {
     if (!negocio) return;
     if (mock) {
-      setDescuentos((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, codigo: "", tipo: "porcentaje", valor: 0, usos: 0, activo: true, ...d }]);
+      setDescuentos((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, codigo: "", tipo: "porcentaje", valor: 0, aplicaA: "ambos", usos: 0, activo: true, ...d }]);
       return;
     }
     await supabase.from("descuentos").insert({ ...descuentoToRow(d), negocio_id: negocio.id });
@@ -516,23 +518,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const deleteDescuento = useCallback(async (id: string) => {
     if (mock) { setDescuentos((prev) => prev.filter((d) => d.id !== id)); return; }
     await supabase.from("descuentos").delete().eq("id", id);
-  }, [supabase, mock]);
-
-  const addCampania = useCallback(async (c: Partial<CampaniaEmail>) => {
-    if (!negocio) return;
-    if (mock) {
-      setCampanias((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", asunto: "", cuerpo: "", estado: "borrador", enviados: 0, fallidos: 0, desuscritos: 0, ...c }]);
-      return;
-    }
-    await supabase.from("campanias_email").insert({ ...campaniaToRow(c), negocio_id: negocio.id });
-  }, [supabase, negocio, mock]);
-  const updateCampania = useCallback(async (id: string, patch: Partial<CampaniaEmail>) => {
-    if (mock) { setCampanias((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); return; }
-    await supabase.from("campanias_email").update(campaniaToRow(patch)).eq("id", id);
-  }, [supabase, mock]);
-  const deleteCampania = useCallback(async (id: string) => {
-    if (mock) { setCampanias((prev) => prev.filter((c) => c.id !== id)); return; }
-    await supabase.from("campanias_email").delete().eq("id", id);
   }, [supabase, mock]);
 
   const addProveedor = useCallback(async (p: Partial<Proveedor>) => {
@@ -605,15 +590,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const value: DataCtx = {
     empleados, negocio, suscripcion, clientes, citas, recetas, productos,
-    movimientosStock, ventas, ventaItems, gastos, descuentos, campanias,
+    movimientosStock, ventas, ventaItems, gastos, descuentos,
     proveedores, cotizaciones, cotizacionItems, ready,
     updateEmpleado, updateNegocio,
     addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
     addReceta, addProducto, updateProducto, ajustarStock,
-    addVenta, addGasto, deleteGasto,
+    addVenta, anularVenta, addGasto, deleteGasto,
     addDescuento, updateDescuento, deleteDescuento,
-    addCampania, updateCampania, deleteCampania,
     addProveedor, updateProveedor, deleteProveedor,
     addCotizacion, updateCotizacion, deleteCotizacion, convertirCotizacionAVenta,
   };

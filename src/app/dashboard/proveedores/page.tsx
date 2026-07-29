@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Truck, Pencil, Trash2 } from "lucide-react";
 import { useData, type Proveedor } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
+import { BotonWhatsApp } from "@/components/clientes/BotonWhatsApp";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 
@@ -16,6 +18,7 @@ const VACIO: Partial<Proveedor> = { nombre: "", activo: true };
 export default function ProveedoresPage() {
   const { proveedores, addProveedor, updateProveedor, deleteProveedor } = useData();
   const toast = useToast();
+  const router = useRouter();
   const [form, setForm] = useState<Partial<Proveedor>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
@@ -87,20 +90,29 @@ export default function ProveedoresPage() {
             </thead>
             <tbody>
               {visibles.map((p) => (
-                <tr key={p.id} className="table-row">
+                <tr key={p.id} onClick={() => router.push(`/dashboard/proveedores/${p.id}`)} className="table-row cursor-pointer">
                   <td className="table-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Truck size={16} /></span>
                       <span>
-                        <span className="block font-medium text-slate-900 dark:text-slate-100">{p.nombre}</span>
+                        <span className="block font-medium text-slate-900 transition-colors hover:text-primary dark:text-slate-100">{p.nombre}</span>
                         <span className="block text-xs text-slate-400 dark:text-slate-500">{p.ruc ?? "Sin RUC"}</span>
                       </span>
                     </div>
                   </td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">{p.contacto ?? "—"}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{p.telefono ?? "—"}</td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">
+                    {p.telefono ? (
+                      <span className="flex items-center gap-2">
+                        {p.telefono}
+                        <BotonWhatsApp telefono={p.telefono} />
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="table-cell">
-                    <label className="inline-flex cursor-pointer items-center gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox" role="switch" checked={p.activo}
                         onChange={() => updateProveedor(p.id, { activo: !p.activo })}
@@ -109,7 +121,7 @@ export default function ProveedoresPage() {
                       <span className="text-sm text-slate-600 dark:text-slate-300">{p.activo ? "Activo" : "Inactivo"}</span>
                     </label>
                   </td>
-                  <td className="table-cell text-right whitespace-nowrap">
+                  <td className="table-cell text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     {confirmandoId === p.id ? (
                       <span className="inline-flex items-center gap-2">
                         <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>

@@ -6,10 +6,8 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { Reveal } from "@/components/landing/Reveal";
 import { LandingMotionProvider } from "@/components/landing/LandingMotionProvider";
-import { AvisoTransparencia } from "@/components/landing/AvisoTransparencia";
 import { WhatsAppFab } from "@/components/landing/WhatsAppFab";
 import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
-import { CreditoJFHR } from "@/components/landing/CreditoJFHR";
 import { TransitionLink } from "@/components/landing/PageTransition";
 import { EMAIL_SOPORTE, urlWhatsApp } from "@/lib/contacto";
 
@@ -245,26 +243,15 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="mt-12 flex justify-center">
-            <AvisoTransparencia />
-          </div>
-
           <hr className="my-8 border-slate-200 dark:border-slate-800" />
 
           <div className="flex flex-col items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500 sm:flex-row sm:justify-between">
             <p>© {new Date().getFullYear()} SaaS Óptica</p>
-            <div className="flex flex-wrap justify-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <Link href="/legal?tab=terminos" className="link-underline transition-colors hover:text-primary">Términos y condiciones</Link>
               <Link href="/legal?tab=privacidad" className="link-underline transition-colors hover:text-primary">Política de privacidad</Link>
+              <Link href="/legal?tab=proteccion" className="link-underline transition-colors hover:text-primary">Protección de datos</Link>
             </div>
-          </div>
-
-          {/* Barra de créditos separada, debajo de todo — patrón de
-              tramys-landing (`Footer` + `Creditos` son secciones DISTINTAS,
-              una debajo de la otra, no columnas del mismo bloque). Una sola
-              línea centrada, con su propio borde superior. */}
-          <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
-            <CreditoJFHR />
           </div>
         </div>
       </footer>

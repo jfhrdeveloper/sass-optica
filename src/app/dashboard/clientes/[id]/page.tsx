@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, User, History, Pencil } from "lucide-react";
+import { User, History, Pencil } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useClienteForm } from "@/lib/hooks/useClienteForm";
@@ -67,10 +66,7 @@ export default function ClienteDetallePage() {
   if (!cliente) {
     return (
       <main>
-        <Link href="/dashboard/clientes" className="flex items-center gap-1.5 text-sm font-medium link">
-          <ArrowLeft size={15} /> Clientes
-        </Link>
-        <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Cliente no encontrado (puede haber sido eliminado o estar en la papelera).
         </p>
       </main>
@@ -79,10 +75,6 @@ export default function ClienteDetallePage() {
 
   return (
     <main>
-      <Link href="/dashboard/clientes" className="flex items-center gap-1.5 text-sm font-medium link">
-        <ArrowLeft size={15} /> Clientes
-      </Link>
-
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">

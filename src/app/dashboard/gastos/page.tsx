@@ -58,7 +58,7 @@ export default function GastosPage() {
 
       <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
         <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
-          {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+          {CATEGORIAS.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}
         </select>
         <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
         <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select text-sm">
@@ -76,7 +76,7 @@ export default function GastosPage() {
         <div className="table-filter-bar">
           <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
             <option value="todas">Todas las categorías</option>
-            {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIAS.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}
           </select>
           <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         </div>

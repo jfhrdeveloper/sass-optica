@@ -26,7 +26,6 @@ const RUTAS: Record<string, { label: string; grupo?: string }> = {
   cotizaciones: { label: "Cotizaciones", grupo: "Comercial" },
   ventas:       { label: "Ventas",       grupo: "Comercial" },
   descuentos:   { label: "Descuentos",   grupo: "Comercial" },
-  marketing:    { label: "Marketing",    grupo: "Comercial" },
   gastos:       { label: "Gastos",       grupo: "Administración" },
   informes:     { label: "Informes",     grupo: "Administración" },
   empleados:    { label: "Empleados",    grupo: "Administración" },
@@ -51,13 +50,19 @@ function Separador() {
    tipografía de headings: un solo punto de aplicación.
 
    No se implementa el colapso en elipsis del patrón de referencia porque
-   acá el rastro llega como máximo a 3 niveles (Inicio / Grupo / Página):
-   nunca hay ancestros intermedios "de bajo valor" que esconder. Si algún
-   día se anidan rutas de detalle, ahí sí haría falta. */
+   acá el rastro llega como máximo a 3 niveles (Inicio / Grupo / Página). */
 export function Breadcrumbs({ sinMargen = false }: { sinMargen?: boolean } = {}) {
   const pathname = usePathname();
-  const seccion = pathname.split("/")[2] ?? "";
+  const segmentos = pathname.split("/");
+  const seccion = segmentos[2] ?? "";
   const actual = RUTAS[seccion];
+  /* Fichas de detalle (`/dashboard/clientes/[id]`, `/dashboard/proveedores/[id]`):
+     hay un 4º segmento (el id). Ahí el nombre de la sección deja de ser "la
+     página actual" — es un ancestro navegable, así que se vuelve link en vez
+     de texto inerte. Antes esto quedaba duplicado con el link "← Volver a
+     X" propio de cada ficha; se sacó ese link de las páginas porque el
+     breadcrumb ya cumple esa función. */
+  const enFichaDeDetalle = Boolean(segmentos[3]);
 
   /* En /dashboard (la raíz) el rastro sería un único ítem apuntándose a sí
      mismo: no se muestra nada. */
@@ -83,10 +88,14 @@ export function Breadcrumbs({ sinMargen = false }: { sinMargen?: boolean } = {})
 
         <li className="flex items-center gap-1.5">
           <Separador />
-          {/* La página actual NUNCA es un link a sí misma. */}
-          <span aria-current="page" className="font-medium text-slate-900 dark:text-slate-100">
-            {actual.label}
-          </span>
+          {enFichaDeDetalle ? (
+            <Link href={`/dashboard/${seccion}`} className="link">{actual.label}</Link>
+          ) : (
+            /* La página actual NUNCA es un link a sí misma. */
+            <span aria-current="page" className="font-medium text-slate-900 dark:text-slate-100">
+              {actual.label}
+            </span>
+          )}
         </li>
       </ol>
     </nav>

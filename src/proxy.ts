@@ -208,7 +208,6 @@ export async function proxy(request: NextRequest) {
     "/dashboard/gastos": "gastos",
     "/dashboard/informes": "gastos",
     "/dashboard/descuentos": "descuentos",
-    "/dashboard/marketing": "marketing",
   };
   for (const [ruta, clave] of Object.entries(rutasConPermiso)) {
     if (pathname.startsWith(ruta) && rol !== "administrador" && permisos[clave] !== true) {

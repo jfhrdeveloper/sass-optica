@@ -611,12 +611,16 @@ create index if not exists idx_comprobantes_negocio on public.comprobantes(negoc
 
 -- Descuentos / cupones (idea de UX #8 del research de competencia) ---------
 do $$ begin create type tipo_descuento as enum ('porcentaje', 'monto'); exception when duplicate_object then null; end $$;
+do $$ begin create type ambito_descuento as enum ('cotizaciones', 'ventas', 'ambos'); exception when duplicate_object then null; end $$;
 create table if not exists public.descuentos (
   id            uuid primary key default gen_random_uuid(),
   negocio_id    uuid not null references public.negocios(id) on delete cascade,
   codigo        text not null,
   tipo          tipo_descuento not null default 'porcentaje',
   valor         numeric(10,2) not null check (valor > 0),
+  -- A qué se puede aplicar el cupón: solo cotizaciones, solo ventas directas,
+  -- o ambos. Sin esto no había forma de restringir dónde vale un código.
+  aplica_a      ambito_descuento not null default 'ambos',
   vigencia_desde date,
   vigencia_hasta date,
   limite_usos   integer,

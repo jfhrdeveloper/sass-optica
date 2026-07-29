@@ -9,7 +9,7 @@
 import type {
   Empleado, Negocio, Rol, Suscripcion,
   Cliente, Cita, Receta, Producto, MovimientoStock, Venta, VentaItem, Gasto,
-  Descuento, CampaniaEmail, Proveedor, Cotizacion, CotizacionItem,
+  Descuento, Proveedor, Cotizacion, CotizacionItem,
 } from "@/components/providers/DataProvider";
 
 /* ====== Empleados ====== */
@@ -318,6 +318,7 @@ export function rowToDescuento(r: Record<string, unknown>): Descuento {
     id: String(r.id), negocioId: String(r.negocio_id),
     codigo: String(r.codigo ?? ""), tipo: (r.tipo as "porcentaje" | "monto") ?? "porcentaje",
     valor: Number(r.valor ?? 0),
+    aplicaA: (r.aplica_a as Descuento["aplicaA"]) ?? "ambos",
     vigenciaDesde: r.vigencia_desde ? String(r.vigencia_desde) : undefined,
     vigenciaHasta: r.vigencia_hasta ? String(r.vigencia_hasta) : undefined,
     limiteUsos: r.limite_usos != null ? Number(r.limite_usos) : undefined,
@@ -330,28 +331,11 @@ export function descuentoToRow(d: Partial<Descuento>): Record<string, unknown> {
   if (d.codigo         !== undefined) out.codigo         = d.codigo;
   if (d.tipo             !== undefined) out.tipo             = d.tipo;
   if (d.valor            !== undefined) out.valor            = d.valor;
+  if (d.aplicaA          !== undefined) out.aplica_a         = d.aplicaA;
   if (d.vigenciaDesde   !== undefined) out.vigencia_desde   = d.vigenciaDesde || null;
   if (d.vigenciaHasta   !== undefined) out.vigencia_hasta   = d.vigenciaHasta || null;
   if (d.limiteUsos      !== undefined) out.limite_usos      = d.limiteUsos ?? null;
   if (d.activo           !== undefined) out.activo           = d.activo;
-  return out;
-}
-
-/* ====== Campañas de email marketing (scaffold, sin envío real) ====== */
-export function rowToCampania(r: Record<string, unknown>): CampaniaEmail {
-  return {
-    id: String(r.id), negocioId: String(r.negocio_id),
-    nombre: String(r.nombre ?? ""), asunto: String(r.asunto ?? ""), cuerpo: String(r.cuerpo ?? ""),
-    estado: (r.estado as "borrador" | "enviada") ?? "borrador",
-    enviados: Number(r.enviados ?? 0), fallidos: Number(r.fallidos ?? 0), desuscritos: Number(r.desuscritos ?? 0),
-  };
-}
-export function campaniaToRow(c: Partial<CampaniaEmail>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (c.nombre  !== undefined) out.nombre  = c.nombre;
-  if (c.asunto  !== undefined) out.asunto  = c.asunto;
-  if (c.cuerpo  !== undefined) out.cuerpo  = c.cuerpo;
-  if (c.estado  !== undefined) out.estado  = c.estado;
   return out;
 }
 

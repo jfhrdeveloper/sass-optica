@@ -3,54 +3,9 @@
 import { Fragment, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard, Users, CalendarDays, Package, ShoppingCart,
-  Wallet, UserCog, Settings, Tag, Megaphone, Truck, FileText, BarChart3,
-  PanelLeftClose, PanelLeftOpen, ChevronDown,
-} from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, ChevronDown, type LucideIcon } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
-
-type Restriccion = { soloAdmin?: boolean; permiso?: string };
-type Hijo = Restriccion & { href: string; label: string; icon: typeof LayoutDashboard };
-type NavItem =
-  | (Restriccion & { kind: "link"; href: string; label: string; icon: typeof LayoutDashboard })
-  | { kind: "group"; key: string; label: string; icon: typeof LayoutDashboard; children: Hijo[] };
-
-/* Modelo de navegación con grupos desplegables (patrón tomado de
-   tramys-rrhh/src/components/layout/Sidebar.tsx, a pedido explícito del
-   usuario): ítems sueltos de alto uso quedan siempre visibles; los que se
-   pueden agrupar quedan detrás de un acordeón (un solo grupo abierto a la
-   vez, se auto-expande el que contiene la ruta activa). */
-const NAV: NavItem[] = [
-  { kind: "link", href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
-  { kind: "link", href: "/dashboard/clientes", label: "Clientes", icon: Users },
-  { kind: "link", href: "/dashboard/citas", label: "Citas", icon: CalendarDays },
-  {
-    kind: "group", key: "comercial", label: "Comercial", icon: ShoppingCart,
-    children: [
-      { href: "/dashboard/productos", label: "Stock", icon: Package },
-      { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
-      { href: "/dashboard/cotizaciones", label: "Cotizaciones", icon: FileText },
-      { href: "/dashboard/ventas", label: "Ventas", icon: ShoppingCart },
-      { href: "/dashboard/descuentos", label: "Descuentos", icon: Tag, permiso: "descuentos" },
-      { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, permiso: "marketing" },
-    ],
-  },
-  {
-    kind: "group", key: "administracion", label: "Administración", icon: Settings,
-    children: [
-      { href: "/dashboard/gastos", label: "Gastos", icon: Wallet, permiso: "gastos" },
-      { href: "/dashboard/informes", label: "Informes", icon: BarChart3, permiso: "gastos" },
-      { href: "/dashboard/empleados", label: "Empleados", icon: UserCog, soloAdmin: true },
-      /* Un solo link para todo el cluster de "ajustes" (ver
-         settings-subscription.html): adentro hay tabs (SettingsTabs.tsx)
-         entre Perfil del negocio (admin-only) y Suscripción/facturación
-         (todos los roles) — acá solo decidimos a cuál de las dos aterriza
-         cada rol al hacer click, sin duplicar la entrada de sidebar. */
-      { href: "/dashboard/ajustes", label: "Ajustes", icon: Settings },
-    ],
-  },
-];
+import { NAV, type Hijo, type Restriccion } from "@/lib/dashboard-nav";
 
 /* Sidebar fijo del dashboard (patrón tomado de las referencias en
    diseno-referencia/: sidebar blanco). Oculta (no solo deshabilita) los
@@ -88,7 +43,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
   const grupoAbierto = override && override.path === pathname ? override.key : grupoPorDefecto;
   const alternarGrupo = (key: string) => setOverride({ path: pathname, key: grupoAbierto === key ? null : key });
 
-  function filaLink(href: string, label: string, Icon: typeof LayoutDashboard, activo: boolean, esHijo = false) {
+  function filaLink(href: string, label: string, Icon: LucideIcon, activo: boolean, esHijo = false) {
     return (
       <Link
         key={href}
@@ -117,7 +72,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 flex flex-col border-r border-slate-200 bg-white transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-900 ${
+      className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-white transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-900 md:flex ${
         colapsado ? "w-16" : "w-60"
       }`}
     >

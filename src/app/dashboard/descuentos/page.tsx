@@ -10,7 +10,12 @@ import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/formato/date";
 
-const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, activo: true };
+const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, aplicaA: "ambos", activo: true };
+const APLICA_A_LABEL: Record<Descuento["aplicaA"], string> = {
+  cotizaciones: "Solo cotizaciones",
+  ventas: "Solo ventas",
+  ambos: "Cotizaciones y ventas",
+};
 
 /* Cupones/descuentos (idea de UX #8 del research de competencia). Ruta con
    permiso granular delegable ('descuentos') además de administrador — ver
@@ -61,6 +66,7 @@ export default function DescuentosPage() {
               <tr>
                 <th className="table-head-cell">Código</th>
                 <th className="table-head-cell">Valor</th>
+                <th className="table-head-cell">Aplica a</th>
                 <th className="table-head-cell">Vigencia</th>
                 <th className="table-head-cell">Usos</th>
                 <th className="table-head-cell">Estado</th>
@@ -79,6 +85,7 @@ export default function DescuentosPage() {
                   <td className="table-cell text-slate-600 dark:text-slate-300">
                     {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
                   </td>
+                  <td className="table-cell text-slate-500 dark:text-slate-400">{APLICA_A_LABEL[d.aplicaA]}</td>
                   <td className="table-cell text-slate-500 dark:text-slate-400">
                     {d.vigenciaDesde || d.vigenciaHasta
                       ? `${d.vigenciaDesde ? formatearFechaPE(d.vigenciaDesde) : "—"} → ${d.vigenciaHasta ? formatearFechaPE(d.vigenciaHasta) : "—"}`
@@ -104,7 +111,7 @@ export default function DescuentosPage() {
               ))}
               {descuentos.length === 0 && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="table-empty">
                       <Tag size={28} className="text-slate-300 dark:text-slate-600" />
                       Sin cupones todavía.
@@ -127,6 +134,14 @@ export default function DescuentosPage() {
               <option value="monto">S/ Monto fijo</option>
             </select>
             <input placeholder="Valor" type="number" step="0.01" required value={form.valor ?? ""} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} className="input text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Aplica a</label>
+            <select value={form.aplicaA ?? "ambos"} onChange={(e) => setForm({ ...form, aplicaA: e.target.value as Descuento["aplicaA"] })} className="select mt-1 w-full text-sm">
+              <option value="ambos">Cotizaciones y ventas</option>
+              <option value="cotizaciones">Solo cotizaciones</option>
+              <option value="ventas">Solo ventas</option>
+            </select>
           </div>
           <DateRangePicker
             etiqueta="Vigencia del cupón"
