@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { coincideBusqueda } from "@/lib/formato/texto";
+import { etiquetaUltimaActividad, diasInactivo } from "@/lib/uso";
 
 export type NegocioFila = {
   id: string;
@@ -17,15 +18,21 @@ export type NegocioFila = {
   plan: string | null;
   estado: string | null;
   trialFin: string | null;
+  ultimaActividad: string | null;
 };
 
 const DIAS_POR_VENCER = 7;
+/* Umbral para marcar "sin uso reciente" — señal de riesgo de abandono que
+   `suscripciones` sola no muestra (un trial puede seguir vigente semanas
+   sin que nadie entre al sistema). Solo se marca en negocios que siguen
+   activos y sin cancelar: uno ya suspendido no necesita esta alerta. */
+const DIAS_SIN_USO_ALERTA = 14;
 
 const PLAN_LABEL: Record<string, string> = { trial: "Prueba", basico: "Básico", premium: "Premium" };
 const ESTADO_LABEL: Record<string, string> = { trial: "Trial", activa: "Activa", vencida: "Vencida", cancelada: "Cancelada" };
 const ESTADO_BADGE: Record<string, string> = { trial: "badge-warning", activa: "badge-success", vencida: "badge-danger", cancelada: "badge-neutral" };
 
-type Filtro = "todos" | "por_vencer" | "trial" | "activa" | "vencida" | "inactivo";
+type Filtro = "todos" | "por_vencer" | "trial" | "activa" | "vencida" | "inactivo" | "sin_uso";
 
 /* Tabla interactiva del listado de negocios — recibe filas ya cruzadas
    (negocio + suscripción) desde el Server Component en page.tsx, que es el
@@ -46,6 +53,11 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
     const dias = diasParaVencer(n.trialFin);
     return dias !== null && dias <= DIAS_POR_VENCER;
   }
+  function sinUsoReciente(n: NegocioFila): boolean {
+    if (!n.activo || n.estado === "cancelada") return false;
+    const dias = diasInactivo(n.ultimaActividad, new Date(ahora));
+    return dias !== null && dias >= DIAS_SIN_USO_ALERTA;
+  }
 
   const filtrados = negocios
     .filter((n) => coincideBusqueda(`${n.nombre} ${n.subdominio}`, busqueda))
@@ -54,6 +66,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
         case "todos": return true;
         case "por_vencer": return porVencer(n);
         case "inactivo": return !n.activo;
+        case "sin_uso": return sinUsoReciente(n);
         default: return n.estado === filtro;
       }
     })
@@ -80,6 +93,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
           <option value="activa">Pagando</option>
           <option value="vencida">Vencida</option>
           <option value="inactivo">Inactivo</option>
+          <option value="sin_uso">Sin uso hace {DIAS_SIN_USO_ALERTA}+ días</option>
         </select>
       </div>
 
@@ -90,6 +104,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
               <th className="table-head-cell">Negocio</th>
               <th className="table-head-cell">Plan</th>
               <th className="table-head-cell">Estado</th>
+              <th className="table-head-cell">Última actividad</th>
               <th className="table-head-cell">Trial hasta</th>
               <th className="table-head-cell">Alta</th>
               <th className="table-head-cell text-right"></th>
@@ -117,12 +132,14 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
                       {n.estado && <span className={`badge ${ESTADO_BADGE[n.estado] ?? "badge-neutral"}`}>{ESTADO_LABEL[n.estado] ?? n.estado}</span>}
                       {!n.activo && <span className="badge badge-neutral">Inactivo</span>}
                       {porVencer(n) && <span className="badge badge-warning">Vence en {dias}d</span>}
+                      {sinUsoReciente(n) && <span className="badge badge-warning">Sin uso</span>}
                     </span>
                   </td>
+                  <td className="table-cell text-slate-600 dark:text-slate-300">{etiquetaUltimaActividad(n.ultimaActividad, new Date(ahora))}</td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">{n.trialFin ? formatearFechaPE(n.trialFin) : "—"}</td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(n.createdAt)}</td>
                   <td className="table-cell text-right">
-                    <Link href={`/admin-panel/negocios/${n.id}`} className="row-icon-btn ml-auto">
+                    <Link href={`/admin-panel/negocios/${n.id}`} aria-label={`Ver detalle de ${n.nombre}`} className="row-icon-btn ml-auto">
                       <ChevronRight size={15} />
                     </Link>
                   </td>
@@ -131,7 +148,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
             })}
             {filtrados.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="table-empty">
                     <Building2 size={28} className="text-slate-300 dark:text-slate-600" />
                     Sin negocios que coincidan con el filtro.

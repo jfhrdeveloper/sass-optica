@@ -290,6 +290,7 @@ export default function VentasPage() {
                         onClick={() => setConfirmarAnular(v)}
                         disabled={anulandoId === v.id}
                         title="Anular venta"
+                        aria-label="Anular venta"
                         className="row-icon-btn row-icon-btn-danger disabled:opacity-50"
                       >
                         <Trash2 size={15} />

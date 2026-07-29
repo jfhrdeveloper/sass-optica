@@ -103,7 +103,7 @@ export default function DescuentosPage() {
                     </label>
                   </td>
                   <td className="table-cell text-right">
-                    <button onClick={() => eliminar(d)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                    <button onClick={() => eliminar(d)} title="Eliminar" aria-label={`Eliminar cupón ${d.codigo}`} className="row-icon-btn row-icon-btn-danger">
                       <Trash2 size={15} />
                     </button>
                   </td>

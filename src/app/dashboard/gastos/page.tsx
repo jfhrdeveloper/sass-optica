@@ -105,7 +105,7 @@ export default function GastosPage() {
                   <td className="table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
                   <td className="table-cell font-medium text-slate-900 dark:text-slate-100">S/ {g.monto.toFixed(2)}</td>
                   <td className="table-cell text-right">
-                    <button onClick={() => eliminar(g)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                    <button onClick={() => eliminar(g)} title="Eliminar" aria-label={`Eliminar gasto${g.descripcion ? `: ${g.descripcion}` : ""}`} className="row-icon-btn row-icon-btn-danger">
                       <Trash2 size={15} />
                     </button>
                   </td>

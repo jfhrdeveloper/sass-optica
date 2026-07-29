@@ -146,7 +146,7 @@ export default function EmpleadosPage() {
                             <button onClick={() => { setConfirmandoId(null); setErrorEliminar(null); }} className="link-muted">No</button>
                           </span>
                         ) : (
-                          <button onClick={() => { setConfirmandoId(e.id); setErrorEliminar(null); }} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                          <button onClick={() => { setConfirmandoId(e.id); setErrorEliminar(null); }} title="Eliminar" aria-label={`Eliminar a ${e.nombres} ${e.apellidos}`} className="row-icon-btn row-icon-btn-danger">
                             <Trash2 size={15} />
                           </button>
                         )

@@ -185,10 +185,10 @@ export default function ProductosPage() {
                   </td>
                   <td className="table-cell text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => abrirAjuste(p)} title="Ajustar stock" className="row-icon-btn">
+                      <button onClick={() => abrirAjuste(p)} title="Ajustar stock" aria-label={`Ajustar stock de ${p.nombre}`} className="row-icon-btn">
                         <PackageSearch size={15} />
                       </button>
-                      <button onClick={() => editar(p)} title="Editar" className="row-icon-btn">
+                      <button onClick={() => editar(p)} title="Editar" aria-label={`Editar ${p.nombre}`} className="row-icon-btn">
                         <Pencil size={15} />
                       </button>
                     </div>

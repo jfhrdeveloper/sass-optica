@@ -130,10 +130,10 @@ export default function ProveedoresPage() {
                       </span>
                     ) : (
                       <div className="inline-flex gap-1">
-                        <button onClick={() => editar(p)} title="Editar" className="row-icon-btn">
+                        <button onClick={() => editar(p)} title="Editar" aria-label={`Editar ${p.nombre}`} className="row-icon-btn">
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => setConfirmandoId(p.id)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                        <button onClick={() => setConfirmandoId(p.id)} title="Eliminar" aria-label={`Eliminar ${p.nombre}`} className="row-icon-btn row-icon-btn-danger">
                           <Trash2 size={15} />
                         </button>
                       </div>

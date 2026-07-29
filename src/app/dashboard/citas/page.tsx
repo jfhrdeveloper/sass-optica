@@ -263,13 +263,13 @@ export default function CitasPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <button onClick={() => setRecetaAbierta(recetaAbierta === c.id ? null : c.id)} title="Receta" className="row-icon-btn">
+                  <button onClick={() => setRecetaAbierta(recetaAbierta === c.id ? null : c.id)} title="Receta" aria-label="Ver receta de esta cita" className="row-icon-btn">
                     <FileText size={15} />
                   </button>
-                  <button onClick={() => editar(c)} title="Editar" className="row-icon-btn">
+                  <button onClick={() => editar(c)} title="Editar" aria-label="Editar cita" className="row-icon-btn">
                     <Pencil size={15} />
                   </button>
-                  <button onClick={() => eliminar(c)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                  <button onClick={() => eliminar(c)} title="Eliminar" aria-label="Eliminar cita" className="row-icon-btn row-icon-btn-danger">
                     <Trash2 size={15} />
                   </button>
                 </div>

@@ -315,7 +315,7 @@ export default function CotizacionesPage() {
                     ) : c.estado === "rechazada" ? (
                       <span className="flex items-center gap-1.5">
                         <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{ESTADO_LABEL[c.estado]}</span>
-                        <button onClick={() => reabrir(c.id)} title="Volver a pendiente" className="row-icon-btn">
+                        <button onClick={() => reabrir(c.id)} title="Volver a pendiente" aria-label="Volver a pendiente" className="row-icon-btn">
                           <RotateCcw size={13} />
                         </button>
                       </span>
@@ -330,6 +330,7 @@ export default function CotizacionesPage() {
                           onClick={() => convertir(c.id)}
                           disabled={convirtiendoId === c.id}
                           title="Convertir a venta"
+                          aria-label="Convertir a venta"
                           className="row-icon-btn disabled:opacity-50"
                         >
                           <ArrowRightCircle size={16} />
@@ -338,7 +339,7 @@ export default function CotizacionesPage() {
                       {c.estado === "aceptada" && c.ventaId ? (
                         <span className="text-xs text-slate-400 dark:text-slate-500">Ya es venta</span>
                       ) : (
-                        <button onClick={() => setConfirmarEliminar(c)} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                        <button onClick={() => setConfirmarEliminar(c)} title="Eliminar" aria-label="Eliminar cotización" className="row-icon-btn row-icon-btn-danger">
                           <Trash2 size={15} />
                         </button>
                       )}

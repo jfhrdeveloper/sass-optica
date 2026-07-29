@@ -190,19 +190,19 @@ export default function ClientesPage() {
                       <div className="flex justify-end gap-1">
                         {verPapelera ? (
                           <>
-                            <button onClick={() => restaurar(c)} title="Restaurar" className="row-icon-btn">
+                            <button onClick={() => restaurar(c)} title="Restaurar" aria-label={`Restaurar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
                               <RotateCcw size={15} />
                             </button>
-                            <button onClick={() => setConfirmarPurgar(c)} title="Eliminar definitivamente" className="row-icon-btn row-icon-btn-danger">
+                            <button onClick={() => setConfirmarPurgar(c)} title="Eliminar definitivamente" aria-label={`Eliminar definitivamente a ${c.nombres} ${c.apellidos}`} className="row-icon-btn row-icon-btn-danger">
                               <XCircle size={15} />
                             </button>
                           </>
                         ) : (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); formEstado.editar(c); }} title="Editar" className="row-icon-btn">
+                            <button onClick={(e) => { e.stopPropagation(); formEstado.editar(c); }} title="Editar" aria-label={`Editar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
                               <Pencil size={15} />
                             </button>
-                            <button onClick={(e) => { e.stopPropagation(); setConfirmarEliminar(c); }} title="Eliminar" className="row-icon-btn row-icon-btn-danger">
+                            <button onClick={(e) => { e.stopPropagation(); setConfirmarEliminar(c); }} title="Eliminar" aria-label={`Eliminar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn row-icon-btn-danger">
                               <Trash2 size={15} />
                             </button>
                           </>
