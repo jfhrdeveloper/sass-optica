@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { montoCentimosSegunCiclo, type CicloFacturacion } from "@/lib/precios";
 
 /* ================= CONFIRMAR CARGO DE CULQI ================= */
 /* Recibe el token que entregó el Checkout embebido (ver CulqiCheckoutButton) */
 /* y crea el cargo real contra la API de Culqi con la llave SECRETA — esto    */
 /* SIEMPRE es server-side, el token nunca autoriza un cobro por sí solo sin   */
-/* pasar por aquí. Si el cargo se aprueba, reactiva la suscripción del        */
-/* negocio del administrador que hace la request.                            */
+/* pasar por aquí. Si el cargo se aprueba, activa el plan/ciclo elegido en    */
+/* la suscripción del negocio del administrador que hace la request.         */
 /* NOTA: el shape exacto de la respuesta de Culqi (`outcome.type`, etc.) hay  */
 /* que confirmarlo contra la documentación oficial al conectar credenciales   */
 /* reales — esto es la mejor forma conocida al momento de escribir esto. */
@@ -31,9 +32,18 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const token = String(body.token ?? "");
+  const planId = String(body.planId ?? "");
+  const ciclo = body.ciclo === "anual" ? "anual" : "mensual";
   if (!token) return NextResponse.json({ error: "Falta el token de pago." }, { status: 400 });
 
-  const montoCentimos = Number(process.env.CULQI_MONTO_PLAN_PRO_CENTIMOS ?? 4900);
+  /* El monto NUNCA se recibe del cliente: se recalcula acá a partir del
+     `planId` (Básico/Premium) usando la misma fuente de precios que la
+     landing (lib/precios.ts) — así un cliente manipulado no puede pagar
+     S/1 por el plan Premium. */
+  const montoCentimos = montoCentimosSegunCiclo(planId, ciclo as CicloFacturacion);
+  if (montoCentimos == null) {
+    return NextResponse.json({ error: "Plan inválido." }, { status: 400 });
+  }
 
   /* ====== 2. Crear el cargo contra la API de Culqi ====== */
   const culqiRes = await fetch("https://api.culqi.com/v2/charges", {
@@ -64,13 +74,13 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const hoy = new Date();
   const proximoCobro = new Date(hoy);
-  proximoCobro.setDate(proximoCobro.getDate() + 30);
+  proximoCobro.setDate(proximoCobro.getDate() + (ciclo === "anual" ? 365 : 30));
 
   const { error: subErr } = await admin
     .from("suscripciones")
     .update({
       estado: "activa",
-      plan: "premium",
+      plan: planId,
       fecha_pago_ultimo: hoy.toISOString().slice(0, 10),
       proximo_cobro: proximoCobro.toISOString().slice(0, 10),
     })

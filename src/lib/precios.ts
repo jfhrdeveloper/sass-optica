@@ -85,6 +85,16 @@ export function precioSegunCiclo(mensual: number, ciclo: CicloFacturacion): numb
   return ciclo === "anual" ? precioAnual(mensual) : mensual;
 }
 
+/** Monto a cobrar en céntimos (lo que exige la API de Culqi) para un plan y
+ *  ciclo dados. Única fuente del monto real de un cargo — nunca se recibe
+ *  el monto desde el cliente al crear el cargo, se recalcula acá con el
+ *  `planId` que el cliente sí puede elegir. */
+export function montoCentimosSegunCiclo(planId: string, ciclo: CicloFacturacion): number | null {
+  const plan = PLANES.find((p) => p.id === planId);
+  if (!plan) return null;
+  return Math.round(precioSegunCiclo(plan.mensual, ciclo) * 100);
+}
+
 /** Texto corto para el badge del toggle Anual. */
 export function etiquetaOferta(): string {
   return OFERTA_ANUAL.tipo === "descuento"

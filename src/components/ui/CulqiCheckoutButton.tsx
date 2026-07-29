@@ -30,12 +30,17 @@ declare global {
 }
 
 interface Props {
+  /** Solo para lo que Culqi muestra en su propio modal — el monto que
+   *  realmente se cobra lo recalcula el servidor a partir de `planId` +
+   *  `ciclo` (ver /api/pagos/culqi/cargo), nunca confía en este valor. */
   montoCentimos: number;
+  planId: string;
+  ciclo: "mensual" | "anual";
   tituloNegocio: string;
   onExito: () => void;
 }
 
-export function CulqiCheckoutButton({ montoCentimos, tituloNegocio, onExito }: Props) {
+export function CulqiCheckoutButton({ montoCentimos, planId, ciclo, tituloNegocio, onExito }: Props) {
   const [scriptListo, setScriptListo] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +53,7 @@ export function CulqiCheckoutButton({ montoCentimos, tituloNegocio, onExito }: P
       const res = await fetch("/api/pagos/culqi/cargo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, planId, ciclo }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -61,7 +66,7 @@ export function CulqiCheckoutButton({ montoCentimos, tituloNegocio, onExito }: P
       setError("No se pudo confirmar el pago. Intenta de nuevo.");
       setProcesando(false);
     }
-  }, [onExito]);
+  }, [onExito, planId, ciclo]);
 
   useEffect(() => {
     if (!scriptListo || !window.Culqi) return;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   PLANES, OFERTA_ANUAL,
-  precioAnual, ahorroAnual, precioSegunCiclo, etiquetaOferta, descripcionOferta,
+  precioAnual, ahorroAnual, precioSegunCiclo, montoCentimosSegunCiclo,
+  etiquetaOferta, descripcionOferta,
 } from "@/lib/precios";
 
 /* Es aritmética de dinero mostrada al cliente: un error acá es un precio mal
@@ -96,6 +97,31 @@ describe("OFERTA_ANUAL — la oferta es UNA sola, nunca las dos", () => {
       expect(etiquetaOferta()).toBe("1 mes gratis");
     } else {
       expect(etiquetaOferta().length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("montoCentimosSegunCiclo", () => {
+  /* Es el monto que de verdad se le cobra a la tarjeta del cliente en
+     /api/pagos/culqi/cargo — un plan inexistente NUNCA debe resolver a un
+     monto cobrable, aunque sea 0 (mejor rechazar el pago explícitamente). */
+  it("devuelve null si el planId no existe (nunca cobra un monto para un plan inventado)", () => {
+    expect(montoCentimosSegunCiclo("plan-que-no-existe", "mensual")).toBeNull();
+  });
+
+  it("coincide con precioSegunCiclo pasado a céntimos, para cada plan real", () => {
+    for (const plan of PLANES) {
+      for (const ciclo of ["mensual", "anual"] as const) {
+        const esperado = Math.round(precioSegunCiclo(plan.mensual, ciclo) * 100);
+        expect(montoCentimosSegunCiclo(plan.id, ciclo)).toBe(esperado);
+      }
+    }
+  });
+
+  it("nunca devuelve un monto negativo ni cero para un plan real", () => {
+    for (const plan of PLANES) {
+      expect(montoCentimosSegunCiclo(plan.id, "mensual")).toBeGreaterThan(0);
+      expect(montoCentimosSegunCiclo(plan.id, "anual")).toBeGreaterThan(0);
     }
   });
 });

@@ -20,9 +20,14 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
 - [ ] Crear el proyecto real en Supabase y pegar `docs/supabase-schema.sql` en el SQL Editor
 - [ ] Completar `.env.local` con credenciales reales (Supabase + Culqi) — hoy vacío a propósito
 - [ ] Crear el primer `super_admin` a mano (ver POST-INSTALACIÓN al final de `supabase-schema.sql`)
-- [ ] Activar cuenta Culqi real (24-48h) y confirmar el shape exacto de su API de cargos/webhooks
-      contra la documentación oficial — `/api/pagos/culqi/cargo` y `/api/webhooks/culqi` están
-      escritos con la mejor información disponible pero SIN haber sido probados contra Culqi real
+- [ ] Activar cuenta Culqi real (24-48h, requiere que el usuario complete el KYC: RUC, datos
+      bancarios — no delegable) y confirmar el shape exacto de su API de cargos/webhooks contra la
+      documentación oficial — `/api/pagos/culqi/cargo` y `/api/webhooks/culqi` están escritos con
+      la mejor información disponible pero SIN haber sido probados contra Culqi real. El lado de
+      código que SÍ se pudo avanzar sin cuenta real (sesión 2026-07-28 (11)): el checkout ahora
+      cobra el monto real de Básico/Premium × mensual/anual (antes era un monto fijo de S/49
+      desconectado de `lib/precios.ts`) y activa el plan correcto en `suscripciones.plan` (antes
+      siempre ponía "premium" sin importar qué se pagó) — ver detalle en esa entrada de bitácora.
 - [ ] Authentication → URL Configuration en Supabase: añadir `<origin>/auth/confirm`,
       `<origin>/auth/callback` (nuevo, ver bitácora 2026-07-24 (11)) y
       `<origin>/login/nueva-clave` a las Redirect URLs (local y prod)
@@ -128,6 +133,58 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-28 (11) — Commit del trabajo pendiente + inicio de trabajo en Culqi
+- **Qué cambió:** al iniciar la sesión había ~1400 líneas sin commitear de una sesión anterior que
+  nunca se registró en esta bitácora (cupones con `aplicaA` aplicados de verdad en cotizaciones/
+  ventas, buscador global en `/dashboard`, ficha de detalle de proveedor, `BottomTabBar.tsx` para
+  nav mobile, nav extraída a `lib/dashboard-nav.ts`, tercera pestaña "Protección de datos" en
+  `/legal` vía `LegalHub.tsx`, `anularVenta`, y remoción completa del scaffold de Marketing/
+  campañas de email sin proveedor de envío real). Se verificó `build`/`lint`/`tsc --noEmit`/`test`
+  (69/69) limpios, se revisó el diff completo para confirmar coherencia, y se commiteó
+  (`605249a`). El usuario confirmó: aún no tiene cuenta Culqi activada (KYC pendiente de su lado),
+  así que a partir de acá el trabajo de Culqi es solo de código, sin poder probar contra la API
+  real.
+- **Trabajo de Culqi (bug real encontrado y corregido, no solo "conectar credenciales"):**
+  el checkout de `/dashboard/facturacion` y `/api/pagos/culqi/cargo` estaban desconectados de los
+  2 planes pagos reales (`lib/precios.ts`: Básico S/89.90, Premium S/149.90, con oferta anual) —
+  cobraban un monto fijo de S/49 (`MONTO_PLAN_PRO_CENTIMOS` en el componente, ni siquiera el mismo
+  valor que `CULQI_MONTO_PLAN_PRO_CENTIMOS` del env, que eran DOS constantes distintas
+  desincronizadas) y siempre activaban `plan: "premium"` sin importar qué se cobrara. Ya estaba
+  anotado como pendiente desde la bitácora (12). Corregido:
+  1. **`lib/precios.ts`**: nueva `montoCentimosSegunCiclo(planId, ciclo)` — única fuente del monto
+     real a cobrar, deriva de `PLANES` + `precioSegunCiclo` (la misma aritmética que ya usa la
+     landing). Devuelve `null` si el `planId` no existe, nunca un monto por defecto silencioso.
+  2. **`/dashboard/facturacion`**: reescrita para dejar elegir Plan (Básico/Premium, con precio,
+     bullets y badge "Plan actual" si coincide con la suscripción activa) + Ciclo (mensual/anual,
+     mismo `SegmentedControl` y badge de oferta que la landing) ANTES de pagar — antes solo había
+     un botón "Activar plan Pro" a precio fijo, sin elegir nada.
+  3. **`CulqiCheckoutButton`**: recibe `planId`/`ciclo` además del monto (que solo usa para lo que
+     Culqi muestra en su propio modal) y los reenvía al servidor.
+  4. **`/api/pagos/culqi/cargo`**: el monto a cobrar YA NO se recibe del cliente ni de un env var —
+     se recalcula server-side con `montoCentimosSegunCiclo(planId, ciclo)` a partir del `planId`
+     que sí puede elegir el cliente. Esto es a propósito una corrección de seguridad, no solo de
+     UX: con el código anterior un cliente que editara el JS del navegador para mandar un monto
+     distinto se hubiera cobrado lo que quisiera. La suscripción activa ahora `plan: planId` (el
+     que realmente se pagó) y calcula `proximo_cobro` a 30 días (mensual) o 365 (anual), en vez de
+     30 fijo siempre.
+  5. Quitado `CULQI_MONTO_PLAN_PRO_CENTIMOS` de `.env.example`/`.env.local` — ya no hace falta, el
+     monto sale siempre de `lib/precios.ts`.
+  6. 3 tests nuevos para `montoCentimosSegunCiclo` en `precios.test.ts` (72 en total, eran 69).
+  - Verificado sirviendo `/dashboard/facturacion` en modo mock (`mock_session=1` vía `curl`, sin
+    Playwright disponible en este entorno): los 2 planes muestran S/89.90 y S/149.90 reales, el
+    toggle Mensual/Anual y el badge de oferta aparecen, y el aviso "Culqi no está configurado
+    todavía" sigue mostrándose correctamente (esperado, sin llaves reales). `build`/`lint`/
+    `tsc --noEmit`/`test` (72/72) limpios.
+- **Por qué:** el usuario pidió resolver "todos los pendientes que necesites" y avanzar la
+  integración de Culqi ("ir armando la interfaz... y ya realizarlo"); como no tiene cuenta Culqi
+  activada todavía, "realizarlo" se interpretó como dejar el código lo más completo y correcto
+  posible del lado de la app, no activar una cuenta real (eso requiere que el usuario complete el
+  KYC de Culqi, no es delegable).
+- **Pendiente:** activar la cuenta Culqi real y probar el cargo/webhook de punta a punta contra la
+  API real (sigue en "Pendientes activos" arriba) — el shape exacto de la respuesta de Culqi
+  (`cargo?.source?.type` para distinguir tarjeta/Yape) es la mejor lectura disponible sin
+  credenciales reales, igual que antes.
 
 ### 2026-07-25 (10) — Análisis completo del proyecto + los 6 hallazgos corregidos
 - **Qué cambió:** a pedido del usuario ("analiza todo el proyecto y dime qué falta, si hay un bug
