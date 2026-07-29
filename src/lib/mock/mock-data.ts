@@ -138,6 +138,67 @@ export const MOCK_ADMIN_PAGOS = [
   { id: "pago-8", negocio_id: "adm-neg-4", monto: 89.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_8", estado: "exitoso", created_at: haceMeses(2, 5) },
 ];
 
+/* eventos_uso simulados — alimentan la analítica de actividad del admin
+   panel (frecuencia, día/hora pico, módulos más usados). Deterministas (sin
+   Math.random) para que la demo se vea siempre igual entre recargas. Cada
+   negocio tiene un patrón distinto a propósito, para poder ver los 3 casos
+   reales que le importan al dueño del SaaS: uso sano y reciente, uso que ya
+   se apagó (riesgo de abandono) y un trial que se enfrió antes de decidir. */
+const RUTAS_MODULO_MOCK = [
+  "/dashboard", "/dashboard/clientes", "/dashboard/citas", "/dashboard/ventas",
+  "/dashboard/productos", "/dashboard/cotizaciones", "/dashboard/gastos",
+  "/dashboard/proveedores", "/dashboard/informes", "/dashboard/descuentos",
+] as const;
+
+/** Genera eventos de uso para un negocio, `eventosPorDiaActivo` por cada día
+ *  que caiga en `diasActivos` (0=lunes..6=domingo), concentrados alrededor
+ *  de `horaPico`. `offsetDiasFin` desplaza toda la ventana hacia el pasado
+ *  (0 = la actividad llega hasta hoy; 20 = la actividad se cortó hace 20
+ *  días) — así se simula tanto un negocio activo como uno que dejó de
+ *  entrar, sin necesitar dos funciones distintas. */
+function generarEventosUsoMock(
+  negocioId: string, dias: number, eventosPorDiaActivo: number, horaPico: number,
+  diasActivos: number[], offsetDiasFin = 0,
+): { id: string; negocio_id: string; ruta: string; created_at: string }[] {
+  const eventos: { id: string; negocio_id: string; ruta: string; created_at: string }[] = [];
+  let contador = 0;
+  for (let i = dias - 1 + offsetDiasFin; i >= offsetDiasFin; i--) {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() - i);
+    const diaSemana = (fecha.getDay() + 6) % 7; // 0=lunes, igual que DIAS_SEMANA en lib/uso.ts
+    if (!diasActivos.includes(diaSemana)) continue;
+    for (let j = 0; j < eventosPorDiaActivo; j++) {
+      const hora = (horaPico + (j % 3) - 1 + 24) % 24;
+      const ts = new Date(fecha);
+      ts.setHours(hora, (j * 17) % 60, 0, 0);
+      eventos.push({
+        id: `evt-${negocioId}-${contador}`, negocio_id: negocioId,
+        ruta: RUTAS_MODULO_MOCK[(contador + j) % RUTAS_MODULO_MOCK.length],
+        created_at: ts.toISOString(),
+      });
+      contador++;
+    }
+  }
+  return eventos;
+}
+
+export const MOCK_ADMIN_EVENTOS_USO = [
+  // adm-neg-1: trial de 5 días, recién arrancando — uso liviano pero fresco.
+  ...generarEventosUsoMock("adm-neg-1", 5, 3, 10, [0, 1, 2, 3, 4]),
+  // adm-neg-2: premium, el negocio más comprometido — activo casi todos los
+  // días, pico fuerte en la mañana (abre temprano, típico de óptica).
+  ...generarEventosUsoMock("adm-neg-2", 30, 8, 9, [0, 1, 2, 3, 4, 5]),
+  // adm-neg-3: básico, uso constante mode-moderado, pico en la tarde.
+  ...generarEventosUsoMock("adm-neg-3", 30, 4, 16, [0, 1, 2, 3, 4]),
+  // adm-neg-4: trial vencido y SIN pagar — dejó de entrar hace 20 días, el
+  // caso que el admin panel debe poder señalar como riesgo real de abandono.
+  ...generarEventosUsoMock("adm-neg-4", 15, 5, 11, [0, 1, 2, 3, 4], 20),
+  // adm-neg-5: trial por vencer en 3 días — usó el sistema al registrarse y
+  // luego se enfrió (nada en los últimos 12 días): la señal de alerta más
+  // sutil, porque `suscripciones` sola no la muestra (sigue "en trial").
+  ...generarEventosUsoMock("adm-neg-5", 4, 6, 14, [0, 1, 2, 3, 4, 5, 6], 12),
+];
+
 export const MOCK_COTIZACION_ITEMS: CotizacionItem[] = [
   { id: "coti-1", cotizacionId: "cot-1", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
 ];

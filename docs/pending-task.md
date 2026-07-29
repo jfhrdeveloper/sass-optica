@@ -134,6 +134,63 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 
 ## Bitácora de sesiones
 
+### 2026-07-28 (12) — Pase de accesibilidad (skills de diseño) + analítica de uso en el admin panel
+- **Qué cambió:** el usuario pidió usar las skills de diseño disponibles sobre el dashboard de
+  negocio y el admin panel, y además pidió construir en el admin panel una vista de qué tanto usa
+  el sistema cada negocio (frecuencia, día/hora, módulos). Dos partes:
+  1. **Pase de accesibilidad real** (guiado por `ui-ux-pro-max` y la skill `dataviz` para los
+     charts nuevos, no un rediseño visual completo — el sistema de diseño ya establecido en
+     `docs/style-guide.md` se mantuvo intacto): se encontraron **~20 botones/links de solo-ícono**
+     en todo el dashboard y el admin panel (`row-icon-btn` en clientes/citas/cotizaciones/gastos/
+     productos/proveedores/empleados/descuentos/ventas, el chevron de `NegociosTable.tsx`, el
+     cierre de `SlideOver.tsx` y el descarte de `ToastProvider.tsx`) que dependían SOLO de
+     `title` para su nombre accesible — `title` no se anuncia de forma confiable en lectores de
+     pantalla y no existe en touch. Se agregó `aria-label` explícito y descriptivo (con el nombre
+     del registro cuando aplica, ej. "Eliminar a Juan Pérez") a los ~20. `SlideOver` en particular
+     es de alto impacto: lo usan casi todos los formularios de alta/edición del dashboard.
+  2. **Analítica de uso por negocio (admin panel)** — tabla nueva `eventos_uso` en
+     `docs/supabase-schema.sql` (negocio_id, ruta, created_at; insert-only por el propio negocio
+     vía RLS `negocio_id = current_tenant()`, sin policy de select — la lectura cross-tenant es
+     exclusiva de `admin.ts`/service_role, mismo patrón que `pagos_saas`; purga diaria a los 90
+     días vía pg_cron, mismo patrón que la papelera de clientes). `DataProvider.tsx` registra un
+     evento fire-and-forget en cada cambio de `pathname` dentro de `/dashboard` (no en modo mock,
+     no fuera del dashboard) — sin bloquear ni avisar nada si falla, es telemetría best-effort.
+     - **`src/lib/uso.ts`** (nuevo, con 26 tests en `uso.test.ts`): aritmética pura sobre eventos —
+       última actividad + etiqueta relativa ("Hace 3 d"), serie diaria (con ceros, no huecos),
+       heatmap 7×24 día/hora, pico de uso, ranking de módulos más usados (reusa `lib/dashboard-nav.ts`
+       para las etiquetas, una sola fuente con el sidebar/tab bar). Todo el agrupamiento por día/hora
+       usa **America/Lima explícitamente** (`Intl.DateTimeFormat` con `timeZone`), no la hora del
+       servidor — Vercel corre en UTC y "qué día/hora usa el sistema una óptica peruana" solo tiene
+       sentido en su huso horario. Verificado con un test que cruza medianoche UTC y cae en el día
+       de Lima correcto.
+     - **`ActividadBarChart.tsx`** y **`ActividadHeatmap.tsx`** (nuevos, `components/admin/`):
+       siguiendo la skill `dataviz` — sequential de un solo hue (azul de marca vía opacidad de
+       `--color-primary`, más oscuro = más uso), 0 eventos con gris neutro (no transparente),
+       leyenda "Menos→Más", resumen textual del pico como alternativa accesible al grid completo
+       (heatmap accesibilidad grado B por diseño: 168 celdas no son navegables una por una, pero el
+       dato que importa —el pico— sí está en texto).
+     - **`/admin-panel/negocios/[id]`**: nueva sección "Uso del sistema" con 3 stat cards (última
+       actividad, eventos 30d, módulo más usado), el gráfico de barras (14 días) y el heatmap.
+     - **`/admin-panel/negocios`**: columna "Última actividad" + badge "Sin uso" (≥14 días sin
+       actividad, solo en negocios activos y sin cancelar) + filtro nuevo en el `<select>`.
+     - **`/admin-panel`** (resumen): tarjeta "Sin uso reciente" junto a "Por vencer" — señal de
+       riesgo de abandono que `suscripciones` sola no puede dar (un trial puede seguir "vigente"
+       semanas sin que nadie entre).
+     - **Datos mock deterministas** (`MOCK_ADMIN_EVENTOS_USO`, sin `Math.random`) con 3 patrones a
+       propósito sobre los 5 negocios ya existentes: uso sano y reciente (adm-neg-2, premium),
+       uso que se apagó hace 20 días (adm-neg-4, vencido — el caso de riesgo real) y un trial que
+       se enfrió antes de decidir (adm-neg-5, por vencer en 3 días, sin actividad en los últimos
+       12). Verificado sirviendo las 4 rutas en modo mock vía `curl` con `mock_admin_session=1`:
+       "Hace 20 d" en el negocio inactivo, "Miércoles, 10:00–11:00" como pico, badge "Sin uso" y
+       "Sin uso reciente" ambos presentes.
+  - `npm run build`/`lint`/`tsc --noEmit` limpios, `npm test` 98/98 (eran 72).
+- **Por qué:** pedido explícito del usuario de aplicar las skills de diseño disponibles a ambos
+  paneles, y de construir del lado del admin una vista de "qué tanto se usa" cada negocio — señal
+  de adopción/riesgo de abandono que hoy no existía en ningún lado del sistema.
+- **Pendiente:** ninguno nuevo — la telemetría solo tendrá datos reales una vez exista el proyecto
+  Supabase real (ver "Pendientes activos"); hasta entonces se verifica en modo mock como el resto
+  del admin panel.
+
 ### 2026-07-28 (11) — Commit del trabajo pendiente + inicio de trabajo en Culqi
 - **Qué cambió:** al iniciar la sesión había ~1400 líneas sin commitear de una sesión anterior que
   nunca se registró en esta bitácora (cupones con `aplicaA` aplicados de verdad en cotizaciones/

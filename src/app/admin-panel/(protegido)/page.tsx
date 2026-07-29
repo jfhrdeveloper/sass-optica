@@ -2,8 +2,11 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
-import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES } from "@/lib/mock/mock-data";
+import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EVENTOS_USO } from "@/lib/mock/mock-data";
 import { formatearFechaPE } from "@/lib/formato/date";
+import { ultimaActividadPorNegocio, diasInactivo } from "@/lib/uso";
+
+const DIAS_SIN_USO_ALERTA = 14;
 
 const DIAS_POR_VENCER = 7;
 /* Precios reales de los planes pagos (ver PreciosSection.tsx) — el MRR
@@ -33,17 +36,21 @@ export default async function AdminPanelPage() {
   const mock = isMockMode();
   let negocios: { id: string; nombre: string; subdominio: string; activo: boolean; created_at: string }[] | null;
   let suscripciones: { negocio_id: string; plan: string; estado: string; trial_fin: string }[] | null;
+  let eventos: { negocio_id: string; created_at: string }[];
   if (mock) {
     negocios = MOCK_ADMIN_NEGOCIOS;
     suscripciones = MOCK_ADMIN_SUSCRIPCIONES;
+    eventos = MOCK_ADMIN_EVENTOS_USO;
   } else {
     const admin = createAdminClient();
-    const [negociosRes, suscripcionesRes] = await Promise.all([
+    const [negociosRes, suscripcionesRes, eventosRes] = await Promise.all([
       admin.from("negocios").select("id, nombre, subdominio, activo, created_at").order("created_at", { ascending: false }),
       admin.from("suscripciones").select("negocio_id, plan, estado, trial_fin"),
+      admin.from("eventos_uso").select("negocio_id, created_at"),
     ]);
     negocios = negociosRes.data;
     suscripciones = suscripcionesRes.data;
+    eventos = eventosRes.data ?? [];
   }
 
   const nombrePorNegocio = new Map((negocios ?? []).map((n) => [n.id, n.nombre]));
@@ -63,15 +70,28 @@ export default async function AdminPanelPage() {
     .sort((a, b) => a.dias - b.dias)
     .slice(0, 5);
 
+  /* Sin uso reciente: señal que `suscripciones` sola no da — un trial o un
+     plan pago pueden seguir "vigentes" semanas sin que nadie entre al
+     sistema. Solo cuenta negocios activos y sin cancelar (uno ya suspendido
+     no necesita esta alerta). */
+  const estadoPorNegocio = new Map((suscripciones ?? []).map((s) => [s.negocio_id, s.estado]));
+  const ultimaActividadPorId = ultimaActividadPorNegocio(eventos.map((e) => ({ negocioId: e.negocio_id, createdAt: e.created_at })));
+  const sinUso = (negocios ?? []).filter((n) => {
+    if (!n.activo || estadoPorNegocio.get(n.id) === "cancelada") return false;
+    const dias = diasInactivo(ultimaActividadPorId.get(n.id) ?? null);
+    return dias !== null && dias >= DIAS_SIN_USO_ALERTA;
+  }).length;
+
   return (
     <main>
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Panel del SaaS</h1>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{total}</div><div className="text-sm text-slate-500 dark:text-slate-400">Negocios</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{trials}</div><div className="text-sm text-slate-500 dark:text-slate-400">En trial</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{activas}</div><div className="text-sm text-slate-500 dark:text-slate-400">Pagando</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-amber-600 dark:text-amber-400">{porVencer.length}</div><div className="text-sm text-slate-500 dark:text-slate-400">Por vencer</div></div>
+        <div className="card p-4"><div className="text-2xl font-semibold text-amber-600 dark:text-amber-400">{sinUso}</div><div className="text-sm text-slate-500 dark:text-slate-400">Sin uso reciente</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-accent">S/ {mrr.toFixed(2)}</div><div className="text-sm text-slate-500 dark:text-slate-400">MRR estimado</div></div>
       </div>
       {vencidas > 0 && (

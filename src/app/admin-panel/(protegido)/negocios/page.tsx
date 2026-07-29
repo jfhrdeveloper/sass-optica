@@ -1,8 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
-import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES } from "@/lib/mock/mock-data";
+import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EVENTOS_USO } from "@/lib/mock/mock-data";
 import { leerOverridesActivo, aplicarOverridesActivo } from "@/lib/mock/mock-admin-overrides";
 import { NegociosTable, type NegocioFila } from "@/components/admin/NegociosTable";
+import { ultimaActividadPorNegocio } from "@/lib/uso";
 
 /* Server Component puro — mismo criterio que (protegido)/page.tsx: admin.ts
    (service role) nunca se importa desde un componente "use client". El
@@ -12,26 +13,32 @@ export default async function NegociosPage() {
   const mock = isMockMode();
   let negocios: { id: string; nombre: string; subdominio: string; ruc: string | null; telefono: string | null; direccion: string | null; activo: boolean; created_at: string }[] | null;
   let suscripciones: { negocio_id: string; plan: string; estado: string; trial_fin: string }[] | null;
+  let eventos: { negocio_id: string; created_at: string }[];
 
   if (mock) {
     negocios = aplicarOverridesActivo(MOCK_ADMIN_NEGOCIOS, await leerOverridesActivo());
     suscripciones = MOCK_ADMIN_SUSCRIPCIONES;
+    eventos = MOCK_ADMIN_EVENTOS_USO;
   } else {
     const admin = createAdminClient();
-    const [negociosRes, suscripcionesRes] = await Promise.all([
+    const [negociosRes, suscripcionesRes, eventosRes] = await Promise.all([
       admin.from("negocios").select("id, nombre, subdominio, ruc, telefono, direccion, activo, created_at").order("created_at", { ascending: false }),
       admin.from("suscripciones").select("negocio_id, plan, estado, trial_fin"),
+      admin.from("eventos_uso").select("negocio_id, created_at"),
     ]);
     negocios = negociosRes.data;
     suscripciones = suscripcionesRes.data;
+    eventos = eventosRes.data ?? [];
   }
 
   const porNegocio = new Map((suscripciones ?? []).map((s) => [s.negocio_id, s]));
+  const ultimaActividadPorId = ultimaActividadPorNegocio(eventos.map((e) => ({ negocioId: e.negocio_id, createdAt: e.created_at })));
   const filas: NegocioFila[] = (negocios ?? []).map((n) => {
     const s = porNegocio.get(n.id);
     return {
       id: n.id, nombre: n.nombre, subdominio: n.subdominio, activo: n.activo, createdAt: n.created_at,
       plan: s?.plan ?? null, estado: s?.estado ?? null, trialFin: s?.trial_fin ?? null,
+      ultimaActividad: ultimaActividadPorId.get(n.id) ?? null,
     };
   });
 

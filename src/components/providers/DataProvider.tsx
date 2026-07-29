@@ -14,6 +14,7 @@
    nuevo de DB ⇒ tipo aquí + mappers (ambos sentidos) + supabase-schema.sql. */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   rowToEmpleado, empleadoToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
@@ -224,6 +225,7 @@ const TABLAS_DOMINIO = [
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const mock = isMockMode();
   const supabase = useMemo(() => createClient(), []);
+  const pathname = usePathname();
   const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? [MOCK_EMPLEADO] : []);
   const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
   const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(mock ? MOCK_SUSCRIPCION : null);
@@ -318,6 +320,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const ch = canal.subscribe();
     return () => { activo = false; void supabase.removeChannel(ch); };
   }, [supabase, mock]);
+
+  /* ====== Telemetría de uso (panel admin) ======
+     Un evento por cada módulo del dashboard que se visita — insert-only,
+     "fire and forget": si falla (offline, RLS, lo que sea) no debe romper ni
+     avisarle nada al usuario del negocio, es solo la señal de adopción que
+     lee admin.dominio (ver docs/supabase-schema.sql: eventos_uso). No se
+     registra nada en modo mock (no hay Supabase real al cual escribir) ni
+     fuera de /dashboard (login, registro, landing no son "uso del
+     sistema"). Se re-dispara en cada cambio de ruta, nunca por re-render:
+     la dependencia es `pathname`, no un timer. */
+  useEffect(() => {
+    if (mock || !negocio || !pathname?.startsWith("/dashboard")) return;
+    let cancelado = false;
+    void (async () => {
+      try {
+        if (!cancelado) await supabase.from("eventos_uso").insert({ negocio_id: negocio.id, ruta: pathname });
+      } catch {
+        /* best-effort — ver comentario arriba */
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [supabase, negocio, mock, pathname]);
 
   /* ====== Mutaciones (Realtime refresca; no setState optimista) ======
      Cada una arranca con una rama `if (mock)` que opera sobre el estado

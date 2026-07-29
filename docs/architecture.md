@@ -62,8 +62,10 @@ interno `src/app/admin-panel/*` con su propio sidebar — `AdminShell`/`AdminNav
   lista de trials que vencen en ≤7 días.
 - `/admin-panel/negocios` — tabla completa (búsqueda, filtro por estado incl. "por vencer").
 - `/admin-panel/negocios/[id]` — detalle de un negocio: datos de contacto, empleados,
-  suscripción, historial de pagos, y la acción de suspender/reactivar (`negocios.activo`,
-  reversible, nunca un DELETE — mismo criterio que la "Zona de peligro" del dashboard de negocio).
+  suscripción, historial de pagos, uso del sistema (frecuencia, día/hora pico, módulos más
+  usados — ver `eventos_uso` y `lib/uso.ts`), y la acción de suspender/reactivar
+  (`negocios.activo`, reversible, nunca un DELETE — mismo criterio que la "Zona de peligro" del
+  dashboard de negocio).
 - `/admin-panel/pagos` — historial cross-tenant de `pagos_saas` + gráfico de MRR por mes.
 - Todas usan el cliente `admin.ts` (service role) server-side únicamente — nunca se expone al
   navegador.

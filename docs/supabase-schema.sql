@@ -199,6 +199,28 @@ create table if not exists public.pagos_saas (
 create index if not exists idx_pagos_saas_negocio on public.pagos_saas(negocio_id);
 create index if not exists idx_pagos_saas_fecha    on public.pagos_saas(created_at desc);
 
+-- eventos_uso (telemetría ligera de actividad — panel admin) ---------------
+-- Un evento por cada módulo del dashboard que un empleado visita (ver
+-- DashboardShell.tsx, que lo registra al navegar). Responde en admin.dominio
+-- a "qué tan seguido usa el sistema este negocio, qué día/hora y qué
+-- módulos" — señal de adopción/riesgo de abandono que `suscripciones` (solo
+-- estado activa/vencida) no da. Insert-only desde el propio negocio
+-- autenticado (cada quien solo puede escribir SU fila, nunca leerla de
+-- vuelta); la lectura cross-tenant es exclusiva de admin.ts (service_role).
+-- Sin datos personales del empleado — negocio_id + ruta + timestamp alcanzan
+-- para el propósito (frecuencia/horario/módulos), y así no hace falta
+-- proteger esta tabla como si tuviera PII.
+create table if not exists public.eventos_uso (
+  id         uuid primary key default gen_random_uuid(),
+  negocio_id uuid not null references public.negocios(id) on delete cascade,
+  ruta       text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_eventos_uso_negocio_fecha on public.eventos_uso(negocio_id, created_at desc);
+-- Purga de eventos con más de 90 días — no hace falta el historial completo
+-- para siempre, solo la ventana reciente que muestra el admin panel.
+create index if not exists idx_eventos_uso_fecha on public.eventos_uso(created_at);
+
 -- ================================================================
 -- TRIGGERS updated_at
 -- ================================================================
@@ -308,6 +330,14 @@ alter table public.super_admins  enable row level security;
 alter table public.pagos_saas    enable row level security;
 -- pagos_saas: sin policies para anon/authenticated a propósito — deny-all,
 -- solo service_role (admin.ts) lo lee/escribe, nunca el cliente autenticado.
+alter table public.eventos_uso   enable row level security;
+-- eventos_uso: insert-only para el propio negocio (registra su propia
+-- navegación), sin policy de select — ni siquiera el negocio que lo generó
+-- puede leerlo de vuelta. La lectura cross-tenant es exclusiva de admin.ts
+-- (service_role), igual que pagos_saas.
+drop policy if exists eventos_uso_insert on public.eventos_uso;
+create policy eventos_uso_insert on public.eventos_uso for insert
+  with check (negocio_id = public.current_tenant());
 
 -- ====== SUPER_ADMINS ======
 -- Cada quien solo confirma SU PROPIA membresía (lo usa el proxy para el
@@ -895,6 +925,26 @@ exception when others then null; end $$;
 
 select cron.schedule('opticaly_purgar_clientes_papelera', '0 4 * * *',
   $$ select public.purgar_clientes_papelera(); $$);
+
+-- ================================================================
+-- pg_cron: purga diaria de eventos_uso con más de 90 días (telemetría
+-- ligera, no necesita retención larga — el admin panel solo muestra las
+-- últimas semanas)
+-- ================================================================
+create or replace function public.purgar_eventos_uso_viejos()
+returns void language plpgsql security definer
+set search_path = public as $$
+begin
+  delete from public.eventos_uso where created_at < now() - interval '90 days';
+end $$;
+
+revoke execute on function public.purgar_eventos_uso_viejos() from public, anon, authenticated;
+
+do $$ begin perform cron.unschedule('opticaly_purgar_eventos_uso');
+exception when others then null; end $$;
+
+select cron.schedule('opticaly_purgar_eventos_uso', '0 5 * * *',
+  $$ select public.purgar_eventos_uso_viejos(); $$);
 
 -- ================================================================
 -- REALTIME + REPLICA IDENTITY FULL
