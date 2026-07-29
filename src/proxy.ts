@@ -77,8 +77,27 @@ export async function proxy(request: NextRequest) {
   function redirigir(url: URL): NextResponse {
     return conCookiesDeSesion(NextResponse.redirect(url));
   }
-  function reescribir(url: URL): NextResponse {
-    return conCookiesDeSesion(NextResponse.rewrite(url, { request }));
+  /* `headersExtra` viaja SIEMPRE dentro de `request.headers` en el momento
+     de construir la respuesta — es el único punto donde Next.js las toma en
+     cuenta para reconstruir el request que ven los Server Components (ver
+     `handleMiddlewareField` en next/dist/.../response.js). Poner un header
+     con `res.headers.set(...)` DESPUÉS de crear la respuesta (como hacía
+     antes esta función) solo lo agrega a la respuesta HTTP saliente —
+     nunca llega a `headers()` del lado del Server Component. Bug real
+     encontrado en la sesión 2026-07-29 (13): x-negocio-id/x-super-admin
+     nunca llegaban a destino, así que dashboard/layout.tsx y
+     admin-panel/(protegido)/layout.tsx redirigían a /login SIEMPRE que se
+     conectara Supabase real (enmascarado en dev porque el modo mock usa
+     una cookie en su lugar, no este header). */
+  function reescribir(url: URL, headersExtra?: Record<string, string>): NextResponse {
+    const headers = new Headers(request.headers);
+    for (const [k, v] of Object.entries(headersExtra ?? {})) headers.set(k, v);
+    return conCookiesDeSesion(NextResponse.rewrite(url, { request: { headers } }));
+  }
+  function continuar(headersExtra: Record<string, string>): NextResponse {
+    const headers = new Headers(request.headers);
+    for (const [k, v] of Object.entries(headersExtra)) headers.set(k, v);
+    return conCookiesDeSesion(NextResponse.next({ request: { headers } }));
   }
 
   /* ================= DOMINIO RAÍZ: landing pública ================= */
@@ -151,9 +170,7 @@ export async function proxy(request: NextRequest) {
 
     /* Header de defensa en profundidad, mismo patrón que x-negocio-id para
        el dashboard de negocio — src/app/admin-panel/layout.tsx lo exige. */
-    const res = reescribir(destino);
-    res.headers.set("x-super-admin", "1");
-    return res;
+    return reescribir(destino, { "x-super-admin": "1" });
   }
 
   /* ================= SUBDOMINIO de negocio: dashboard =================
@@ -234,11 +251,11 @@ export async function proxy(request: NextRequest) {
   /* Inyecta el tenant resuelto para que Server Components/Route Handlers no
      tengan que volver a consultarlo (la RLS igual filtra por current_tenant()
      independientemente de estos headers — son solo un atajo de lectura). */
-  supabaseResponse.headers.set("x-negocio-id", negocio.id);
-  supabaseResponse.headers.set("x-negocio-subdominio", subdomain);
-  supabaseResponse.headers.set("x-empleado-rol", rol);
-
-  return supabaseResponse;
+  return continuar({
+    "x-negocio-id": negocio.id,
+    "x-negocio-subdominio": subdomain,
+    "x-empleado-rol": rol,
+  });
 }
 
 export const config = {
