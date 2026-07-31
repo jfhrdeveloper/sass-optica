@@ -67,6 +67,31 @@ export function topProductosVendidos(
     .slice(0, limite);
 }
 
+export interface DesgloseCategoria { categoria: string; monto: number }
+
+/** Egresos agrupados por categoría — recibe los `gastos` YA filtrados por
+ *  rango de fechas (el filtro de fechas vive en la página, igual que el
+ *  resto de esta capa de aritmética pura). Usado por el generador de
+ *  reportes de /dashboard/informes/reportes. */
+export function desgloseEgresosPorCategoria(gastos: Gasto[]): DesgloseCategoria[] {
+  const mapa = new Map<string, number>();
+  for (const g of gastos) mapa.set(g.categoria, (mapa.get(g.categoria) ?? 0) + g.monto);
+  return [...mapa.entries()].map(([categoria, monto]) => ({ categoria, monto })).sort((a, b) => b.monto - a.monto);
+}
+
+export interface DesgloseMetodo { metodo: string; monto: number }
+
+/** Ingresos (ventas pagadas) agrupados por método de pago — mismo criterio
+ *  que `desgloseEgresosPorCategoria`: recibe `ventas` ya filtradas por rango. */
+export function desgloseIngresosPorMetodo(ventas: Venta[]): DesgloseMetodo[] {
+  const mapa = new Map<string, number>();
+  for (const v of ventas) {
+    if (v.estado === "anulada") continue;
+    mapa.set(v.metodoPago, (mapa.get(v.metodoPago) ?? 0) + v.total);
+  }
+  return [...mapa.entries()].map(([metodo, monto]) => ({ metodo, monto })).sort((a, b) => b.monto - a.monto);
+}
+
 export interface MesComparativo { mes: string; label: string; ingresos: number; egresos: number; balance: number }
 
 /** Últimos `meses` meses (incluido el actual) con ingresos/egresos/balance,

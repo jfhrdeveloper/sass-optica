@@ -224,6 +224,7 @@ export async function proxy(request: NextRequest) {
   const rutasConPermiso: Record<string, string> = {
     "/dashboard/gastos": "gastos",
     "/dashboard/informes": "gastos",
+    "/dashboard/comisiones": "gastos",
     "/dashboard/descuentos": "descuentos",
   };
   for (const [ruta, clave] of Object.entries(rutasConPermiso)) {

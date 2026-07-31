@@ -65,16 +65,6 @@ Diseña primero para móvil y escala hacia arriba.
   - El popover va en un portal con `position: fixed`, posición Y ANCHO calculados desde el rect
     del trigger y clampeados al viewport — un ancho fijo sin clamp se recorta en pantallas
     angostas (bug real encontrado y corregido, ver bitácora 2026-07-25 (10)).
-- **Rastro de navegación: `Breadcrumbs.tsx`** — montado una sola vez en `DashboardShell`, no por
-  página; se oculta solo en `/dashboard`. Reemplazó el `← Inicio` que repetían las 13 páginas.
-  - Va en `<nav aria-label="Breadcrumb">` + **`<ol>`** (es una lista *ordenada*: el orden ES la
-    jerarquía; con `div`+`span` se ve igual pero se pierde la semántica).
-  - El último crumb lleva `aria-current="page"` y **nunca** es un link a sí mismo.
-  - Los separadores son SVG con `aria-hidden="true"`: si fueran texto, el lector de pantalla
-    dictaría "Inicio barra Comercial barra Ventas".
-  - El **grupo** (Comercial/Administración) no está en la URL — las rutas del dashboard son
-    planas. Sale del mapa `RUTAS` del componente, que replica la agrupación de `DashboardNav`.
-    Al agregar una ruta al sidebar, agregarla también ahí.
 - **Rango de fechas: `DateRangePicker.tsx`** (envuelve `react-day-picker`). Reemplaza los pares de
   `<input type="date">` sueltos de los filtros — cada navegador dibujaba su propio calendario del
   sistema y no se veía la relación entre los dos extremos. En uso en citas, ventas, gastos,

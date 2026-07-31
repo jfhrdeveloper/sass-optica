@@ -6,7 +6,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { CulqiCheckoutButton } from "@/components/ui/CulqiCheckoutButton";
 import { FeatureGateBanner } from "@/components/dashboard/FeatureGateBanner";
-import { SettingsTabs } from "@/components/dashboard/SettingsTabs";
+import { SettingsTabs, TABS_AJUSTES } from "@/components/dashboard/SettingsTabs";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import {
   PLANES, precioSegunCiclo, montoCentimosSegunCiclo, etiquetaOferta, descripcionOferta,
@@ -55,7 +55,7 @@ export default function FacturacionPage() {
   return (
     <main>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ajustes</h1>
-      <SettingsTabs />
+      <SettingsTabs tabs={TABS_AJUSTES} />
 
       <div className="card mt-4 p-4 text-sm">
         <p>Plan actual: <span className="font-medium">{suscripcion?.plan ? nombrePlanSuscripcion(suscripcion.plan) : "—"}</span></p>

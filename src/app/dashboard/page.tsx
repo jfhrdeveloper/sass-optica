@@ -1,14 +1,18 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, CalendarDays, PackageX, ShoppingCart, Truck, FileText, Package } from "lucide-react";
+import { Users, CalendarDays, PackageX, ShoppingCart, Pencil, Check } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import { CoachTooltip } from "@/components/dashboard/CoachTooltip";
 import { ChangelogBanner } from "@/components/dashboard/ChangelogBanner";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { NAV, aplanarNav } from "@/lib/dashboard-nav";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { nombrePlanSuscripcion } from "@/lib/precios";
+import { nombreRol } from "@/lib/roles";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -17,20 +21,64 @@ const STATS = [
   { href: "/dashboard/ventas", label: "Ventas totales", icon: ShoppingCart },
 ] as const;
 
-/* Accesos rápidos a secciones de alto uso que NO están ya cubiertas por las
-   stats de arriba (Clientes/Citas/Stock/Ventas) — pedido explícito del
-   usuario de tener "botones tipo card" además de los números. */
-const ACCESOS_RAPIDOS = [
-  { href: "/dashboard/cotizaciones", label: "Cotizaciones", icon: FileText },
-  { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
-  { href: "/dashboard/productos", label: "Stock", icon: Package },
-] as const;
+/* Selección por defecto de "Accesos rápidos" — secciones de alto uso que NO
+   están ya cubiertas por las stats de arriba (Clientes/Citas/Stock/Ventas).
+   El usuario ahora puede cambiar esta selección desde el lápiz de al lado
+   del título (pedido explícito: "que sean configurables según la necesidad
+   del cliente") — persistido en localStorage por negocio, mismo patrón que
+   el selector de sede de DashboardTopbar.tsx. */
+const ACCESOS_RAPIDOS_DEFECTO = ["/dashboard/cotizaciones", "/dashboard/proveedores", "/dashboard/productos"];
+const ACCESOS_RAPIDOS_KEY = "accesos-rapidos";
+
+function useAccesosRapidos(negocioId?: string): [string[], (hrefs: string[]) => void] {
+  const [valor, setValor] = useState<string[]>(ACCESOS_RAPIDOS_DEFECTO);
+  useEffect(() => {
+    if (!negocioId) return;
+    const guardado = window.localStorage.getItem(`${ACCESOS_RAPIDOS_KEY}:${negocioId}`);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en SSR
+    setValor(guardado ? (JSON.parse(guardado) as string[]) : ACCESOS_RAPIDOS_DEFECTO);
+  }, [negocioId]);
+  function guardar(hrefs: string[]) {
+    if (negocioId) window.localStorage.setItem(`${ACCESOS_RAPIDOS_KEY}:${negocioId}`, JSON.stringify(hrefs));
+    setValor(hrefs);
+  }
+  return [valor, guardar];
+}
 
 /* Resumen del dashboard: confirma que auth + tenant + roles + módulos de
    dominio funcionan de punta a punta, con accesos rápidos a cada módulo. */
 export default function DashboardPage() {
   const { empleado } = useSession();
   const { negocio, suscripcion, clientes, citas, productos, ventas } = useData();
+  const esAdmin = empleado?.rol === "administrador";
+  const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
+
+  /* Catálogo completo de secciones elegibles como acceso rápido: toda la
+     navegación del dashboard (misma fuente que el sidebar y el command
+     palette) salvo Inicio, filtrado por lo que este empleado puede ver. */
+  const catalogoAccesos = useMemo(
+    () => aplanarNav(NAV).filter((i) => i.href !== "/dashboard" && (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tienePermiso se recalcula con empleado/esAdmin, ya listados
+    [esAdmin, empleado],
+  );
+  const [accesosSeleccionados, guardarAccesos] = useAccesosRapidos(negocio?.id);
+  const accesosVisibles = accesosSeleccionados
+    .map((href) => catalogoAccesos.find((i) => i.href === href))
+    .filter((i): i is (typeof catalogoAccesos)[number] => Boolean(i));
+
+  const [editandoAccesos, setEditandoAccesos] = useState(false);
+  const [seleccionBorrador, setSeleccionBorrador] = useState<string[]>([]);
+  function abrirEditorAccesos() {
+    setSeleccionBorrador(accesosSeleccionados);
+    setEditandoAccesos(true);
+  }
+  function alternarAccesoBorrador(href: string) {
+    setSeleccionBorrador((prev) => (prev.includes(href) ? prev.filter((h) => h !== href) : [...prev, href]));
+  }
+  function guardarEditorAccesos() {
+    guardarAccesos(seleccionBorrador);
+    setEditandoAccesos(false);
+  }
 
   const citasHoy = citas.filter((c) => c.fechaHora.slice(0, 10) === new Date().toISOString().slice(0, 10));
   const stockBajo = productos.filter((p) => p.stockActual <= p.stockMinimo);
@@ -39,7 +87,7 @@ export default function DashboardPage() {
   return (
     <main>
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Hola, {empleado?.nombres || "—"}</h1>
-      <p className="text-sm text-slate-500 dark:text-slate-400">{negocio?.nombre} · rol <span className="capitalize">{empleado?.rol}</span></p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{negocio?.nombre} · rol {empleado?.rol ? nombreRol(empleado.rol) : "—"}</p>
 
       {suscripcion?.estado === "trial" && (
         <p className="badge badge-warning mt-4 px-3 py-1.5">
@@ -90,23 +138,58 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <h2 className="mt-8 text-sm font-semibold text-slate-700 dark:text-slate-200">Accesos rápidos</h2>
-      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {ACCESOS_RAPIDOS.map((a) => {
-          const Icon = a.icon;
-          return (
-            <Link
-              key={a.href} href={a.href}
-              className="card flex items-center gap-3 p-3 text-sm font-medium text-slate-700 transition-shadow hover:shadow-md dark:text-slate-200"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
-                <Icon size={16} />
-              </div>
-              {a.label}
-            </Link>
-          );
-        })}
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Accesos rápidos</h2>
+        <button onClick={abrirEditorAccesos} className="row-icon-btn" title="Personalizar accesos rápidos" aria-label="Personalizar accesos rápidos">
+          <Pencil size={14} />
+        </button>
       </div>
+      {accesosVisibles.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+          Sin accesos elegidos.{" "}
+          <button onClick={abrirEditorAccesos} className="link font-medium">Elegir accesos rápidos</button>
+        </p>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {accesosVisibles.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Link
+                key={a.href} href={a.href}
+                className="card flex items-center gap-3 p-3 text-sm font-medium text-slate-700 transition-shadow hover:shadow-md dark:text-slate-200"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
+                  <Icon size={16} />
+                </div>
+                {a.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      <SlideOver abierto={editandoAccesos} onClose={() => setEditandoAccesos(false)} titulo="Personalizar accesos rápidos">
+        <p className="text-sm text-slate-500 dark:text-slate-400">Elige qué secciones aparecen como accesos rápidos en Inicio.</p>
+        <ul className="mt-3 space-y-1">
+          {catalogoAccesos.map((item) => {
+            const Icon = item.icon;
+            const marcado = seleccionBorrador.includes(item.href);
+            return (
+              <li key={item.href}>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+                  <input type="checkbox" checked={marcado} onChange={() => alternarAccesoBorrador(item.href)} className="checkbox" />
+                  <Icon size={16} className="text-slate-400" />
+                  {item.label}
+                  {item.grupo && <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{item.grupo}</span>}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+        <button onClick={guardarEditorAccesos} className="btn-primary mt-4 w-full gap-1.5">
+          <Check size={15} /> Guardar
+        </button>
+      </SlideOver>
     </main>
   );
 }

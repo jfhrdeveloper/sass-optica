@@ -18,18 +18,23 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   rowToEmpleado, empleadoToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
+  rowToSucursal, sucursalToRow,
   rowToCliente, clienteToRow, rowToCita, citaToRow, rowToReceta, recetaToRow,
+  rowToExamenOptometrico, examenOptometricoToRow,
   rowToProducto, productoToRow, rowToMovimientoStock, rowToVenta, ventaToRow,
   rowToVentaItem, rowToGasto, gastoToRow, rowToDescuento, descuentoToRow,
   rowToProveedor, proveedorToRow,
   rowToCotizacion, cotizacionToRow, rowToCotizacionItem,
+  rowToOrdenLaboratorio, ordenLaboratorioToRow,
+  rowToCaja, cajaToRow,
 } from "@/lib/data/mappers";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
 import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
+import { calcularCuadreCaja, sumaDesglose, efectivoDeDesglose } from "@/lib/caja";
 import {
-  MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_CLIENTES, MOCK_CITAS,
-  MOCK_RECETAS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_GASTOS,
+  MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
+  MOCK_RECETAS, MOCK_EXAMENES_OPTOMETRICOS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_ORDENES_LABORATORIO, MOCK_CAJAS, MOCK_GASTOS,
   MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
 } from "@/lib/mock/mock-data";
 
@@ -46,10 +51,14 @@ export interface Empleado {
   telefono?:     string;
   avatarBase64?: string;
   /* Permisos granulares aditivos por encima del rol fijo — ver columna
-     `permisos` en supabase-schema.sql. Claves: 'gastos' | 'descuentos'.
+     `permisos` en supabase-schema.sql. Claves: 'gastos' | 'descuentos' | 'laboratorio'.
      Nunca incluye gestión de empleados/ajustes, eso queda siempre
      exclusivo de `administrador`. */
   permisos:      Record<string, boolean>;
+  // % de comisión sobre sus propias ventas (estado "pagada") — ver lib/comisiones.ts.
+  comisionPct:   number;
+  // NULL = ve/gestiona todas las sedes del negocio (caso común). Ver current_sucursal() en el schema.
+  sucursalId?:   string;
   activo:        boolean;
 }
 
@@ -63,6 +72,13 @@ export interface Negocio {
   logoUrl?:   string;
   colorPrimario?: string;
   activo:     boolean;
+}
+
+/* Multisedes, opcional — la mayoría de negocios no crea ninguna. Ver
+   comentario de la tabla `sucursales` en supabase-schema.sql. */
+export interface Sucursal {
+  id: string; negocioId: string; nombre: string;
+  direccion?: string; telefono?: string; activo: boolean;
 }
 
 export interface Suscripcion {
@@ -91,7 +107,7 @@ export interface Cliente {
 }
 
 export interface Cita {
-  id: string; negocioId: string; clienteId: string; empleadoId?: string;
+  id: string; negocioId: string; clienteId: string; empleadoId?: string; sucursalId?: string;
   fechaHora: string; motivo?: string; estado: string; notas?: string;
   /** Minutos que dura la cita — opcional: si no viene (citas antiguas o
    *  agendadas sin arrastrar), la UI asume DURACION_DEFECTO_MIN (30). */
@@ -106,20 +122,33 @@ export interface Receta {
   dip?: number; notas?: string;
 }
 
+/* Separado de Receta a propósito — ver comentario de la tabla en
+   supabase-schema.sql: un examen no siempre coincide 1:1 con una receta. */
+export interface ExamenOptometrico {
+  id: string; negocioId: string; clienteId: string; citaId?: string; recetaId?: string;
+  fecha: string;
+  odAvSc?: string; odAvCc?: string; oiAvSc?: string; oiAvCc?: string;
+  odK1?: number; odK2?: number; odEjeK?: number;
+  oiK1?: number; oiK2?: number; oiEjeK?: number;
+  anamnesis?: string; notas?: string;
+}
+
 export interface Producto {
   id: string; negocioId: string; proveedorId?: string; codigo?: string; nombre: string; categoria: string;
   marca?: string; descripcion?: string; precioVenta: number; precioCosto: number;
+  // Solo aplican si categoria === "lente_contacto" (ver check de la tabla productos).
+  curvaBase?: number; diametro?: number; potencia?: number;
   imagenUrl?: string; activo: boolean;
   stockActual: number; stockMinimo: number;
 }
 
 export interface MovimientoStock {
-  id: string; negocioId: string; productoId: string; tipo: string;
+  id: string; negocioId: string; productoId: string; sucursalId?: string; tipo: string;
   cantidad: number; motivo?: string; fecha: string;
 }
 
 export interface Venta {
-  id: string; negocioId: string; clienteId?: string; fecha: string;
+  id: string; negocioId: string; clienteId?: string; empleadoId?: string; sucursalId?: string; fecha: string;
   subtotal: number; igv: number; total: number;
   metodoPago: string; estado: string; montoPagado: number; notas?: string;
 }
@@ -127,6 +156,42 @@ export interface Venta {
 export interface VentaItem {
   id: string; ventaId: string; productoId?: string;
   descripcion: string; cantidad: number; precioUnitario: number; subtotal: number;
+}
+
+export type EstadoOrdenLaboratorio =
+  | "generado" | "enviado" | "en_proceso" | "terminado"
+  | "en_transito" | "recibido" | "entregado" | "cancelado";
+
+/* Seguimiento del armado de lentes en el laboratorio/taller — ver
+   src/lib/laboratorio.ts para las transiciones válidas entre estados. */
+export interface OrdenLaboratorio {
+  id: string; negocioId: string;
+  ventaId?: string; ventaItemId?: string; clienteId?: string; recetaId?: string; empleadoId?: string;
+  sucursalOrigenId?: string; sucursalDestinoId?: string;
+  laboratorioNombre?: string;
+  estado: EstadoOrdenLaboratorio;
+  fechaGenerado: string; fechaEstimada?: string; avisadoWhatsappEn?: string;
+  notas?: string;
+}
+
+export type EstadoCaja = "abierta" | "cerrada";
+
+/** Un ítem del desglose de apertura de caja — método/etiqueta libre (ej.
+ *  "Efectivo", "Yape", "Fondo fijo") + monto. Ver `lib/caja.ts`. */
+export interface ItemAperturaCaja { metodo: string; monto: number }
+
+/* Apertura/cierre diario con cuadre por método de pago — ver
+   src/lib/caja.ts para el cálculo de los totales congelados al cerrar. */
+export interface Caja {
+  id: string; negocioId: string; sucursalId?: string;
+  empleadoAperturaId?: string; empleadoCierreId?: string;
+  fechaApertura: string; fechaCierre?: string;
+  montoInicial: number;
+  desgloseApertura: ItemAperturaCaja[];
+  totalEfectivo: number; totalTarjeta: number; totalYape: number; totalPlin: number; totalTransferencia: number;
+  montoEfectivoEsperado: number; montoEfectivoContado?: number; diferencia?: number;
+  estado: EstadoCaja;
+  notas?: string;
 }
 
 export interface Gasto {
@@ -170,13 +235,17 @@ interface DataCtx {
   empleados:        Empleado[];
   negocio:          Negocio | null;
   suscripcion:      Suscripcion | null;
+  sucursales:       Sucursal[];
   clientes:         Cliente[];
   citas:            Cita[];
   recetas:          Receta[];
+  examenesOptometricos: ExamenOptometrico[];
   productos:        Producto[];
   movimientosStock: MovimientoStock[];
   ventas:           Venta[];
   ventaItems:       VentaItem[];
+  ordenesLaboratorio: OrdenLaboratorio[];
+  cajas:            Caja[];
   gastos:           Gasto[];
   descuentos:       Descuento[];
   proveedores:      Proveedor[];
@@ -186,6 +255,8 @@ interface DataCtx {
   /* CRUD (la mutación va a Supabase; Realtime re-fetchea). */
   updateEmpleado: (id: string, patch: Partial<Empleado>) => Promise<void>;
   updateNegocio:  (patch: Partial<Negocio>) => Promise<void>;
+  addSucursal:    (s: Partial<Sucursal>) => Promise<void>;
+  updateSucursal: (id: string, patch: Partial<Sucursal>) => Promise<void>;
   addCliente:     (c: Partial<Cliente>) => Promise<string | null>;
   updateCliente:  (id: string, patch: Partial<Cliente>) => Promise<void>;
   deleteCliente:  (id: string) => Promise<void>;
@@ -195,11 +266,17 @@ interface DataCtx {
   updateCita:     (id: string, patch: Partial<Cita>) => Promise<void>;
   deleteCita:     (id: string) => Promise<void>;
   addReceta:      (r: Partial<Receta>) => Promise<void>;
+  addExamenOptometrico:    (e: Partial<ExamenOptometrico>) => Promise<void>;
+  updateExamenOptometrico: (id: string, patch: Partial<ExamenOptometrico>) => Promise<void>;
   addProducto:    (p: Partial<Producto>, stockInicial: number, stockMinimo: number) => Promise<void>;
   updateProducto: (id: string, patch: Partial<Producto>) => Promise<void>;
-  ajustarStock:   (productoId: string, tipo: string, cantidad: number, motivo?: string) => Promise<void>;
+  ajustarStock:   (productoId: string, tipo: string, cantidad: number, motivo?: string, sucursalId?: string) => Promise<void>;
   addVenta:       (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => Promise<{ id: string | null; error: string | null }>;
   anularVenta:    (id: string) => Promise<void>;
+  addOrdenLaboratorio:    (o: Partial<OrdenLaboratorio>) => Promise<void>;
+  updateOrdenLaboratorio: (id: string, patch: Partial<OrdenLaboratorio>) => Promise<void>;
+  abrirCaja:      (desglose: ItemAperturaCaja[], empleadoId?: string, sucursalId?: string) => Promise<void>;
+  cerrarCaja:     (id: string, montoContado: number, empleadoId?: string) => Promise<void>;
   addGasto:       (g: Partial<Gasto>) => Promise<void>;
   deleteGasto:    (id: string) => Promise<void>;
   addDescuento:    (d: Partial<Descuento>) => Promise<void>;
@@ -217,8 +294,8 @@ interface DataCtx {
 const Ctx = createContext<DataCtx | null>(null);
 
 const TABLAS_DOMINIO = [
-  "clientes", "citas", "recetas", "productos", "inventario",
-  "movimientos_stock", "ventas", "venta_items", "gastos",
+  "sucursales", "clientes", "citas", "recetas", "examenes_optometricos", "productos", "inventario", "stock_sucursal",
+  "movimientos_stock", "ventas", "venta_items", "ordenes_laboratorio", "cajas", "gastos",
   "descuentos",
   "proveedores", "cotizaciones", "cotizacion_items",
 ] as const;
@@ -231,13 +308,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? [MOCK_EMPLEADO] : []);
   const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
   const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(mock ? MOCK_SUSCRIPCION : null);
+  const [sucursales, setSucursales]   = useState<Sucursal[]>(mock ? MOCK_SUCURSALES : []);
   const [clientes, setClientes]       = useState<Cliente[]>(mock ? MOCK_CLIENTES : []);
   const [citas, setCitas]             = useState<Cita[]>(mock ? MOCK_CITAS : []);
   const [recetas, setRecetas]         = useState<Receta[]>(mock ? MOCK_RECETAS : []);
+  const [examenesOptometricos, setExamenesOptometricos] = useState<ExamenOptometrico[]>(mock ? MOCK_EXAMENES_OPTOMETRICOS : []);
   const [productos, setProductos]     = useState<Producto[]>(mock ? MOCK_PRODUCTOS : []);
   const [movimientosStock, setMovimientosStock] = useState<MovimientoStock[]>(mock ? MOCK_MOVIMIENTOS_STOCK : []);
+  /* Filas crudas de `stock_sucursal` (Multisedes Fase B) — no se expone en
+     DataCtx (ninguna página necesita hoy el detalle por sede, solo el total
+     ya fusionado en `Producto.stockActual`); `ajustarStock` sí la consulta
+     para saber el stock ANTES de aplicar un delta en una sede puntual. */
+  const [stockSucursalRaw, setStockSucursalRaw] = useState<{ producto_id: string; sucursal_id: string; stock_actual: unknown; stock_minimo: unknown }[]>([]);
   const [ventas, setVentas]           = useState<Venta[]>(mock ? MOCK_VENTAS : []);
   const [ventaItems, setVentaItems]   = useState<VentaItem[]>(mock ? MOCK_VENTA_ITEMS : []);
+  const [ordenesLaboratorio, setOrdenesLaboratorio] = useState<OrdenLaboratorio[]>(mock ? MOCK_ORDENES_LABORATORIO : []);
+  const [cajas, setCajas]             = useState<Caja[]>(mock ? MOCK_CAJAS : []);
   const [gastos, setGastos]           = useState<Gasto[]>(mock ? MOCK_GASTOS : []);
   const [descuentos, setDescuentos]   = useState<Descuento[]>(mock ? MOCK_DESCUENTOS : []);
   const [proveedores, setProveedores] = useState<Proveedor[]>(mock ? MOCK_PROVEEDORES : []);
@@ -258,18 +344,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let activo = true;
 
     async function cargar() {
-      const [e, n, s, cl, ci, re, pr, inv, ms, ve, vi, ga, de, pv, co, coi] = await Promise.all([
+      const [e, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi] = await Promise.all([
         supabase.from("empleados").select("*"),
         supabase.from("negocios").select("*"),
         supabase.from("suscripciones").select("*"),
+        supabase.from("sucursales").select("*"),
         supabase.from("clientes").select("*"),
         supabase.from("citas").select("*"),
         supabase.from("recetas").select("*"),
+        supabase.from("examenes_optometricos").select("*"),
         supabase.from("productos").select("*"),
         supabase.from("inventario").select("*"),
+        supabase.from("stock_sucursal").select("*"),
         supabase.from("movimientos_stock").select("*"),
         supabase.from("ventas").select("*"),
         supabase.from("venta_items").select("*"),
+        supabase.from("ordenes_laboratorio").select("*"),
+        supabase.from("cajas").select("*"),
         supabase.from("gastos").select("*"),
         supabase.from("descuentos").select("*"),
         supabase.from("proveedores").select("*"),
@@ -278,11 +369,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ]);
       if (!activo) return;
 
-      /* El stock (`inventario`) es 1:1 con `productos` — se fusiona aquí para
-         que la UI trabaje con un solo objeto Producto por fila. */
+      /* El stock se fusiona aquí para que la UI trabaje con un solo objeto
+         Producto por fila. Regla binaria de Multisedes Fase B: sin ninguna
+         sucursal creada (el caso común), `inventario` (1:1 con productos)
+         sigue siendo la fuente de verdad, cero cambio de comportamiento. Con
+         al menos una sucursal, el stock de un producto pasa a ser la SUMA
+         de sus filas en `stock_sucursal` — nunca se persiste ese total
+         duplicado en DB, se calcula acá en cada carga. */
+      const hayMultisedes = (su.data ?? []).length > 0;
+      setStockSucursalRaw((ss.data ?? []) as { producto_id: string; sucursal_id: string; stock_actual: unknown; stock_minimo: unknown }[]);
+
       const stockPorProducto = new Map<string, { stock_actual: unknown; stock_minimo: unknown }>();
-      for (const row of inv.data ?? []) {
-        stockPorProducto.set(String(row.producto_id), row);
+      if (hayMultisedes) {
+        for (const row of ss.data ?? []) {
+          const id = String(row.producto_id);
+          const previo = stockPorProducto.get(id);
+          stockPorProducto.set(id, {
+            stock_actual: Number(previo?.stock_actual ?? 0) + Number(row.stock_actual ?? 0),
+            stock_minimo: Number(previo?.stock_minimo ?? 0) + Number(row.stock_minimo ?? 0),
+          });
+        }
+      } else {
+        for (const row of inv.data ?? []) {
+          stockPorProducto.set(String(row.producto_id), row);
+        }
       }
       const productosConStock = (pr.data ?? []).map((row) => {
         const base = rowToProducto(row);
@@ -295,13 +405,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setEmpleados((e.data ?? []).map(rowToEmpleado));
       setNegocio((n.data ?? []).map(rowToNegocio)[0] ?? null);
       setSuscripcion((s.data ?? []).map(rowToSuscripcion)[0] ?? null);
+      setSucursales((su.data ?? []).map(rowToSucursal));
       setClientes((cl.data ?? []).map(rowToCliente));
       setCitas((ci.data ?? []).map(rowToCita));
       setRecetas((re.data ?? []).map(rowToReceta));
+      setExamenesOptometricos((eo.data ?? []).map(rowToExamenOptometrico));
       setProductos(productosConStock);
       setMovimientosStock((ms.data ?? []).map(rowToMovimientoStock));
       setVentas((ve.data ?? []).map(rowToVenta));
       setVentaItems((vi.data ?? []).map(rowToVentaItem));
+      setOrdenesLaboratorio((ol.data ?? []).map(rowToOrdenLaboratorio));
+      setCajas((caj.data ?? []).map(rowToCaja));
       setGastos((ga.data ?? []).map(rowToGasto));
       setDescuentos((de.data ?? []).map(rowToDescuento));
       setProveedores((pv.data ?? []).map(rowToProveedor));
@@ -359,6 +473,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (mock) { setNegocio((prev) => (prev ? { ...prev, ...patch } : prev)); return; }
     await supabase.from("negocios").update(negocioToRow(patch)).eq("id", negocio.id);
   }, [supabase, negocio, mock]);
+
+  const addSucursal = useCallback(async (s: Partial<Sucursal>) => {
+    if (!negocio) return;
+    if (mock) {
+      setSucursales((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", activo: true, ...s }]);
+      return;
+    }
+    await supabase.from("sucursales").insert({ ...sucursalToRow(s), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+
+  const updateSucursal = useCallback(async (id: string, patch: Partial<Sucursal>) => {
+    if (mock) {
+      setSucursales((prev) => prev.map((su) => (su.id === id ? { ...su, ...patch } : su)));
+      return;
+    }
+    await supabase.from("sucursales").update(sucursalToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
 
   const addCliente = useCallback(async (c: Partial<Cliente>) => {
     if (!negocio) return null;
@@ -421,6 +552,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabase.from("recetas").insert({ ...recetaToRow(r), negocio_id: negocio.id });
   }, [supabase, negocio, mock]);
 
+  const addExamenOptometrico = useCallback(async (e: Partial<ExamenOptometrico>) => {
+    if (!negocio) return;
+    if (mock) {
+      setExamenesOptometricos((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, clienteId: "", fecha: new Date().toISOString().slice(0, 10), ...e }]);
+      return;
+    }
+    await supabase.from("examenes_optometricos").insert({ ...examenOptometricoToRow(e), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+
+  const updateExamenOptometrico = useCallback(async (id: string, patch: Partial<ExamenOptometrico>) => {
+    if (mock) {
+      setExamenesOptometricos((prev) => prev.map((ex) => (ex.id === id ? { ...ex, ...patch } : ex)));
+      return;
+    }
+    await supabase.from("examenes_optometricos").update(examenOptometricoToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+
   const addProducto = useCallback(async (p: Partial<Producto>, stockInicial: number, stockMinimo: number) => {
     if (!negocio) return;
     if (mock) {
@@ -443,13 +591,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   /* Ajuste de stock: registra el movimiento (trazabilidad) y actualiza el
      contador en `inventario` — ver invariante en docs/architecture.md sobre
      por qué se guarda el movimiento y no solo el número. */
-  const ajustarStock = useCallback(async (productoId: string, tipo: string, cantidad: number, motivo?: string) => {
+  /* Multisedes Fase B: si se pasa `sucursalId` Y el negocio tiene al menos
+     una sucursal creada, el ajuste aplica sobre la fila de ESA sede en
+     `stock_sucursal` (no sobre el total fusionado de `Producto.stockActual`,
+     que sería el número equivocado para calcular un delta de una sede
+     puntual). Sin `sucursalId` (el 100% de los llamadores hoy, ninguna
+     página tiene todavía un selector de sede en el formulario de ajuste) o
+     sin sucursales creadas, el comportamiento es EXACTAMENTE el de antes:
+     escribe en `inventario`, cero cambio para el caso común. */
+  const ajustarStock = useCallback(async (productoId: string, tipo: string, cantidad: number, motivo?: string, sucursalId?: string) => {
     if (!negocio) return;
     const producto = productos.find((p) => p.id === productoId);
     if (!producto) return;
     const delta = tipo === "salida" ? -cantidad : cantidad;
-    const nuevoStock = tipo === "ajuste" ? cantidad : Math.max(0, producto.stockActual + delta);
 
+    if (sucursalId && sucursales.length > 0) {
+      const filaPrevia = stockSucursalRaw.find((r) => r.producto_id === productoId && r.sucursal_id === sucursalId);
+      const stockPrevioSede = Number(filaPrevia?.stock_actual ?? 0);
+      const stockMinimoSede = filaPrevia ? Number(filaPrevia.stock_minimo ?? 0) : producto.stockMinimo;
+      const nuevoStockSede = tipo === "ajuste" ? cantidad : Math.max(0, stockPrevioSede + delta);
+
+      if (mock) {
+        setStockSucursalRaw((prev) => {
+          const resto = prev.filter((r) => !(r.producto_id === productoId && r.sucursal_id === sucursalId));
+          return [...resto, { producto_id: productoId, sucursal_id: sucursalId, stock_actual: nuevoStockSede, stock_minimo: stockMinimoSede }];
+        });
+        setProductos((prev) => prev.map((p) => (p.id === productoId ? { ...p, stockActual: p.stockActual - stockPrevioSede + nuevoStockSede } : p)));
+        setMovimientosStock((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, productoId, sucursalId, tipo, cantidad, motivo, fecha: new Date().toISOString() }]);
+        return;
+      }
+      await supabase.from("movimientos_stock").insert({
+        negocio_id: negocio.id, producto_id: productoId, sucursal_id: sucursalId, tipo, cantidad, motivo,
+      });
+      await supabase.from("stock_sucursal").upsert({
+        producto_id: productoId, sucursal_id: sucursalId, stock_actual: nuevoStockSede, stock_minimo: stockMinimoSede,
+      });
+      return;
+    }
+
+    const nuevoStock = tipo === "ajuste" ? cantidad : Math.max(0, producto.stockActual + delta);
     if (mock) {
       setProductos((prev) => prev.map((p) => (p.id === productoId ? { ...p, stockActual: nuevoStock } : p)));
       setMovimientosStock((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, productoId, tipo, cantidad, motivo, fecha: new Date().toISOString() }]);
@@ -459,7 +639,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       negocio_id: negocio.id, producto_id: productoId, tipo, cantidad, motivo,
     });
     await supabase.from("inventario").update({ stock_actual: nuevoStock }).eq("producto_id", productoId);
-  }, [supabase, negocio, productos, mock]);
+  }, [supabase, negocio, productos, sucursales, stockSucursalRaw, mock]);
 
   /* Alta de venta + sus ítems. Simplificación de MVP: dos escrituras
      secuenciales (no hay transacción multi-tabla desde el cliente sin una
@@ -532,6 +712,65 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (mock) { setVentas((prev) => prev.map((v) => (v.id === id ? { ...v, estado: "anulada" } : v))); return; }
     await supabase.from("ventas").update({ estado: "anulada" }).eq("id", id);
   }, [supabase, ventas, ventaItems, ajustarStock, mock]);
+
+  const addOrdenLaboratorio = useCallback(async (o: Partial<OrdenLaboratorio>) => {
+    if (!negocio) return;
+    if (mock) {
+      setOrdenesLaboratorio((prev) => [...prev, {
+        id: crypto.randomUUID(), negocioId: negocio.id,
+        estado: "generado", fechaGenerado: new Date().toISOString(), ...o,
+      }]);
+      return;
+    }
+    await supabase.from("ordenes_laboratorio").insert({ ...ordenLaboratorioToRow(o), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+
+  const updateOrdenLaboratorio = useCallback(async (id: string, patch: Partial<OrdenLaboratorio>) => {
+    if (mock) {
+      setOrdenesLaboratorio((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+      return;
+    }
+    await supabase.from("ordenes_laboratorio").update(ordenLaboratorioToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+
+  const abrirCaja = useCallback(async (desglose: ItemAperturaCaja[], empleadoId?: string, sucursalId?: string) => {
+    if (!negocio) return;
+    const montoInicial = sumaDesglose(desglose);
+    const efectivoInicial = efectivoDeDesglose(desglose, montoInicial);
+    const nueva: Partial<Caja> = {
+      sucursalId, empleadoAperturaId: empleadoId, montoInicial, desgloseApertura: desglose,
+      totalEfectivo: 0, totalTarjeta: 0, totalYape: 0, totalPlin: 0, totalTransferencia: 0,
+      montoEfectivoEsperado: efectivoInicial, estado: "abierta",
+    };
+    if (mock) {
+      setCajas((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, fechaApertura: new Date().toISOString(), ...nueva } as Caja]);
+      return;
+    }
+    await supabase.from("cajas").insert({ ...cajaToRow(nueva), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+
+  /* El cuadre se calcula sobre `ventas` YA CARGADAS en el store (mismo
+     criterio que `addVenta` calculando stock antes de escribir) y se
+     congela en la fila al cerrar — si una venta de ese rango se anula
+     después, el historial de caja ya cerrado no cambia. */
+  const cerrarCaja = useCallback(async (id: string, montoContado: number, empleadoId?: string) => {
+    const caja = cajas.find((c) => c.id === id);
+    if (!caja || caja.estado === "cerrada") return;
+    const ahora = new Date().toISOString();
+    const efectivoInicial = efectivoDeDesglose(caja.desgloseApertura, caja.montoInicial);
+    const cuadre = calcularCuadreCaja(ventas, efectivoInicial, caja.fechaApertura.slice(0, 10), ahora.slice(0, 10), caja.sucursalId);
+    const patch: Partial<Caja> = {
+      ...cuadre, montoEfectivoContado: montoContado, estado: "cerrada",
+      fechaCierre: ahora, empleadoCierreId: empleadoId,
+    };
+    if (mock) {
+      setCajas((prev) => prev.map((c) => (c.id === id
+        ? { ...c, ...patch, diferencia: Math.round((montoContado - cuadre.montoEfectivoEsperado) * 100) / 100 }
+        : c)));
+      return;
+    }
+    await supabase.from("cajas").update(cajaToRow(patch)).eq("id", id);
+  }, [supabase, cajas, ventas, mock]);
 
   const addGasto = useCallback(async (g: Partial<Gasto>) => {
     if (!negocio) return;
@@ -633,14 +872,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [cotizaciones, cotizacionItems, addVenta, updateCotizacion]);
 
   const value: DataCtx = {
-    empleados, negocio, suscripcion, clientes, citas, recetas, productos,
-    movimientosStock, ventas, ventaItems, gastos, descuentos,
+    empleados, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
+    movimientosStock, ventas, ventaItems, ordenesLaboratorio, cajas, gastos, descuentos,
     proveedores, cotizaciones, cotizacionItems, ready,
-    updateEmpleado, updateNegocio,
+    updateEmpleado, updateNegocio, addSucursal, updateSucursal,
     addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
-    addReceta, addProducto, updateProducto, ajustarStock,
-    addVenta, anularVenta, addGasto, deleteGasto,
+    addReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,
+    addVenta, anularVenta, addOrdenLaboratorio, updateOrdenLaboratorio, abrirCaja, cerrarCaja, addGasto, deleteGasto,
     addDescuento, updateDescuento, deleteDescuento,
     addProveedor, updateProveedor, deleteProveedor,
     addCotizacion, updateCotizacion, deleteCotizacion, convertirCotizacionAVenta,

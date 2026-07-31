@@ -55,6 +55,7 @@ export const PLANES: Plan[] = [
     bullets: [
       "Todo lo de Básico, además de:",
       "Facturación electrónica SUNAT",
+      "Multisedes",
       "Soporte prioritario",
     ],
   },

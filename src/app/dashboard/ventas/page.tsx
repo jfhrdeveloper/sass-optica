@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Receipt, Trash2, Printer } from "lucide-react";
 import { useData, type Venta, type VentaItem } from "@/components/providers/DataProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
@@ -13,8 +14,14 @@ import { construirHtmlRecibo } from "@/lib/recibo";
 import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
 import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
 import { LimitePlanBanner } from "@/components/dashboard/LimitePlanBanner";
+import { CajaCerradaBanner } from "@/components/dashboard/CajaCerradaBanner";
 
 const IGV = 0.18;
+/* Recargo por pago con tarjeta (fee que suele trasladar el POS/pasarela al
+   cliente) — opcional, se suma al total antes del cálculo de IGV solo si el
+   usuario marca la casilla y el método de pago es "tarjeta". */
+const RECARGO_TARJETA_PCT = 0.05;
+const CLIENTE_NUEVO = "__nuevo__";
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;
 
 /* Ver el mismo componente en cotizaciones/page.tsx: el placeholder/label
@@ -30,7 +37,9 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function VentasPage() {
-  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, addVenta, anularVenta, updateDescuento } = useData();
+  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, addVenta, addCliente, anularVenta, updateDescuento } = useData();
+  const cajaAbierta = cajas.some((c) => c.estado === "abierta");
+  const { empleado } = useSession();
   const toast = useToast();
 
   /* Límite de 30 ventas/mes del plan Gratis (freemium) — este chequeo del
@@ -42,7 +51,9 @@ export default function VentasPage() {
   const ventasEsteMes = useMemo(() => contarVentasDelMes(ventas), [ventas]);
   const alLimiteVentas = suscripcion?.plan === "gratis" && !puedeRegistrarVenta(suscripcion.plan, ventasEsteMes);
   const [clienteId, setClienteId] = useState("");
+  const [nuevoCliente, setNuevoCliente] = useState({ nombres: "", apellidos: "", telefono: "" });
   const [metodoPago, setMetodoPago] = useState("efectivo");
+  const [recargoTarjeta, setRecargoTarjeta] = useState(false);
   const [items, setItems] = useState<ItemForm[]>([]);
   const [modoItem, setModoItem] = useState<"catalogo" | "personalizado">("catalogo");
   const [productoId, setProductoId] = useState("");
@@ -59,12 +70,35 @@ export default function VentasPage() {
   const [hasta, setHasta] = useState("");
 
   const itemsTotal = useMemo(() => items.reduce((acc, it) => acc + it.subtotal, 0), [items]);
+  /* Antes el código de descuento era texto libre — el usuario tenía que
+     conocer/adivinar el cupón de memoria. Este filtro es la misma regla de
+     `buscarDescuentoValido` (lib/descuentos.ts) pero para LISTAR opciones
+     válidas en vez de validar una ya tipeada; se mantienen separadas porque
+     la validación final sigue pasando por `buscarDescuentoValido`. */
+  const descuentosDisponibles = useMemo(
+    () => descuentos.filter((d) => {
+      if (!d.activo) return false;
+      if (d.aplicaA !== "ambos" && d.aplicaA !== "ventas") return false;
+      if (d.limiteUsos != null && d.usos >= d.limiteUsos) return false;
+      const hoy = new Date().toISOString().slice(0, 10);
+      if (d.vigenciaDesde && hoy < d.vigenciaDesde) return false;
+      if (d.vigenciaHasta && hoy > d.vigenciaHasta) return false;
+      return true;
+    }),
+    [descuentos],
+  );
   const descuentoAplicado = useMemo(
     () => buscarDescuentoValido(descuentos, codigoDescuento, "ventas"),
     [descuentos, codigoDescuento],
   );
   const descuentoMonto = descuentoAplicado ? montoDescuento(descuentoAplicado, itemsTotal) : 0;
-  const total = itemsTotal - descuentoMonto;
+  /* El recargo solo se aplica si el método es tarjeta Y el usuario marcó la
+     casilla (algunas ópticas absorben el fee, otras lo trasladan al
+     cliente — no es automático por el solo hecho de pagar con tarjeta) y se
+     calcula SOBRE el monto ya con descuento aplicado, no sobre el bruto. */
+  const aplicaRecargoTarjeta = metodoPago === "tarjeta" && recargoTarjeta;
+  const montoRecargoTarjeta = aplicaRecargoTarjeta ? (itemsTotal - descuentoMonto) * RECARGO_TARJETA_PCT : 0;
+  const total = itemsTotal - descuentoMonto + montoRecargoTarjeta;
   const subtotal = total / (1 + IGV);
   const igv = total - subtotal;
 
@@ -105,10 +139,34 @@ export default function VentasPage() {
   }
 
   async function confirmarVenta() {
-    if (items.length === 0) return;
+    if (items.length === 0 || !cajaAbierta) return;
     setGuardando(true);
+
+    let clienteIdFinal = clienteId;
+    if (clienteId === CLIENTE_NUEVO) {
+      if (!nuevoCliente.nombres.trim()) {
+        setGuardando(false);
+        toast("Ingresa al menos el nombre del cliente nuevo.", "error");
+        return;
+      }
+      const idCreado = await addCliente({
+        nombres: nuevoCliente.nombres.trim(),
+        apellidos: nuevoCliente.apellidos.trim() || undefined,
+        telefono: nuevoCliente.telefono.trim() || undefined,
+      });
+      if (!idCreado) {
+        setGuardando(false);
+        toast("No se pudo crear el cliente nuevo.", "error");
+        return;
+      }
+      clienteIdFinal = idCreado;
+    }
+
+    const notasRecargo = aplicaRecargoTarjeta
+      ? `Incluye recargo por tarjeta (${(RECARGO_TARJETA_PCT * 100).toFixed(0)}%): S/ ${montoRecargoTarjeta.toFixed(2)}`
+      : undefined;
     const { id, error } = await addVenta(
-      { clienteId: clienteId || undefined, subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total },
+      { clienteId: clienteIdFinal || undefined, empleadoId: empleado?.id, subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total, notas: notasRecargo },
       items,
     );
     setGuardando(false);
@@ -121,7 +179,9 @@ export default function VentasPage() {
     }
     setItems([]);
     setClienteId("");
+    setNuevoCliente({ nombres: "", apellidos: "", telefono: "" });
     setCodigoDescuento("");
+    setRecargoTarjeta(false);
     toast("Venta registrada.");
   }
 
@@ -162,6 +222,11 @@ export default function VentasPage() {
     <main>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ventas</h1>
 
+      {!cajaAbierta && (
+        <div className="mt-4">
+          <CajaCerradaBanner />
+        </div>
+      )}
       {alLimiteVentas && (
         <div className="mt-4">
           <LimitePlanBanner mensaje={`Llegaste a las ${LIMITE_VENTAS_MES_GRATIS} ventas de este mes en el plan Gratis.`} />
@@ -175,8 +240,27 @@ export default function VentasPage() {
             <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select w-full text-sm">
               <option value="">Sin cliente</option>
               {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
+              <option value={CLIENTE_NUEVO}>+ Nuevo cliente</option>
             </select>
           </Campo>
+          {/* Antes no había forma de registrar una venta a un cliente que
+              todavía no existía sin salir a /dashboard/clientes y volver — el
+              cliente se crea recién en confirmarVenta() (no al escribir acá),
+              así cancelar la venta no deja un cliente huérfano a medio llenar. */}
+          {clienteId === CLIENTE_NUEVO && (
+            <div className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-900">
+              <Campo label="Nombres">
+                <input value={nuevoCliente.nombres} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombres: e.target.value })} className="input text-sm" />
+              </Campo>
+              <Campo label="Apellidos">
+                <input value={nuevoCliente.apellidos} onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellidos: e.target.value })} className="input text-sm" />
+              </Campo>
+              <Campo label="Teléfono">
+                <input value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} className="input text-sm" />
+              </Campo>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Se crea al confirmar la venta.</p>
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex gap-1">
@@ -250,31 +334,45 @@ export default function VentasPage() {
               <option value="transferencia">Transferencia</option>
             </select>
           </Campo>
+          {metodoPago === "tarjeta" && (
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked={recargoTarjeta} onChange={(e) => setRecargoTarjeta(e.target.checked)} className="checkbox" />
+              Incluir recargo por tarjeta ({(RECARGO_TARJETA_PCT * 100).toFixed(0)}%)
+            </label>
+          )}
           {items.length > 0 && (
             <Campo label="Código de descuento (opcional)">
-              <input
+              <select
                 value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-                placeholder="Ej. VERANO10" className="input w-40 text-sm uppercase"
-              />
+                className="select w-48 text-sm"
+              >
+                <option value="">Sin descuento</option>
+                {descuentosDisponibles.map((d) => (
+                  <option key={d.id} value={d.codigo}>
+                    {d.codigo} — {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
+                  </option>
+                ))}
+              </select>
             </Campo>
           )}
           <div className="text-right">
-            {descuentoAplicado ? (
+            {descuentoAplicado && (
               <p className="text-accent">
                 {descuentoAplicado.codigo} aplicado: −S/ {descuentoMonto.toFixed(2)}
               </p>
-            ) : codigoDescuento.trim() ? (
-              <p className="text-red-600 dark:text-red-400">Ese código no es válido para ventas.</p>
-            ) : null}
+            )}
+            {aplicaRecargoTarjeta && (
+              <p className="text-slate-500 dark:text-slate-400">Recargo tarjeta: +S/ {montoRecargoTarjeta.toFixed(2)}</p>
+            )}
             <span className="font-medium">Total: S/ {total.toFixed(2)} (IGV incl.)</span>
           </div>
         </div>
 
         <button
-          onClick={confirmarVenta} disabled={guardando || items.length === 0 || alLimiteVentas}
+          onClick={confirmarVenta} disabled={guardando || items.length === 0 || alLimiteVentas || !cajaAbierta}
           className="btn-primary mt-3 w-full"
         >
-          {guardando ? "Guardando…" : "Confirmar venta"}
+          {!cajaAbierta ? "Abre la caja para vender" : guardando ? "Guardando…" : "Confirmar venta"}
         </button>
       </div>
 

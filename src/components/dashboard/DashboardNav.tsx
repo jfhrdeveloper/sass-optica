@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, ChevronDown, Package, Search, Truck, Users, type LucideIcon } from "lucide-react";
@@ -11,6 +11,14 @@ import { nombrePlanSuscripcion, nombreEstadoSuscripcion } from "@/lib/precios";
 import { NAV, type Hijo, type Restriccion } from "@/lib/dashboard-nav";
 
 const MAX_RESULTADOS_BUSQUEDA = 5;
+
+/* `useLayoutEffect` no hace nada en el servidor (y React tira un warning en
+   consola si se usa igual durante el SSR) — este componente SÍ se renderiza
+   en servidor (no está montado con `ssr: false`), así que se evita con el
+   patrón estándar "isomorphic": en el navegador es `useLayoutEffect` de
+   verdad (mide el DOM antes del pintado, sin flash); en el servidor cae a
+   `useEffect` (que ahí no llega a ejecutarse de todos modos). */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /* Buscador global (antes vivía suelto en /dashboard/page.tsx, como
    "Inicio" del buscador): se mudó al sidebar para que esté disponible desde
@@ -149,8 +157,22 @@ const ESTADO_BADGE: Record<string, string> = {
 export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const { empleado } = useSession();
-  const { negocio, suscripcion } = useData();
+  const { negocio, suscripcion, citas, productos } = useData();
   const esAdmin = empleado?.rol === "administrador";
+
+  /* Badges "en vivo" — el sidebar deja de ser solo navegación y muestra el
+     estado real del negocio: cuántas citas hay HOY (mismo criterio que la
+     stat card de Inicio, `dashboard/page.tsx`) y si algún producto está con
+     stock bajo. Cuando el sidebar está colapsado a solo íconos, la alerta
+     de stock se ve como punto sobre el ícono del grupo "Comercial" (única
+     forma de que no quede escondida en 64px); expandido, viaja al costado
+     derecho de la fila de "Stock" (o del propio grupo si está cerrado),
+     igual que el número de citas. */
+  const citasHoy = citas.filter((c) => c.fechaHora.slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+  const stockBajo = productos.filter((p) => p.stockActual <= p.stockMinimo).length;
+  const contadorDe = (href: string) => (href === "/dashboard/citas" && citasHoy > 0 ? citasHoy : null);
+  const alertaDe = (href: string) => href === "/dashboard/productos" && stockBajo > 0;
+  const grupoTieneAlerta = (key: string) => key === "comercial" && stockBajo > 0;
   const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
   const puedeVer = (i: Restriccion) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso);
   /* El link "Ajustes" apunta a /dashboard/ajustes si sos administrador; el
@@ -158,7 +180,17 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
      aterrizan directo en la pestaña de Suscripción/facturación — ver
      SettingsTabs.tsx, comparten la misma UI de tabs. */
   const resolverHref = (href: string) => (href === "/dashboard/ajustes" && !esAdmin ? "/dashboard/facturacion" : href);
-  const esActivo = (href: string) => pathname === resolverHref(href);
+  /* Rutas que son "pestañas hermanas" de un ítem del NAV (ver SettingsTabs.tsx:
+     /dashboard/facturacion es una pestaña DENTRO de Ajustes, /dashboard/informes/reportes
+     dentro de Informes) — sin este mapa, cambiar de pestaña ahí deja de
+     matchear el href exacto del ítem del sidebar, el grupo pierde su activo
+     y el acordeón se cierra solo. */
+  const RUTAS_HERMANAS: Record<string, string[]> = {
+    "/dashboard/ajustes": ["/dashboard/facturacion"],
+    "/dashboard/informes": ["/dashboard/informes/reportes"],
+  };
+  const esActivo = (href: string) =>
+    pathname === href || (RUTAS_HERMANAS[href]?.includes(pathname) ?? false) || pathname === resolverHref(href);
   const grupoTieneActivo = (hijos: Hijo[]) => hijos.some((h) => esActivo(h.href));
 
   /* Acordeón: un solo grupo abierto a la vez, por defecto el que contiene la
@@ -174,29 +206,120 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
   const grupoAbierto = override && override.path === pathname ? override.key : grupoPorDefecto;
   const alternarGrupo = (key: string) => setOverride({ path: pathname, key: grupoAbierto === key ? null : key });
 
+  /* Indicador activo deslizante: en vez de que el fondo `bg-primary-light`
+     aparezca/desaparezca de golpe en la fila nueva, una sola píldora se
+     desliza entre filas (transform, no framer-motion — la librería está
+     deliberadamente fuera del bundle del dashboard, ver
+     `LandingMotionProvider.tsx`).
+
+     Se mide con `getBoundingClientRect()` (posición real en pantalla,
+     restada contra el propio `<nav>`) en vez de `offsetTop/Left`: estos
+     últimos dependen de cuál sea el ancestro *posicionado* más cercano
+     (`offsetParent`), que cambia según qué wrappers intermedios tengan
+     `position: relative` (p. ej. el contenedor de la línea vertical de los
+     hijos) — un supuesto frágil que se rompía apenas se tocaba el árbol.
+     `getBoundingClientRect` da coordenadas absolutas de pantalla, así que
+     el resultado es el mismo sin importar la estructura de wrappers de
+     adentro.
+
+     La fila se busca por `data-nav-key` con `querySelector`, contra el DOM
+     real en cada medición — nunca se cachea un elemento entre renders. Los
+     hijos de un grupo cerrado ya NO se desmontan (antes `{abierto && ...}`
+     los sacaba del DOM del todo); ahora quedan siempre montados y solo se
+     ocultan con la clase `hidden`, así el nodo con su `data-nav-key` es
+     estable de entrada — cerrar/reabrir el acordeón nunca vuelve a
+     desincronizar la búsqueda. */
+  const navRef = useRef<HTMLElement>(null);
+  let claveActiva: string | null = null;
+  for (const item of NAV) {
+    if (item.kind === "link") {
+      if (puedeVer(item) && esActivo(item.href)) { claveActiva = item.href; break; }
+    } else {
+      const hijosVisibles = item.children.filter(puedeVer);
+      if (hijosVisibles.length > 0 && grupoTieneActivo(hijosVisibles)) {
+        claveActiva = colapsado ? item.key : (hijosVisibles.find((h) => esActivo(h.href))?.href ?? null);
+        break;
+      }
+    }
+  }
+  const [indicador, setIndicador] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const medirIndicador = () => {
+    const nav = navRef.current;
+    if (!nav || !claveActiva) { setIndicador(null); return; }
+    const el = nav.querySelector<HTMLElement>(`[data-nav-key="${claveActiva}"]`);
+    if (!el || el.offsetParent === null) { setIndicador(null); return; }
+    const navRect = nav.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    setIndicador({
+      top: elRect.top - navRect.top + nav.scrollTop,
+      left: elRect.left - navRect.left + nav.scrollLeft,
+      width: elRect.width,
+      height: elRect.height,
+    });
+  };
+  useIsomorphicLayoutEffect(medirIndicador, [claveActiva, grupoAbierto]);
+  /* El ancho de `<aside>` anima 200ms al colapsar/expandir el sidebar
+     (`transition-[width]`) — medir en ese instante captura un ancho a
+     mitad de camino y la píldora "salta" de tamaño en vez de solo moverse.
+     La parte SÍNCRONA (ocultar apenas cambia `colapsado`) se hace ajustando
+     estado durante el render, no dentro de un efecto — patrón recomendado
+     por React para "ajustar estado cuando cambia una prop"; hacerlo desde
+     un `useEffect` dispara el lint `react-hooks/set-state-in-effect`
+     (cascada de renders). El efecto de abajo solo maneja la parte
+     asíncrona: remedir una vez pasados los 200ms. */
+  const [colapsadoAnterior, setColapsadoAnterior] = useState(colapsado);
+  const [colapsando, setColapsando] = useState(false);
+  if (colapsado !== colapsadoAnterior) {
+    setColapsadoAnterior(colapsado);
+    setColapsando(true);
+  }
+  useEffect(() => {
+    if (!colapsando) return;
+    const id = setTimeout(() => {
+      setColapsando(false);
+      medirIndicador();
+    }, 200);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colapsando]);
+
+  /* Fila de badge — número (citas de hoy) o punto de alerta (stock bajo),
+     nunca ambos en la misma fila. Se dibuja al final de la fila, en el
+     mismo lugar donde iría cualquiera de los dos, para que el punto rojo
+     quede alineado con el número: antes vivía sobre el ícono y no eran
+     comparables entre sí. El número usa `flex items-center justify-center`
+     con alto/ancho fijos en vez de solo padding — con padding el dígito
+     quedaba visualmente descentrado según la fuente. */
+  function badge(contador: number | null, alerta: boolean) {
+    if (contador !== null) {
+      return (
+        <span className="ml-1 flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-white">
+          {contador}
+        </span>
+      );
+    }
+    if (alerta) {
+      return <span aria-hidden="true" className="ml-1 h-2 w-2 shrink-0 rounded-full bg-red-500 dark:bg-red-400" />;
+    }
+    return null;
+  }
+
   function filaLink(href: string, label: string, Icon: LucideIcon, activo: boolean, esHijo = false) {
     return (
       <Link
         key={href}
+        data-nav-key={href}
         href={resolverHref(href)}
         title={colapsado ? label : undefined}
-        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+        className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
           colapsado ? "justify-center" : ""
         } ${
-          activo
-            ? "bg-primary-light text-primary"
-            : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+          activo ? "text-primary" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
         }`}
       >
-        {esHijo ? (
-          <span
-            aria-hidden="true"
-            className={`h-1 w-1 shrink-0 rounded-full ${activo ? "bg-primary/50" : "bg-slate-300 dark:bg-slate-600"}`}
-          />
-        ) : (
-          <Icon size={18} strokeWidth={activo ? 2.5 : 2} />
-        )}
-        {!colapsado && label}
+        {!esHijo && <Icon size={18} strokeWidth={activo ? 2.5 : 2} className="shrink-0" />}
+        {!colapsado && <span className="flex-1 truncate text-left">{label}</span>}
+        {!colapsado && badge(contadorDe(href), alertaDe(href))}
       </Link>
     );
   }
@@ -229,7 +352,25 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
 
       <BuscadorGlobal colapsado={colapsado} onExpandir={onToggle} />
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-4">
+      <nav ref={navRef} className="relative flex-1 overflow-y-auto overflow-x-hidden px-2 py-4">
+        {/* Píldora activa — un solo elemento que se traslada con `transform`
+            a la posición/ancho medidos de la fila activa, en vez de que cada
+            fila prenda/apague su propio fondo. Se oculta (opacity, sin
+            transición) mientras el sidebar colapsa/expande y reaparece con
+            fade una vez que esa animación de ancho terminó — ver el efecto
+            de `colapsado` arriba. `motion-reduce` apaga toda la animación
+            para quien pidió menos movimiento. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 rounded-lg bg-primary-light transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none"
+          style={{
+            transform: `translate(${indicador?.left ?? 0}px, ${indicador?.top ?? 0}px)`,
+            width: indicador ? `${indicador.width}px` : 0,
+            height: indicador ? `${indicador.height}px` : 0,
+            opacity: indicador && !colapsando ? 1 : 0,
+          }}
+        />
+        <div className="space-y-0.5">
         {NAV.map((item) => {
           if (item.kind === "link") {
             if (!puedeVer(item)) return null;
@@ -250,6 +391,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
             return (
               <button
                 key={item.key}
+                data-nav-key={item.key}
                 type="button"
                 onClick={() => {
                   onToggle();
@@ -257,13 +399,21 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
                 }}
                 title={`${item.label} (expandir para elegir)`}
                 aria-label={`${item.label} — expandir menú para elegir`}
-                className={`mt-1 flex w-full items-center justify-center rounded-lg px-3 py-2 transition-colors ${
+                className={`relative mt-1 flex w-full items-center justify-center rounded-lg px-3 py-2 transition-colors ${
                   grupoTieneActivo(hijos)
-                    ? "bg-primary-light text-primary"
+                    ? "text-primary"
                     : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
-                <Icon size={18} />
+                <span className="relative">
+                  <Icon size={18} />
+                  {grupoTieneAlerta(item.key) && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:bg-red-400 dark:ring-slate-900"
+                    />
+                  )}
+                </span>
               </button>
             );
           }
@@ -282,23 +432,36 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
                   activo ? "text-primary" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
-                <Icon size={18} strokeWidth={activo ? 2.5 : 2} />
+                <Icon size={18} strokeWidth={activo ? 2.5 : 2} className="shrink-0" />
                 <span className="flex-1 text-left">{item.label}</span>
+                {!abierto && grupoTieneAlerta(item.key) && (
+                  <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-red-500 dark:bg-red-400" />
+                )}
                 <ChevronDown size={14} className={`transition-transform ${abierto ? "rotate-180" : ""}`} />
               </button>
 
-              {abierto && (
-                <div className="ml-4 mt-0.5 space-y-0.5 px-2">
-                  {hijos.map((h) => (
-                    <div key={h.href}>
-                      {filaLink(h.href, h.label, h.icon, esActivo(h.href), true)}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Los hijos quedan SIEMPRE montados (nunca `{abierto && ...}`)
+                  — cerrar/abrir el acordeón solo alterna la clase `hidden`,
+                  no desmonta ni remonta el DOM. Así el nodo de cada hijo
+                  (con su `data-nav-key`) es estable de entrada, sin
+                  ventanas donde el indicador busque una fila que todavía
+                  no existe. La línea vertical no va de borde a borde del
+                  contenedor: arranca a la mitad de la primera fila y
+                  termina a la mitad de la última (offset fijo ≈ mitad de
+                  una fila de `py-2` + `text-sm`), como un conector de árbol
+                  real en vez de un bloque completo. */}
+              <div className={`relative ml-5 mt-0.5 space-y-0.5 pl-3 ${abierto ? "" : "hidden"}`}>
+                <div aria-hidden="true" className="pointer-events-none absolute left-0 top-[18px] bottom-[18px] w-px bg-slate-200 dark:bg-slate-800" />
+                {hijos.map((h) => (
+                  <div key={h.href}>
+                    {filaLink(h.href, h.label, h.icon, esActivo(h.href), true)}
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })}
+        </div>
       </nav>
 
       {/* Identidad del negocio + plan — vivía como una línea de texto gris al

@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { SettingsTabs } from "@/components/dashboard/SettingsTabs";
+import { SettingsTabs, TABS_AJUSTES } from "@/components/dashboard/SettingsTabs";
 import { ColorWell } from "@/components/ui/ColorWell";
 import { prepararImagen, ImagenInvalidaError } from "@/lib/imagen";
 
@@ -71,7 +71,7 @@ export default function AjustesPage() {
   return (
     <main>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ajustes</h1>
-      <SettingsTabs />
+      <SettingsTabs tabs={TABS_AJUSTES} />
 
       <form onSubmit={guardarDatos} className="card mt-4 space-y-3 p-4">
         <h2 className="font-medium text-slate-900 dark:text-slate-100">Datos del negocio</h2>

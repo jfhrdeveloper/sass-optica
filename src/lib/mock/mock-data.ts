@@ -1,6 +1,6 @@
 import type {
-  Empleado, Negocio, Suscripcion, Cliente, Cita, Receta,
-  Producto, MovimientoStock, Venta, VentaItem, Gasto, Descuento,
+  Empleado, Negocio, Suscripcion, Sucursal, Cliente, Cita, Receta, ExamenOptometrico,
+  Producto, MovimientoStock, Venta, VentaItem, OrdenLaboratorio, Caja, Gasto, Descuento,
   Proveedor, Cotizacion, CotizacionItem,
 } from "@/components/providers/DataProvider";
 
@@ -26,6 +26,7 @@ export const MOCK_EMPLEADO: Empleado = {
   rol: "administrador",
   email: "demo@optica.pe",
   permisos: {},
+  comisionPct: 5,
   activo: true,
 };
 
@@ -38,6 +39,11 @@ export const MOCK_SUSCRIPCION: Suscripcion = {
   trialFin: "",
 };
 
+// Vacío por defecto: representa el caso común (negocio de una sola sede,
+// sin multisedes) — el selector de sede y cualquier columna "Sede" no
+// aparecen en la UI mientras esta lista esté vacía.
+export const MOCK_SUCURSALES: Sucursal[] = [];
+
 export const MOCK_CLIENTES: Cliente[] = [
   { id: "cli-1", negocioId: MOCK_NEGOCIO.id, nombres: "Carlos", apellidos: "Ramírez", documentoTipo: "DNI", documentoNumero: "45678912", telefono: "987654321" },
   { id: "cli-2", negocioId: MOCK_NEGOCIO.id, nombres: "María", apellidos: "López", documentoTipo: "DNI", documentoNumero: "41234567", telefono: "912345678" },
@@ -49,19 +55,49 @@ export const MOCK_CITAS: Cita[] = [
 
 export const MOCK_RECETAS: Receta[] = [];
 
+export const MOCK_EXAMENES_OPTOMETRICOS: ExamenOptometrico[] = [
+  {
+    id: "exam-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", citaId: "cit-1",
+    fecha: new Date().toISOString().slice(0, 10),
+    odAvSc: "20/40", odAvCc: "20/20", oiAvSc: "20/50", oiAvCc: "20/20",
+    odK1: 43.25, odK2: 44.0, odEjeK: 90,
+    oiK1: 43.5, oiK2: 44.25, oiEjeK: 85,
+    anamnesis: "Refiere visión borrosa de lejos hace 3 meses, sin antecedentes familiares relevantes.",
+  },
+];
+
 export const MOCK_PRODUCTOS: Producto[] = [
   { id: "prod-1", negocioId: MOCK_NEGOCIO.id, proveedorId: "prov-1", nombre: "Armazón Ray-Ban RB2140", categoria: "montura", marca: "Ray-Ban", precioVenta: 350, precioCosto: 180, activo: true, stockActual: 5, stockMinimo: 2 },
   { id: "prod-2", negocioId: MOCK_NEGOCIO.id, nombre: "Luna antireflejo 1.56", categoria: "luna", precioVenta: 120, precioCosto: 60, activo: true, stockActual: 1, stockMinimo: 3 },
+  { id: "prod-3", negocioId: MOCK_NEGOCIO.id, nombre: "Acuvue Oasys mensual", categoria: "lente_contacto", marca: "Johnson & Johnson", precioVenta: 90, precioCosto: 55, curvaBase: 8.4, diametro: 14, potencia: -2.5, activo: true, stockActual: 12, stockMinimo: 4 },
 ];
 
 export const MOCK_MOVIMIENTOS_STOCK: MovimientoStock[] = [];
 
 export const MOCK_VENTAS: Venta[] = [
-  { id: "ven-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", fecha: new Date().toISOString(), subtotal: 296.61, igv: 53.39, total: 350, metodoPago: "tarjeta", estado: "pagada", montoPagado: 350 },
+  { id: "ven-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date().toISOString(), subtotal: 296.61, igv: 53.39, total: 350, metodoPago: "tarjeta", estado: "pagada", montoPagado: 350 },
 ];
 
 export const MOCK_VENTA_ITEMS: VentaItem[] = [
   { id: "vi-1", ventaId: "ven-1", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
+];
+
+export const MOCK_ORDENES_LABORATORIO: OrdenLaboratorio[] = [
+  {
+    id: "lab-1", negocioId: MOCK_NEGOCIO.id, ventaId: "ven-1", clienteId: "cli-2",
+    empleadoId: MOCK_EMPLEADO.id, laboratorioNombre: "Laboratorio Central Lima",
+    estado: "en_proceso", fechaGenerado: new Date().toISOString(),
+  },
+];
+
+export const MOCK_CAJAS: Caja[] = [
+  {
+    id: "caja-1", negocioId: MOCK_NEGOCIO.id, empleadoAperturaId: MOCK_EMPLEADO.id,
+    fechaApertura: new Date().toISOString(), montoInicial: 100,
+    desgloseApertura: [{ metodo: "Efectivo", monto: 100 }],
+    totalEfectivo: 0, totalTarjeta: 0, totalYape: 0, totalPlin: 0, totalTransferencia: 0,
+    montoEfectivoEsperado: 100, estado: "abierta",
+  },
 ];
 
 export const MOCK_GASTOS: Gasto[] = [

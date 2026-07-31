@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileText, ArrowRightCircle, Trash2, RotateCcw } from "lucide-react";
+import { FileText, ArrowRightCircle, Trash2 } from "lucide-react";
 import { useData, type Cotizacion, type CotizacionItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -10,6 +10,7 @@ import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { DatePicker } from "@/components/calendario/DatePicker";
 import { buscarDescuentoValido, montoDescuento } from "@/lib/descuentos";
+import { CajaCerradaBanner } from "@/components/dashboard/CajaCerradaBanner";
 
 /* Label visible arriba de cada campo del formulario "Nueva cotización" — el
    `placeholder`/`aria-label` de los selects y de DatePicker desaparece en
@@ -44,7 +45,8 @@ const ESTADO_LABEL: Record<Cotizacion["estado"], string> = {
    documento previo a la venta, no toca stock ni caja hasta que se
    convierte — ver convertirCotizacionAVenta en DataProvider.tsx. */
 export default function CotizacionesPage() {
-  const { cotizaciones, cotizacionItems, clientes, productos, descuentos, addCotizacion, updateCotizacion, updateDescuento, deleteCotizacion, convertirCotizacionAVenta } = useData();
+  const { cotizaciones, cotizacionItems, clientes, productos, descuentos, cajas, addCotizacion, updateCotizacion, updateDescuento, deleteCotizacion, convertirCotizacionAVenta } = useData();
+  const cajaAbierta = cajas.some((c) => c.estado === "abierta");
   const toast = useToast();
   const [clienteId, setClienteId] = useState("");
   const [vigenciaHasta, setVigenciaHasta] = useState("");
@@ -62,6 +64,22 @@ export default function CotizacionesPage() {
   const [filtroEstado, setFiltroEstado] = useState<"todos" | Cotizacion["estado"]>("todos");
 
   const itemsTotal = useMemo(() => items.reduce((acc, it) => acc + it.subtotal, 0), [items]);
+  /* Mismo filtro que ventas/page.tsx (código de descuento pasó de texto
+     libre a lista de cupones vigentes) — duplicado en vez de compartido
+     porque el único punto de contacto real, `buscarDescuentoValido`, ya
+     vive en lib/descuentos.ts y ahí SÍ es una función compartida. */
+  const descuentosDisponibles = useMemo(
+    () => descuentos.filter((d) => {
+      if (!d.activo) return false;
+      if (d.aplicaA !== "ambos" && d.aplicaA !== "cotizaciones") return false;
+      if (d.limiteUsos != null && d.usos >= d.limiteUsos) return false;
+      const hoy = new Date().toISOString().slice(0, 10);
+      if (d.vigenciaDesde && hoy < d.vigenciaDesde) return false;
+      if (d.vigenciaHasta && hoy > d.vigenciaHasta) return false;
+      return true;
+    }),
+    [descuentos],
+  );
   const descuentoAplicado = useMemo(
     () => buscarDescuentoValido(descuentos, codigoDescuento, "cotizaciones"),
     [descuentos, codigoDescuento],
@@ -103,7 +121,7 @@ export default function CotizacionesPage() {
   }
 
   async function confirmarCotizacion() {
-    if (items.length === 0) return;
+    if (items.length === 0 || !cajaAbierta) return;
     setGuardando(true);
     await addCotizacion(
       { clienteId: clienteId || undefined, vigenciaHasta: vigenciaHasta || undefined, subtotal, igv, total, estado: "pendiente" },
@@ -136,11 +154,6 @@ export default function CotizacionesPage() {
     toast("Cotización rechazada.", "info");
   }
 
-  async function reabrir(id: string) {
-    await updateCotizacion(id, { estado: "pendiente" });
-    toast("Cotización vuelta a pendiente.", "info");
-  }
-
   async function confirmarEliminarAccion() {
     const c = confirmarEliminar;
     if (!c) return;
@@ -166,6 +179,12 @@ export default function CotizacionesPage() {
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Envía un presupuesto antes de la venta. No descuenta stock hasta que se convierte en venta.
       </p>
+
+      {!cajaAbierta && (
+        <div className="mt-4">
+          <CajaCerradaBanner />
+        </div>
+      )}
 
       <div className="card mt-4 p-4">
         <h2 className="font-medium">Nueva cotización</h2>
@@ -245,29 +264,34 @@ export default function CotizacionesPage() {
         {items.length > 0 && (
           <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
             <Campo label="Código de descuento (opcional)">
-              <input
+              <select
                 value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-                placeholder="Ej. VERANO10" className="input w-40 text-sm uppercase"
-              />
+                className="select w-48 text-sm"
+              >
+                <option value="">Sin descuento</option>
+                {descuentosDisponibles.map((d) => (
+                  <option key={d.id} value={d.codigo}>
+                    {d.codigo} — {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
+                  </option>
+                ))}
+              </select>
             </Campo>
             <div className="text-right text-sm">
-              {descuentoAplicado ? (
+              {descuentoAplicado && (
                 <p className="text-accent">
                   {descuentoAplicado.codigo} aplicado: −S/ {descuentoMonto.toFixed(2)}
                 </p>
-              ) : codigoDescuento.trim() ? (
-                <p className="text-red-600 dark:text-red-400">Ese código no es válido para cotizaciones.</p>
-              ) : null}
+              )}
               <p className="font-medium">Total: S/ {total.toFixed(2)} (IGV incl.)</p>
             </div>
           </div>
         )}
 
         <button
-          onClick={confirmarCotizacion} disabled={guardando || items.length === 0}
+          onClick={confirmarCotizacion} disabled={guardando || items.length === 0 || !cajaAbierta}
           className="btn-primary mt-3 w-full"
         >
-          {guardando ? "Guardando…" : "Crear cotización"}
+          {!cajaAbierta ? "Abre la caja para cotizar" : guardando ? "Guardando…" : "Crear cotización"}
         </button>
       </div>
 
@@ -312,17 +336,13 @@ export default function CotizacionesPage() {
                     </div>
                   </td>
                   <td className="table-cell">
+                    {/* Ningún estado se revierte una vez que sale de "pendiente"
+                        (pedido explícito del usuario) — antes "rechazada" tenía
+                        un botón "Volver a pendiente", se quitó a propósito. */}
                     {c.estado === "pendiente" ? (
                       <button onClick={() => rechazar(c.id)} className="badge badge-neutral cursor-pointer hover:opacity-75">
                         Rechazar
                       </button>
-                    ) : c.estado === "rechazada" ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{ESTADO_LABEL[c.estado]}</span>
-                        <button onClick={() => reabrir(c.id)} title="Volver a pendiente" aria-label="Volver a pendiente" className="row-icon-btn">
-                          <RotateCcw size={13} />
-                        </button>
-                      </span>
                     ) : (
                       <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{ESTADO_LABEL[c.estado]}</span>
                     )}

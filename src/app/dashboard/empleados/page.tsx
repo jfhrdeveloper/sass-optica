@@ -8,10 +8,12 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { nombreRol } from "@/lib/roles";
 
 const MODULOS_DELEGABLES = [
   { clave: "gastos", label: "Gastos y caja" },
   { clave: "descuentos", label: "Descuentos y cupones" },
+  { clave: "laboratorio", label: "Órdenes de laboratorio" },
 ] as const;
 
 /* Ruta protegida a nivel de proxy y de RLS. El alta/baja NUNCA llama a
@@ -123,7 +125,7 @@ export default function EmpleadosPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{e.rol}</td>
+                    <td className="table-cell text-slate-600 dark:text-slate-300">{nombreRol(e.rol)}</td>
                     <td className="table-cell">
                       {e.rol !== "administrador" && (
                         <button
@@ -191,8 +193,8 @@ export default function EmpleadosPage() {
           <input placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="input w-full text-sm" />
           <input placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input w-full text-sm" />
           <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="select w-full text-sm">
-            <option value="trabajador">Trabajador</option>
-            <option value="encargado">Encargado</option>
+            <option value="trabajador">{nombreRol("trabajador")}</option>
+            <option value="encargado">{nombreRol("encargado")}</option>
           </select>
           <button type="submit" disabled={enviando} className="btn-primary w-full">
             {enviando ? "Enviando…" : "Invitar empleado"}

@@ -81,6 +81,50 @@ create trigger trg_negocios_lock_subdominio
   before update on public.negocios
   for each row execute function public.bloquear_cambio_subdominio();
 
+-- Sucursales (multisedes — opcional, la mayoría de negocios no crea ninguna)
+-- ----------------------------------------------------------------------------
+-- Un negocio que NUNCA inserta una fila acá sigue funcionando exactamente
+-- igual que antes: `sucursal_id` es nullable en todas las tablas que lo usan,
+-- y NULL significa "pertenece a la única sede implícita del negocio" (no
+-- deuda técnica, un estado permanente y válido). No hay migración retroactiva
+-- que le asigne una sucursal a filas existentes.
+create table if not exists public.sucursales (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  uuid not null references public.negocios(id) on delete cascade,
+  nombre      text not null,
+  direccion   text,
+  telefono    text,
+  activo      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists idx_sucursales_negocio on public.sucursales(negocio_id);
+
+-- Multisedes es exclusivo del plan Premium. La UI (`/dashboard/sucursales`)
+-- ya deshabilita el botón "Nueva sucursal" si el plan no es Premium, pero
+-- eso es solo ergonomía — un administrador podría llamar a Supabase directo
+-- con su propia sesión y saltarse ese chequeo. Mismo patrón que
+-- `bloquear_venta_limite_gratis` (trigger plano, sin security definer: solo
+-- lee una fila que el propio tenant ya puede ver bajo RLS) — a diferencia de
+-- los permisos por rol (RLS alcanza y sobra ahí), un límite de PLAN sí
+-- necesita esta capa server-side, porque es dinero, no solo acceso.
+create or replace function public.bloquear_sucursal_sin_premium()
+returns trigger language plpgsql as $$
+declare
+  v_plan plan_suscripcion;
+begin
+  select plan into v_plan from public.suscripciones where negocio_id = new.negocio_id;
+  if v_plan is distinct from 'premium' then
+    raise exception 'Multisedes requiere el plan Premium.';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_sucursales_solo_premium on public.sucursales;
+create trigger trg_sucursales_solo_premium
+  before insert on public.sucursales
+  for each row execute function public.bloquear_sucursal_sin_premium();
+
 -- empleados (1:1 con auth.users — "usuarios" del brief) ---------------------
 create table if not exists public.empleados (
   id            uuid primary key references auth.users(id) on delete cascade,
@@ -97,6 +141,16 @@ create table if not exists public.empleados (
   -- solo el administrador puede seguir gestionando empleados/ajustes, eso
   -- NUNCA se delega por este campo. Ver tiene_permiso() más abajo.
   permisos      jsonb not null default '{}'::jsonb,
+  -- % de comisión sobre sus propias ventas (estado='pagada'), ver
+  -- lib/comisiones.ts. Editable solo por administrador (misma policy
+  -- empleados_admin_update de abajo) — gratis, sin RLS nueva.
+  comision_pct  numeric(5,2) not null default 0 check (comision_pct >= 0 and comision_pct <= 100),
+  -- NULL = ve/gestiona TODAS las sedes del negocio (caso común: negocio sin
+  -- multisedes, o un administrador/encargado multi-sede). Fijar una sede
+  -- puntual restringe ese empleado a esa sucursal (y a filas sin sede) — ver
+  -- current_sucursal() más abajo. A diferencia de negocio_id, sucursal_id SÍ
+  -- se puede reasignar libremente (cambiar de sede es operación normal).
+  sucursal_id   uuid references public.sucursales(id) on delete set null,
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -318,6 +372,16 @@ create or replace function public.current_tenant()
 returns uuid language sql stable security definer
 set search_path = public as $$ select negocio_id from public.empleados where id = auth.uid(); $$;
 
+-- Sede FIJA del empleado (empleados.sucursal_id), no una preferencia de
+-- sesión/cookie: Postgres no puede leer headers de la request dentro de una
+-- función SQL, así que sigue el mismo patrón exacto que current_tenant().
+-- NULL = el empleado ve/gestiona todas las sedes del negocio (caso común).
+-- El selector de sede del topbar es solo un filtro de conveniencia en la UI
+-- sobre datos que esta función ya aprobó — nunca reemplaza este chequeo.
+create or replace function public.current_sucursal()
+returns uuid language sql stable security definer
+set search_path = public as $$ select sucursal_id from public.empleados where id = auth.uid(); $$;
+
 create or replace function public.current_rol()
 returns rol_empleado language sql stable security definer
 set search_path = public as $$ select rol from public.empleados where id = auth.uid(); $$;
@@ -496,6 +560,7 @@ create table if not exists public.citas (
   negocio_id   uuid not null references public.negocios(id) on delete cascade,
   cliente_id   uuid not null references public.clientes(id) on delete cascade,
   empleado_id  uuid references public.empleados(id) on delete set null,
+  sucursal_id  uuid references public.sucursales(id) on delete set null,
   fecha_hora   timestamptz not null,
   motivo       text,
   estado       estado_cita not null default 'programada',
@@ -531,6 +596,34 @@ create table if not exists public.recetas (
 create index if not exists idx_recetas_negocio on public.recetas(negocio_id);
 create index if not exists idx_recetas_cliente on public.recetas(cliente_id);
 
+-- Exámenes optométricos (agudeza visual, queratometría, anamnesis) ---------
+-- Tabla separada de `recetas` a propósito: un examen no siempre coincide 1:1
+-- con una receta nueva (control sin cambio de graduación, o reposición de
+-- lentes sin examen nuevo) — acoplarlos forzaría dos eventos clínicos
+-- distintos a ocurrir siempre juntos.
+create table if not exists public.examenes_optometricos (
+  id           uuid primary key default gen_random_uuid(),
+  negocio_id   uuid not null references public.negocios(id) on delete cascade,
+  cliente_id   uuid not null references public.clientes(id) on delete cascade,
+  cita_id      uuid references public.citas(id) on delete set null,
+  receta_id    uuid references public.recetas(id) on delete set null,
+  empleado_id  uuid references public.empleados(id) on delete set null,
+  fecha        date not null default current_date,
+  -- Agudeza visual como texto: la notación clínica real ("20/20", "20/40 -1",
+  -- "CD 3m") no es una fracción numérica pura. sc = sin corrección, cc = con
+  -- corrección.
+  od_av_sc     text, od_av_cc text,
+  oi_av_sc     text, oi_av_cc text,
+  od_k1        numeric(5,2), od_k2 numeric(5,2), od_eje_k smallint check (od_eje_k between 0 and 180),
+  oi_k1        numeric(5,2), oi_k2 numeric(5,2), oi_eje_k smallint check (oi_eje_k between 0 and 180),
+  anamnesis    text,
+  notas        text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists idx_examenes_negocio on public.examenes_optometricos(negocio_id);
+create index if not exists idx_examenes_cliente on public.examenes_optometricos(cliente_id);
+
 -- Proveedores (idea de UX tomada de research de competencia: hoy `marca` en
 -- productos es solo texto libre y `gastos.categoria = 'proveedor'` no
 -- estaba ligado a nada real) ------------------------------------------------
@@ -562,16 +655,28 @@ create table if not exists public.productos (
   descripcion   text,
   precio_venta  numeric(10,2) not null default 0,
   precio_costo  numeric(10,2) not null default 0,
+  -- Parámetros propios de lentes de contacto (curva base y potencia en
+  -- dioptrías, diámetro en mm) — solo tienen sentido si categoria =
+  -- 'lente_contacto'; el check evita cargarlos por error en una montura/luna.
+  curva_base    numeric(4,2),
+  diametro      numeric(4,2),
+  potencia      numeric(5,2),
   imagen_url    text,
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  updated_at    timestamptz not null default now(),
+  constraint productos_lente_contacto_campos check (
+    categoria = 'lente_contacto' or (curva_base is null and diametro is null and potencia is null)
+  )
 );
 create unique index if not exists idx_productos_negocio_codigo on public.productos(negocio_id, codigo) where codigo is not null;
 create index if not exists idx_productos_negocio   on public.productos(negocio_id);
 create index if not exists idx_productos_categoria on public.productos(categoria);
 
 -- Inventario (stock 1:1 — hereda el tenant vía producto_id) ----------------
+-- Sigue siendo la fuente de verdad para negocios SIN multisedes (la
+-- mayoría). Si el negocio crea su primera sucursal, el stock pasa a vivir
+-- en `stock_sucursal` (Fase B de Multisedes) — ver comentario ahí.
 create table if not exists public.inventario (
   producto_id   uuid primary key references public.productos(id) on delete cascade,
   stock_actual  integer not null default 0,
@@ -580,11 +685,29 @@ create table if not exists public.inventario (
   updated_at    timestamptz not null default now()
 );
 
+-- Stock por sede (Multisedes Fase B) — tabla nueva, `inventario` NO se
+-- migra ni se borra. Regla binaria aplicada en DataProvider.tsx: si el
+-- negocio no tiene ninguna sucursal, todo sigue leyendo/escribiendo
+-- `inventario` exactamente como antes (cero cambio de comportamiento). Si
+-- tiene al menos una, el stock por producto pasa a ser la SUMA de sus filas
+-- acá, y `ajustarStock` escribe en la fila de la sede correspondiente en
+-- vez de en `inventario`.
+create table if not exists public.stock_sucursal (
+  producto_id   uuid not null references public.productos(id) on delete cascade,
+  sucursal_id   uuid not null references public.sucursales(id) on delete cascade,
+  stock_actual  integer not null default 0,
+  stock_minimo  integer not null default 0,
+  ubicacion     text,
+  updated_at    timestamptz not null default now(),
+  primary key (producto_id, sucursal_id)
+);
+
 -- Movimientos de stock (trazabilidad — brief §6) --------------------------
 create table if not exists public.movimientos_stock (
   id           uuid primary key default gen_random_uuid(),
   negocio_id   uuid not null references public.negocios(id) on delete cascade,
   producto_id  uuid not null references public.productos(id) on delete cascade,
+  sucursal_id  uuid references public.sucursales(id) on delete set null,
   tipo         tipo_movimiento_stock not null,
   cantidad     integer not null check (cantidad > 0),
   motivo       text,
@@ -602,6 +725,7 @@ create table if not exists public.ventas (
   cliente_id   uuid references public.clientes(id) on delete set null,
   empleado_id  uuid references public.empleados(id) on delete set null,
   receta_id    uuid references public.recetas(id) on delete set null,
+  sucursal_id  uuid references public.sucursales(id) on delete set null,
   fecha        timestamptz not null default now(),
   subtotal     numeric(10,2) not null default 0,
   igv          numeric(10,2) not null default 0,
@@ -662,6 +786,37 @@ create trigger trg_ventas_limite_gratis
   before insert on public.ventas
   for each row execute function public.bloquear_venta_limite_gratis();
 
+-- Órdenes de laboratorio (seguimiento del armado de lentes) ----------------
+-- `cancelado` es el 8vo estado (no pedido explícitamente) — mismo criterio
+-- que estado_venta tiene 'anulada' y estado_cotizacion tiene 'rechazada':
+-- sin un estado de salida para "el laboratorio no pudo hacerlo", la única
+-- alternativa sería borrar la fila y perder la trazabilidad.
+do $$ begin create type estado_orden_laboratorio as enum (
+  'generado','enviado','en_proceso','terminado','en_transito','recibido','entregado','cancelado'
+); exception when duplicate_object then null; end $$;
+
+create table if not exists public.ordenes_laboratorio (
+  id                   uuid primary key default gen_random_uuid(),
+  negocio_id           uuid not null references public.negocios(id) on delete cascade,
+  venta_id             uuid references public.ventas(id) on delete set null,
+  venta_item_id        uuid references public.venta_items(id) on delete set null,
+  cliente_id           uuid references public.clientes(id) on delete set null,
+  receta_id            uuid references public.recetas(id) on delete set null,
+  empleado_id          uuid references public.empleados(id) on delete set null,
+  sucursal_origen_id   uuid references public.sucursales(id) on delete set null,
+  sucursal_destino_id  uuid references public.sucursales(id) on delete set null,
+  laboratorio_nombre   text,
+  estado               estado_orden_laboratorio not null default 'generado',
+  fecha_generado       timestamptz not null default now(),
+  fecha_estimada       date,
+  avisado_whatsapp_en  timestamptz,
+  notas                text,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+create index if not exists idx_ordenes_lab_negocio on public.ordenes_laboratorio(negocio_id);
+create index if not exists idx_ordenes_lab_estado   on public.ordenes_laboratorio(estado);
+
 -- Cotizaciones (documento previo a la venta, sin comprometer stock — idea
 -- de UX tomada de research de competencia: comparar armazón+luna antes de
 -- que el cliente decida). "Convertir a venta" crea una fila real en
@@ -699,6 +854,55 @@ create table if not exists public.cotizacion_items (
 create index if not exists idx_cotizacion_items_cotizacion on public.cotizacion_items(cotizacion_id);
 
 -- Gastos (solo administrador — brief §5/§6) --------------------------------
+-- Caja (apertura/cierre diario, cuadre por método de pago) ----------------
+do $$ begin create type estado_caja as enum ('abierta','cerrada'); exception when duplicate_object then null; end $$;
+
+create table if not exists public.cajas (
+  id                       uuid primary key default gen_random_uuid(),
+  negocio_id               uuid not null references public.negocios(id) on delete cascade,
+  sucursal_id              uuid references public.sucursales(id) on delete set null,
+  empleado_apertura_id     uuid references public.empleados(id) on delete set null,
+  empleado_cierre_id       uuid references public.empleados(id) on delete set null,
+  fecha_apertura           timestamptz not null default now(),
+  fecha_cierre             timestamptz,
+  monto_inicial            numeric(10,2) not null default 0,
+  -- Desglose del monto inicial por método/ítem al momento de abrir la caja
+  -- (ej. ya había un saldo en Yape antes de empezar el turno, o un fondo fijo
+  -- aparte del efectivo) — array de {metodo, monto} escrito por la UI de
+  -- apertura, `monto_inicial` de arriba es SIEMPRE la suma de este array
+  -- (calculada en el cliente, no en la DB). Solo el/los ítems con
+  -- metodo='efectivo' participan del cuadre físico (ver lib/caja.ts);
+  -- el resto es puramente informativo, igual que el resto de esta tabla no
+  -- reconcilia medios electrónicos. `[]` en cajas antiguas antes de esta
+  -- columna: el monto_inicial de esas filas se sigue tratando como 100%
+  -- efectivo (comportamiento anterior, sin migración retroactiva).
+  desglose_apertura        jsonb not null default '[]'::jsonb,
+  -- Snapshot por método de pago al momento del cierre (calculado sobre
+  -- `ventas` del rango y congelado acá vía lib/caja.ts) — así el historial
+  -- no cambia si una venta de ese período se anula después del cierre.
+  total_efectivo           numeric(10,2) not null default 0,
+  total_tarjeta            numeric(10,2) not null default 0,
+  total_yape               numeric(10,2) not null default 0,
+  total_plin               numeric(10,2) not null default 0,
+  total_transferencia      numeric(10,2) not null default 0,
+  -- Solo el efectivo se cuenta físicamente; los medios electrónicos se
+  -- reconcilian contra el banco/POS, fuera de alcance de este módulo.
+  monto_efectivo_esperado  numeric(10,2) not null default 0,
+  monto_efectivo_contado   numeric(10,2),
+  diferencia               numeric(10,2) generated always as (monto_efectivo_contado - monto_efectivo_esperado) stored,
+  estado                   estado_caja not null default 'abierta',
+  notas                    text,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now()
+);
+create index if not exists idx_cajas_negocio on public.cajas(negocio_id);
+create index if not exists idx_cajas_estado  on public.cajas(estado);
+-- Como máximo una caja abierta por sede (o por negocio entero, si no usa
+-- sedes) a la vez — evita doble apertura por doble click o dos pestañas.
+create unique index if not exists idx_cajas_una_abierta
+  on public.cajas(negocio_id, coalesce(sucursal_id, '00000000-0000-0000-0000-000000000000'))
+  where estado = 'abierta';
+
 create table if not exists public.gastos (
   id              uuid primary key default gen_random_uuid(),
   negocio_id      uuid not null references public.negocios(id) on delete cascade,
@@ -776,7 +980,7 @@ create index if not exists idx_campanias_negocio on public.campanias_email(negoc
 do $$
 declare t text;
 begin
-  foreach t in array array['clientes','citas','recetas','productos','inventario','ventas','descuentos','campanias_email','proveedores','cotizaciones'] loop
+  foreach t in array array['sucursales','clientes','citas','recetas','examenes_optometricos','productos','inventario','ventas','ordenes_laboratorio','cajas','descuentos','campanias_email','proveedores','cotizaciones'] loop
     execute format(
       'drop trigger if exists trg_%1$s_updated on public.%1$s;
        create trigger trg_%1$s_updated before update on public.%1$s
@@ -785,14 +989,18 @@ begin
 end $$;
 
 -- ====== RLS: módulo de dominio ======
+alter table public.sucursales        enable row level security;
 alter table public.clientes          enable row level security;
 alter table public.citas             enable row level security;
 alter table public.recetas           enable row level security;
+alter table public.examenes_optometricos enable row level security;
 alter table public.productos         enable row level security;
 alter table public.inventario        enable row level security;
 alter table public.movimientos_stock enable row level security;
 alter table public.ventas            enable row level security;
 alter table public.venta_items       enable row level security;
+alter table public.ordenes_laboratorio enable row level security;
+alter table public.cajas             enable row level security;
 alter table public.gastos            enable row level security;
 alter table public.comprobantes      enable row level security;
 alter table public.descuentos        enable row level security;
@@ -801,13 +1009,24 @@ alter table public.proveedores       enable row level security;
 alter table public.cotizaciones      enable row level security;
 alter table public.cotizacion_items  enable row level security;
 
--- clientes / citas / recetas / productos / ventas / proveedores /
+-- sucursales: gestionar sedes es ESTRUCTURAL (como empleados), no operativo
+-- — is_administrador() a secas, sin puede_gestionar() ni permiso delegable.
+drop policy if exists sucursales_read  on public.sucursales;
+drop policy if exists sucursales_write on public.sucursales;
+create policy sucursales_read on public.sucursales for select using (negocio_id = public.current_tenant());
+create policy sucursales_write on public.sucursales for all
+  using (public.is_administrador() and negocio_id = public.current_tenant())
+  with check (public.is_administrador() and negocio_id = public.current_tenant());
+
+-- clientes / recetas / examenes_optometricos / productos / proveedores /
 -- cotizaciones: mismo patrón de RLS (lectura para todo el negocio,
 -- escritura para quien "puede_gestionar" — administrador o encargado).
+-- citas/ventas quedan FUERA de este loop a propósito: llevan además el
+-- filtro de sede (ver policies dedicadas más abajo).
 do $$
 declare t text;
 begin
-  foreach t in array array['clientes','citas','recetas','productos','ventas','proveedores','cotizaciones'] loop
+  foreach t in array array['clientes','recetas','examenes_optometricos','productos','proveedores','cotizaciones'] loop
     execute format('drop policy if exists %1$s_read  on public.%1$s;', t);
     execute format('drop policy if exists %1$s_write on public.%1$s;', t);
     execute format(
@@ -820,6 +1039,65 @@ begin
   end loop;
 end $$;
 
+-- citas / ventas: mismo patrón que el loop genérico + un filtro de sede
+-- adicional. `current_sucursal() is null` cubre el caso común (negocio sin
+-- multisedes, o empleado con acceso a todas las sedes) — la fila también
+-- pasa si SU PROPIA sucursal_id es null (dato histórico o sin sede asignada)
+-- o si coincide exactamente con la sede del empleado. Si esta condición se
+-- escribe sin el primer `is null`, un negocio de una sola sede (el caso más
+-- común) queda sin poder ver ni escribir ninguna cita/venta — probar contra
+-- Postgres real antes de dar por buena cualquier cambio acá.
+do $$
+declare t text;
+begin
+  foreach t in array array['citas','ventas'] loop
+    execute format('drop policy if exists %1$s_read  on public.%1$s;', t);
+    execute format('drop policy if exists %1$s_write on public.%1$s;', t);
+    execute format(
+      'create policy %1$s_read on public.%1$s for select
+         using (
+           negocio_id = public.current_tenant()
+           and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
+         );', t);
+    execute format(
+      'create policy %1$s_write on public.%1$s for all
+         using (
+           public.puede_gestionar() and negocio_id = public.current_tenant()
+           and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
+         )
+         with check (
+           public.puede_gestionar() and negocio_id = public.current_tenant()
+           and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
+         );', t);
+  end loop;
+end $$;
+
+-- ordenes_laboratorio: OPERATIVO (como citas/ventas), no admin-gated como
+-- gastos/descuentos. Lectura abierta a cualquier rol del negocio (cualquier
+-- empleado debe poder consultar el estado si un cliente llama preguntando);
+-- la escritura (cambiar el estado) exige puede_gestionar() (administrador o
+-- encargado) O el permiso granular 'laboratorio' — pensado para extender el
+-- acceso a un trabajador puntual (ej. recepción) sin ascenderlo de rol.
+drop policy if exists ordenes_lab_read  on public.ordenes_laboratorio;
+drop policy if exists ordenes_lab_write on public.ordenes_laboratorio;
+create policy ordenes_lab_read on public.ordenes_laboratorio for select
+  using (negocio_id = public.current_tenant());
+create policy ordenes_lab_write on public.ordenes_laboratorio for all
+  using ((public.puede_gestionar() or public.tiene_permiso('laboratorio')) and negocio_id = public.current_tenant())
+  with check ((public.puede_gestionar() or public.tiene_permiso('laboratorio')) and negocio_id = public.current_tenant());
+
+-- cajas: mismo criterio OPERATIVO que ordenes_laboratorio — lectura abierta
+-- a todo el negocio, escritura (abrir/cerrar) con puede_gestionar() o el
+-- permiso granular 'gastos' ya existente (empleados/page.tsx ya lo rotula
+-- "Gastos y caja", no hace falta una clave nueva).
+drop policy if exists cajas_read  on public.cajas;
+drop policy if exists cajas_write on public.cajas;
+create policy cajas_read on public.cajas for select
+  using (negocio_id = public.current_tenant());
+create policy cajas_write on public.cajas for all
+  using ((public.puede_gestionar() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant())
+  with check ((public.puede_gestionar() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant());
+
 -- inventario (hereda tenant vía productos.negocio_id)
 drop policy if exists inventario_read  on public.inventario;
 drop policy if exists inventario_write on public.inventario;
@@ -829,6 +1107,25 @@ create policy inventario_write on public.inventario for all using (
   public.puede_gestionar() and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant())
 ) with check (
   public.puede_gestionar() and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+
+-- stock_sucursal (Multisedes Fase B) — hereda tenant vía productos.negocio_id,
+-- + el mismo filtro de sede que citas/ventas.
+alter table public.stock_sucursal enable row level security;
+drop policy if exists stock_sucursal_read  on public.stock_sucursal;
+drop policy if exists stock_sucursal_write on public.stock_sucursal;
+create policy stock_sucursal_read on public.stock_sucursal for select using (
+  exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
+  and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
+);
+create policy stock_sucursal_write on public.stock_sucursal for all using (
+  public.puede_gestionar()
+  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
+  and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
+) with check (
+  public.puede_gestionar()
+  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
+  and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
+);
 
 -- movimientos_stock (solo lectura + insert; nunca update/delete — trazabilidad)
 drop policy if exists movstock_read  on public.movimientos_stock;
@@ -943,7 +1240,7 @@ begin
   -- Solo tablas sensibles/financieras del dominio (clientes, recetas, ventas,
   -- gastos) — se omiten movimientos_stock/venta_items/inventario por volumen,
   -- igual que asistencia en el patrón de referencia tramys-rrhh.
-  foreach t in array array['negocios','empleados','suscripciones','clientes','recetas','ventas','gastos','descuentos','proveedores','cotizaciones'] loop
+  foreach t in array array['negocios','empleados','suscripciones','sucursales','clientes','recetas','examenes_optometricos','ventas','cajas','gastos','descuentos','proveedores','cotizaciones'] loop
     execute format(
       'drop trigger if exists trg_audit_%1$s on public.%1$s;
        create trigger trg_audit_%1$s after insert or update or delete on public.%1$s
@@ -1052,8 +1349,8 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'negocios','empleados','suscripciones',
-    'clientes','citas','recetas','productos','inventario','movimientos_stock','ventas','venta_items','gastos','comprobantes',
+    'negocios','empleados','suscripciones','sucursales',
+    'clientes','citas','recetas','examenes_optometricos','productos','inventario','stock_sucursal','movimientos_stock','ventas','venta_items','ordenes_laboratorio','cajas','gastos','comprobantes',
     'descuentos','campanias_email','proveedores','cotizaciones','cotizacion_items'
   ] loop
     if not exists (select 1 from pg_publication_tables

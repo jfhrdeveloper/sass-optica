@@ -10,6 +10,12 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ticketPromedio, clienteMasFrecuente, topProductosVendidos, comparativaMensual } from "@/lib/informes";
 import { descargarCSV } from "@/lib/csv";
 import { Download } from "lucide-react";
+import { SettingsTabs, type TabDeAjustes } from "@/components/dashboard/SettingsTabs";
+
+const TABS_INFORMES: TabDeAjustes[] = [
+  { href: "/dashboard/informes", label: "Ingresos y egresos" },
+  { href: "/dashboard/informes/reportes", label: "Reportes" },
+];
 
 type Movimiento = { fecha: string; tipo: "ingreso" | "egreso"; concepto: string; monto: number };
 
@@ -75,7 +81,8 @@ export default function InformesPage() {
 
   return (
     <main>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ingresos y Egresos</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Informes</h1>
+      <SettingsTabs tabs={TABS_INFORMES} />
 
       <div className="mt-4">
         <SegmentedControl

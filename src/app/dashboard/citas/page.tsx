@@ -84,14 +84,15 @@ export default function CitasPage() {
   const [recetaAbierta, setRecetaAbierta] = useState<string | null>(null);
   const [receta, setReceta] = useState<Record<string, string>>({});
 
-  /* Mes por defecto (más útil de un vistazo para agendar) — Lista sigue
+  /* "Día" por defecto (pedido explícito del usuario, sobre todo pensando en
+     mobile — un mes entero no entra bien en pantalla angosta). Lista sigue
      disponible para cuando hace falta buscar por estado o rango de fechas,
      algo que ningún calendario resuelve bien. Los filtros de estado/fecha
-     solo aplican a Lista. Día/3 días/5 días/Semana son la vista de agenda
-     tipo Google Calendar (CalendarioAgenda) — todas comparten una sola
-     fecha ancla (`fecha`) en vez de tener cada una su propio estado, así
-     cambiar de vista no te saca de dónde estabas parado en el calendario. */
-  const [vista, setVista] = useState<Vista>("mes");
+     solo aplican a Lista. Día/3 días/5 días/Semana/Mes son la vista de
+     agenda tipo Google Calendar (CalendarioMes/CalendarioAgenda) — todas
+     comparten una sola fecha ancla (`fecha`) en vez de tener cada una su
+     propio estado, así cambiar de vista no te saca de dónde estabas parado. */
+  const [vista, setVista] = useState<Vista>("dia");
   const [fecha, setFecha] = useState(() => new Date());
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [desde, setDesde] = useState("");
@@ -224,31 +225,46 @@ export default function CitasPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Citas</h1>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <SegmentedControl
-          aria-label="Vista de citas"
-          variante="opciones"
-          valor={vista}
-          onChange={(v) => setVista(v as Vista)}
-          opciones={[
-            { valor: "dia", label: "Día" },
-            { valor: "3dias", label: "3 días" },
-            { valor: "5dias", label: "5 días" },
-            { valor: "semana", label: "Semana" },
-            { valor: "mes", label: "Mes" },
-            { valor: "lista", label: "Lista" },
-          ]}
-        />
+        {/* Mobile: 2 filas de 3 vistas cada una (Día/3 días/5 días · Semana/Mes/Lista) —
+            dos SegmentedControl independientes, cada uno con su propio indicador
+            deslizante, en vez de forzar 6 opciones en un solo track angosto. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <SegmentedControl
+            aria-label="Vista de citas (rango)"
+            variante="opciones"
+            valor={vista}
+            onChange={(v) => setVista(v as Vista)}
+            opciones={[
+              { valor: "dia", label: "Día" },
+              { valor: "3dias", label: "3 días" },
+              { valor: "5dias", label: "5 días" },
+            ]}
+          />
+          <SegmentedControl
+            aria-label="Vista de citas (calendario/lista)"
+            variante="opciones"
+            valor={vista}
+            onChange={(v) => setVista(v as Vista)}
+            opciones={[
+              { valor: "semana", label: "Semana" },
+              { valor: "mes", label: "Mes" },
+              { valor: "lista", label: "Lista" },
+            ]}
+          />
+        </div>
 
         {vista === "lista" && (
-          <>
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="select text-sm">
+          <div className="grid w-full grid-cols-2 gap-2 sm:contents">
+            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="select w-full text-sm">
               <option value="todos">Todos los estados</option>
               {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
             </select>
-            <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
-          </>
+            <div className="w-full [&>button]:w-full">
+              <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
+            </div>
+          </div>
         )}
-        <button onClick={() => nueva()} className="btn-primary ml-auto gap-1.5">
+        <button onClick={() => nueva()} className="btn-primary w-full justify-center gap-1.5 sm:ml-auto sm:w-auto">
           <Plus size={16} /> Agendar cita
         </button>
       </div>

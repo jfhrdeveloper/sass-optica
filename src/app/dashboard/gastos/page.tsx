@@ -13,6 +13,14 @@ import { DatePicker } from "@/components/calendario/DatePicker";
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
 const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };
 
+/* Capitalizado en el TEXTO, no vía CSS (`className="capitalize"` en un
+   `<option>`): el popover nativo del `<select>` al desplegarse no respeta
+   `text-transform` en las opciones (solo a veces en el trigger cerrado),
+   así que se veía "Sueldos" cerrado y "sueldos" abierto. */
+function capitalizar(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /* Ruta protegida a nivel de proxy (src/proxy.ts: rutasSoloAdministrador) y de
    RLS (gastos_admin_all) — solo el administrador llega hasta aquí con datos. */
 export default function GastosPage() {
@@ -58,7 +66,7 @@ export default function GastosPage() {
 
       <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
         <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
-          {CATEGORIAS.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}
+          {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
         </select>
         <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
         <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select text-sm">
@@ -76,7 +84,7 @@ export default function GastosPage() {
         <div className="table-filter-bar">
           <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
             <option value="todas">Todas las categorías</option>
-            {CATEGORIAS.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}
+            {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
           </select>
           <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         </div>

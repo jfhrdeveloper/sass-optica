@@ -161,10 +161,13 @@ const CLASES = {
   month_caption: "flex h-9 items-center justify-center",
   caption_label: "text-sm font-semibold capitalize text-slate-900 dark:text-slate-100",
   nav: "absolute inset-x-0 top-0 flex h-9 items-center justify-between",
+  /* Flechas de navegación de mes casi invisibles en dark mode con
+     `dark:text-slate-400` (bajo contraste contra el popover oscuro) —
+     subidas a `dark:text-slate-100`, queja explícita de un usuario real. */
   button_previous:
-    "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:bg-slate-800",
+    "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-100 dark:hover:bg-slate-800",
   button_next:
-    "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:bg-slate-800",
+    "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-100 dark:hover:bg-slate-800",
   month_grid: "w-full border-collapse",
   weekdays: "flex",
   weekday: "w-10 pb-1 text-[11px] font-medium uppercase text-slate-400 dark:text-slate-500",

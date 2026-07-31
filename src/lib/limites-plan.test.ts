@@ -5,7 +5,7 @@ import {
 } from "@/lib/limites-plan";
 
 function empleado(activo: boolean): Empleado {
-  return { id: crypto.randomUUID(), negocioId: "n1", nombres: "A", apellidos: "B", rol: "trabajador", permisos: {}, activo };
+  return { id: crypto.randomUUID(), negocioId: "n1", nombres: "A", apellidos: "B", rol: "trabajador", permisos: {}, comisionPct: 0, activo };
 }
 
 function venta(fecha: string, estado = "pagada"): Venta {

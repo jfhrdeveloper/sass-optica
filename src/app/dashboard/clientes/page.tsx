@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, User, Search, Pencil, Trash2, Users, RotateCcw, XCircle } from "lucide-react";
+import { Plus, User, Search, Eye, Trash2, Users, RotateCcw, XCircle } from "lucide-react";
 import { useData, type Cliente } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -100,34 +100,40 @@ export default function ClientesPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
-          <div className="relative flex-1 sm:max-w-xs">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-              className="input w-full pl-9 text-sm"
-            />
-          </div>
-          {!verPapelera && (
-            <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select text-sm">
-              <option value="todos">Todos</option>
-              <option value="riesgo">En riesgo</option>
-              <option value="al_dia">Al día</option>
-            </select>
-          )}
-          <button
-            onClick={() => setVerPapelera((v) => !v)}
-            className={verPapelera ? "btn-primary gap-1.5" : "btn-outline gap-1.5"}
-          >
-            <Trash2 size={16} /> {verPapelera ? "Volver a clientes" : "Papelera"}
-            {!verPapelera && clientesPapelera.length > 0 && (
-              <span className="badge badge-neutral">{clientesPapelera.length}</span>
+          {/* Mobile: 2 columnas fijas por fila (buscador + "al día" / papelera + nuevo
+              cliente); sm:contents devuelve el layout de flex-wrap original en desktop. */}
+          <div className="grid grid-cols-2 gap-2 sm:contents">
+            <div className="relative sm:max-w-xs sm:flex-1">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                className="input w-full pl-9 text-sm"
+              />
+            </div>
+            {!verPapelera && (
+              <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select w-full text-sm">
+                <option value="todos">Todos</option>
+                <option value="riesgo">En riesgo</option>
+                <option value="al_dia">Al día</option>
+              </select>
             )}
-          </button>
-          {!verPapelera && (
-            <button onClick={formEstado.nuevo} className="btn-primary ml-auto gap-1.5">
-              <Plus size={16} /> Nuevo cliente
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:contents">
+            <button
+              onClick={() => setVerPapelera((v) => !v)}
+              className={verPapelera ? "btn-primary w-full justify-center gap-1.5 sm:w-auto" : "btn-outline w-full justify-center gap-1.5 sm:w-auto"}
+            >
+              <Trash2 size={16} /> {verPapelera ? "Volver a clientes" : "Papelera"}
+              {!verPapelera && clientesPapelera.length > 0 && (
+                <span className="badge badge-neutral">{clientesPapelera.length}</span>
+              )}
             </button>
-          )}
+            {!verPapelera && (
+              <button onClick={formEstado.nuevo} className="btn-primary w-full justify-center gap-1.5 sm:ml-auto sm:w-auto">
+                <Plus size={16} /> Nuevo cliente
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -136,7 +142,7 @@ export default function ClientesPage() {
               <tr>
                 <th className="table-head-cell">Cliente</th>
                 <th className="table-head-cell">Teléfono</th>
-                <th className="table-head-cell">{verPapelera ? "Eliminado" : "Historial"}</th>
+                <th className="table-head-cell hidden md:table-cell">{verPapelera ? "Eliminado" : "Historial"}</th>
                 <th className="table-head-cell text-right">Acciones</th>
               </tr>
             </thead>
@@ -172,7 +178,7 @@ export default function ClientesPage() {
                         "—"
                       )}
                     </td>
-                    <td className="table-cell">
+                    <td className="table-cell hidden md:table-cell">
                       {verPapelera ? (
                         <span className="text-slate-500 dark:text-slate-400">
                           {formatearFecha(c.eliminadoEn!)} · se purga en {Math.max(0, 30 - Math.ceil((ahora - new Date(c.eliminadoEn!).getTime()) / 86400000))} días
@@ -198,9 +204,13 @@ export default function ClientesPage() {
                             </button>
                           </>
                         ) : (
+                          /* Editar ya NO vive en esta fila — se mueve dentro de la
+                             ficha del cliente (clientes/[id]/page.tsx), acá solo
+                             queda Ver (navega explícito, la fila también navega al
+                             hacer click completo) y Eliminar (papelera). */
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); formEstado.editar(c); }} title="Editar" aria-label={`Editar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
-                              <Pencil size={15} />
+                            <button onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/clientes/${c.id}`); }} title="Ver" aria-label={`Ver a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
+                              <Eye size={15} />
                             </button>
                             <button onClick={(e) => { e.stopPropagation(); setConfirmarEliminar(c); }} title="Eliminar" aria-label={`Eliminar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn row-icon-btn-danger">
                               <Trash2 size={15} />

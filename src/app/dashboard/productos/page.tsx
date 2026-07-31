@@ -223,7 +223,19 @@ export default function ProductosPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Categoría</label>
-                <select value={form.categoria ?? "montura"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select mt-1 w-full text-sm">
+                <select
+                  value={form.categoria ?? "montura"}
+                  onChange={(e) => {
+                    const categoria = e.target.value;
+                    // Los 3 campos de lente de contacto solo son válidos con esta
+                    // categoría (constraint de DB) — se limpian al cambiar a otra,
+                    // para no arrastrar valores que el submit rechazaría en silencio.
+                    setForm(categoria === "lente_contacto"
+                      ? { ...form, categoria }
+                      : { ...form, categoria, curvaBase: undefined, diametro: undefined, potencia: undefined });
+                  }}
+                  className="select mt-1 w-full text-sm"
+                >
                   {CATEGORIAS.map((c) => <option key={c} value={c}>{CATEGORIA_LABEL[c]}</option>)}
                 </select>
               </div>
@@ -263,6 +275,25 @@ export default function ProductosPage() {
                   <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
                 </div>
               </div>
+              {form.categoria === "lente_contacto" && (
+                <>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Parámetros del lente de contacto</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Curva base</label>
+                      <input type="number" step="0.01" placeholder="8.60" value={form.curvaBase ?? ""} onChange={(e) => setForm({ ...form, curvaBase: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Diámetro</label>
+                      <input type="number" step="0.01" placeholder="14.20" value={form.diametro ?? ""} onChange={(e) => setForm({ ...form, diametro: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Potencia</label>
+                      <input type="number" step="0.01" placeholder="-2.50" value={form.potencia ?? ""} onChange={(e) => setForm({ ...form, potencia: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                    </div>
+                  </div>
+                </>
+              )}
               {!editandoId && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>

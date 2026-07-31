@@ -2,26 +2,53 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LogOut, Search, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Search, Store, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 
 function iniciales(nombres?: string, apellidos?: string): string {
   return `${nombres?.[0] ?? ""}${apellidos?.[0] ?? ""}`.toUpperCase() || "?";
 }
 
+const SUCURSAL_STORAGE_KEY = "sucursal_filtro";
+
+/* Selector de sede — solo un filtro de CONVENIENCIA en el cliente sobre
+   datos que RLS ya aprobó (nunca reemplaza ese chequeo, que vive 100% en
+   `current_sucursal()` del lado de la base). Solo tiene sentido para un
+   empleado cuyo `sucursalId` ya es null (puede ver todas) y quiere mirar
+   una sede a la vez — un empleado con sede fija asignada ya está limitado
+   por RLS, no necesita ni ve este selector. Persistido en localStorage,
+   mismo patrón que CoachTooltip.tsx; lo consume cada página que liste
+   citas/ventas filtrando por `sucursalId` (fuera del alcance de esta
+   sesión — acá solo queda la infraestructura: el selector y dónde guarda
+   su valor). */
+function useSucursalFiltro(): [string | null, (id: string | null) => void] {
+  const [valor, setValor] = useState<string | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en SSR
+    setValor(window.localStorage.getItem(SUCURSAL_STORAGE_KEY));
+  }, []);
+  function cambiar(id: string | null) {
+    if (id) window.localStorage.setItem(SUCURSAL_STORAGE_KEY, id);
+    else window.localStorage.removeItem(SUCURSAL_STORAGE_KEY);
+    setValor(id);
+  }
+  return [valor, cambiar];
+}
+
 /* Franja horizontal arriba del contenido (patrón Gmail/Notion/Linear): a la
-   izquierda el rastro de navegación (antes vivía suelto arriba del
-   contenido, ver DashboardShell.tsx), a la derecha identidad del negocio +
-   tema + cuenta. Todo lo que antes vivía en el header del sidebar
-   (DashboardNav.tsx) se mudó acá — el sidebar quedó solo con navegación. */
+   derecha identidad del negocio + tema + cuenta. Todo lo que antes vivía en
+   el header del sidebar (DashboardNav.tsx) se mudó acá — el sidebar quedó
+   solo con navegación. El rastro de navegación (Breadcrumbs) que iba a la
+   izquierda se quitó a pedido del usuario. */
 export function DashboardTopbar() {
-  const { negocio } = useData();
+  const { negocio, sucursales } = useData();
   const { empleado, signOut } = useSession();
   const [abierto, setAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [sucursalFiltro, setSucursalFiltro] = useSucursalFiltro();
+  const mostrarSelectorSede = sucursales.length > 0 && !empleado?.sucursalId;
 
   useEffect(() => {
     function onClickFuera(e: MouseEvent) {
@@ -32,9 +59,7 @@ export function DashboardTopbar() {
   }, []);
 
   return (
-    <div className="sticky top-0 z-20 mb-4 flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50/80 px-6 py-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
-      <Breadcrumbs sinMargen />
-
+    <div className="sticky top-0 z-20 mb-4 flex items-center justify-end gap-4 border-b border-slate-200 bg-slate-50/80 px-6 py-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
       <div className="flex shrink-0 items-center gap-3">
         <button
           type="button"
@@ -60,6 +85,23 @@ export function DashboardTopbar() {
             {negocio?.nombre ?? "Panel"}
           </span>
         </div>
+
+        {mostrarSelectorSede && (
+          <label className="hidden items-center gap-1.5 sm:flex">
+            <Store size={14} className="shrink-0 text-slate-400" />
+            <select
+              value={sucursalFiltro ?? ""}
+              onChange={(e) => setSucursalFiltro(e.target.value || null)}
+              aria-label="Filtrar por sede"
+              className="select max-w-[140px] py-1 text-xs"
+            >
+              <option value="">Todas las sedes</option>
+              {sucursales.filter((s) => s.activo).map((s) => (
+                <option key={s.id} value={s.id}>{s.nombre}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <div className="h-5 w-px bg-slate-200 dark:bg-white/10" />
 

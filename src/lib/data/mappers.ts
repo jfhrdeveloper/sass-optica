@@ -7,10 +7,30 @@
    insert que para update parcial sin pisar columnas no enviadas. */
 
 import type {
-  Empleado, Negocio, Rol, Suscripcion,
-  Cliente, Cita, Receta, Producto, MovimientoStock, Venta, VentaItem, Gasto,
-  Descuento, Proveedor, Cotizacion, CotizacionItem,
+  Empleado, Negocio, Rol, Suscripcion, Sucursal,
+  Cliente, Cita, Receta, ExamenOptometrico, Producto, MovimientoStock, Venta, VentaItem, Gasto,
+  Descuento, Proveedor, Cotizacion, CotizacionItem, OrdenLaboratorio, EstadoOrdenLaboratorio,
+  Caja, EstadoCaja, ItemAperturaCaja,
 } from "@/components/providers/DataProvider";
+
+/* ====== Sucursales (multisedes) ====== */
+export function rowToSucursal(r: Record<string, unknown>): Sucursal {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    nombre: String(r.nombre ?? ""),
+    direccion: r.direccion ? String(r.direccion) : undefined,
+    telefono: r.telefono ? String(r.telefono) : undefined,
+    activo: Boolean(r.activo ?? true),
+  };
+}
+export function sucursalToRow(s: Partial<Sucursal>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (s.nombre    !== undefined) out.nombre    = s.nombre;
+  if (s.direccion !== undefined) out.direccion = s.direccion;
+  if (s.telefono  !== undefined) out.telefono  = s.telefono;
+  if (s.activo    !== undefined) out.activo    = s.activo;
+  return out;
+}
 
 /* ====== Empleados ====== */
 export function rowToEmpleado(r: Record<string, unknown>): Empleado {
@@ -24,6 +44,8 @@ export function rowToEmpleado(r: Record<string, unknown>): Empleado {
     telefono:      r.telefono ? String(r.telefono) : undefined,
     avatarBase64:  r.avatar_base64 ? String(r.avatar_base64) : undefined,
     permisos:      (r.permisos as Record<string, boolean>) ?? {},
+    comisionPct:   Number(r.comision_pct ?? 0),
+    sucursalId:    r.sucursal_id ? String(r.sucursal_id) : undefined,
     activo:        Boolean(r.activo ?? true),
   };
 }
@@ -36,6 +58,8 @@ export function empleadoToRow(e: Partial<Empleado>): Record<string, unknown> {
   if (e.telefono       !== undefined) out.telefono        = e.telefono;
   if (e.avatarBase64  !== undefined) out.avatar_base64   = e.avatarBase64;
   if (e.permisos       !== undefined) out.permisos         = e.permisos;
+  if (e.comisionPct    !== undefined) out.comision_pct     = e.comisionPct;
+  if (e.sucursalId     !== undefined) out.sucursal_id      = e.sucursalId || null;
   if (e.activo         !== undefined) out.activo          = e.activo;
   return out;
 }
@@ -100,6 +124,7 @@ export function rowToCita(r: Record<string, unknown>): Cita {
   return {
     id: String(r.id), negocioId: String(r.negocio_id), clienteId: String(r.cliente_id),
     empleadoId: r.empleado_id ? String(r.empleado_id) : undefined,
+    sucursalId: r.sucursal_id ? String(r.sucursal_id) : undefined,
     fechaHora: String(r.fecha_hora ?? ""),
     motivo: r.motivo ? String(r.motivo) : undefined,
     estado: String(r.estado ?? "programada"),
@@ -111,6 +136,7 @@ export function citaToRow(c: Partial<Cita>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (c.clienteId  !== undefined) out.cliente_id  = c.clienteId;
   if (c.empleadoId !== undefined) out.empleado_id = c.empleadoId || null;
+  if (c.sucursalId !== undefined) out.sucursal_id = c.sucursalId || null;
   if (c.fechaHora  !== undefined) out.fecha_hora  = c.fechaHora;
   if (c.motivo      !== undefined) out.motivo      = c.motivo;
   if (c.estado      !== undefined) out.estado      = c.estado;
@@ -156,6 +182,48 @@ export function recetaToRow(r: Partial<Receta>): Record<string, unknown> {
   return out;
 }
 
+/* ====== Exámenes optométricos ====== */
+export function rowToExamenOptometrico(r: Record<string, unknown>): ExamenOptometrico {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id), clienteId: String(r.cliente_id),
+    citaId: r.cita_id ? String(r.cita_id) : undefined,
+    recetaId: r.receta_id ? String(r.receta_id) : undefined,
+    fecha: String(r.fecha ?? ""),
+    odAvSc: r.od_av_sc ? String(r.od_av_sc) : undefined,
+    odAvCc: r.od_av_cc ? String(r.od_av_cc) : undefined,
+    oiAvSc: r.oi_av_sc ? String(r.oi_av_sc) : undefined,
+    oiAvCc: r.oi_av_cc ? String(r.oi_av_cc) : undefined,
+    odK1: r.od_k1 != null ? Number(r.od_k1) : undefined,
+    odK2: r.od_k2 != null ? Number(r.od_k2) : undefined,
+    odEjeK: r.od_eje_k != null ? Number(r.od_eje_k) : undefined,
+    oiK1: r.oi_k1 != null ? Number(r.oi_k1) : undefined,
+    oiK2: r.oi_k2 != null ? Number(r.oi_k2) : undefined,
+    oiEjeK: r.oi_eje_k != null ? Number(r.oi_eje_k) : undefined,
+    anamnesis: r.anamnesis ? String(r.anamnesis) : undefined,
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function examenOptometricoToRow(e: Partial<ExamenOptometrico>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (e.clienteId  !== undefined) out.cliente_id = e.clienteId;
+  if (e.citaId     !== undefined) out.cita_id    = e.citaId || null;
+  if (e.recetaId   !== undefined) out.receta_id  = e.recetaId || null;
+  if (e.fecha      !== undefined) out.fecha      = e.fecha;
+  if (e.odAvSc     !== undefined) out.od_av_sc   = e.odAvSc;
+  if (e.odAvCc     !== undefined) out.od_av_cc   = e.odAvCc;
+  if (e.oiAvSc     !== undefined) out.oi_av_sc   = e.oiAvSc;
+  if (e.oiAvCc     !== undefined) out.oi_av_cc   = e.oiAvCc;
+  if (e.odK1       !== undefined) out.od_k1      = e.odK1;
+  if (e.odK2       !== undefined) out.od_k2      = e.odK2;
+  if (e.odEjeK     !== undefined) out.od_eje_k   = e.odEjeK;
+  if (e.oiK1       !== undefined) out.oi_k1      = e.oiK1;
+  if (e.oiK2       !== undefined) out.oi_k2      = e.oiK2;
+  if (e.oiEjeK     !== undefined) out.oi_eje_k   = e.oiEjeK;
+  if (e.anamnesis  !== undefined) out.anamnesis  = e.anamnesis;
+  if (e.notas      !== undefined) out.notas      = e.notas;
+  return out;
+}
+
 /* ====== Productos (+ stock de `inventario`, fusionado en DataProvider) ====== */
 export function rowToProducto(r: Record<string, unknown>): Producto {
   return {
@@ -166,6 +234,9 @@ export function rowToProducto(r: Record<string, unknown>): Producto {
     marca: r.marca ? String(r.marca) : undefined,
     descripcion: r.descripcion ? String(r.descripcion) : undefined,
     precioVenta: Number(r.precio_venta ?? 0), precioCosto: Number(r.precio_costo ?? 0),
+    curvaBase: r.curva_base != null ? Number(r.curva_base) : undefined,
+    diametro: r.diametro != null ? Number(r.diametro) : undefined,
+    potencia: r.potencia != null ? Number(r.potencia) : undefined,
     imagenUrl: r.imagen_url ? String(r.imagen_url) : undefined,
     activo: Boolean(r.activo ?? true),
     stockActual: 0, stockMinimo: 0,
@@ -181,6 +252,9 @@ export function productoToRow(p: Partial<Producto>): Record<string, unknown> {
   if (p.descripcion   !== undefined) out.descripcion   = p.descripcion;
   if (p.precioVenta   !== undefined) out.precio_venta   = p.precioVenta;
   if (p.precioCosto   !== undefined) out.precio_costo   = p.precioCosto;
+  if (p.curvaBase     !== undefined) out.curva_base     = p.curvaBase ?? null;
+  if (p.diametro      !== undefined) out.diametro       = p.diametro ?? null;
+  if (p.potencia      !== undefined) out.potencia       = p.potencia ?? null;
   if (p.imagenUrl     !== undefined) out.imagen_url     = p.imagenUrl;
   if (p.activo         !== undefined) out.activo         = p.activo;
   return out;
@@ -190,6 +264,7 @@ export function productoToRow(p: Partial<Producto>): Record<string, unknown> {
 export function rowToMovimientoStock(r: Record<string, unknown>): MovimientoStock {
   return {
     id: String(r.id), negocioId: String(r.negocio_id), productoId: String(r.producto_id),
+    sucursalId: r.sucursal_id ? String(r.sucursal_id) : undefined,
     tipo: String(r.tipo ?? "entrada"), cantidad: Number(r.cantidad ?? 0),
     motivo: r.motivo ? String(r.motivo) : undefined,
     fecha: String(r.fecha ?? ""),
@@ -201,6 +276,8 @@ export function rowToVenta(r: Record<string, unknown>): Venta {
   return {
     id: String(r.id), negocioId: String(r.negocio_id),
     clienteId: r.cliente_id ? String(r.cliente_id) : undefined,
+    empleadoId: r.empleado_id ? String(r.empleado_id) : undefined,
+    sucursalId: r.sucursal_id ? String(r.sucursal_id) : undefined,
     fecha: String(r.fecha ?? ""),
     subtotal: Number(r.subtotal ?? 0), igv: Number(r.igv ?? 0), total: Number(r.total ?? 0),
     metodoPago: String(r.metodo_pago ?? "efectivo"), estado: String(r.estado ?? "pagada"),
@@ -211,6 +288,8 @@ export function rowToVenta(r: Record<string, unknown>): Venta {
 export function ventaToRow(v: Partial<Venta>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (v.clienteId    !== undefined) out.cliente_id    = v.clienteId || null;
+  if (v.empleadoId   !== undefined) out.empleado_id   = v.empleadoId || null;
+  if (v.sucursalId   !== undefined) out.sucursal_id   = v.sucursalId || null;
   if (v.subtotal       !== undefined) out.subtotal       = v.subtotal;
   if (v.igv             !== undefined) out.igv             = v.igv;
   if (v.total           !== undefined) out.total           = v.total;
@@ -228,6 +307,85 @@ export function rowToVentaItem(r: Record<string, unknown>): VentaItem {
     descripcion: String(r.descripcion ?? ""), cantidad: Number(r.cantidad ?? 1),
     precioUnitario: Number(r.precio_unitario ?? 0), subtotal: Number(r.subtotal ?? 0),
   };
+}
+
+/* ====== Órdenes de laboratorio ====== */
+export function rowToOrdenLaboratorio(r: Record<string, unknown>): OrdenLaboratorio {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    ventaId: r.venta_id ? String(r.venta_id) : undefined,
+    ventaItemId: r.venta_item_id ? String(r.venta_item_id) : undefined,
+    clienteId: r.cliente_id ? String(r.cliente_id) : undefined,
+    recetaId: r.receta_id ? String(r.receta_id) : undefined,
+    empleadoId: r.empleado_id ? String(r.empleado_id) : undefined,
+    sucursalOrigenId: r.sucursal_origen_id ? String(r.sucursal_origen_id) : undefined,
+    sucursalDestinoId: r.sucursal_destino_id ? String(r.sucursal_destino_id) : undefined,
+    laboratorioNombre: r.laboratorio_nombre ? String(r.laboratorio_nombre) : undefined,
+    estado: (r.estado as EstadoOrdenLaboratorio) ?? "generado",
+    fechaGenerado: String(r.fecha_generado ?? ""),
+    fechaEstimada: r.fecha_estimada ? String(r.fecha_estimada) : undefined,
+    avisadoWhatsappEn: r.avisado_whatsapp_en ? String(r.avisado_whatsapp_en) : undefined,
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function ordenLaboratorioToRow(o: Partial<OrdenLaboratorio>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (o.ventaId            !== undefined) out.venta_id             = o.ventaId || null;
+  if (o.ventaItemId        !== undefined) out.venta_item_id        = o.ventaItemId || null;
+  if (o.clienteId          !== undefined) out.cliente_id           = o.clienteId || null;
+  if (o.recetaId           !== undefined) out.receta_id            = o.recetaId || null;
+  if (o.empleadoId         !== undefined) out.empleado_id          = o.empleadoId || null;
+  if (o.sucursalOrigenId   !== undefined) out.sucursal_origen_id   = o.sucursalOrigenId || null;
+  if (o.sucursalDestinoId  !== undefined) out.sucursal_destino_id  = o.sucursalDestinoId || null;
+  if (o.laboratorioNombre  !== undefined) out.laboratorio_nombre   = o.laboratorioNombre;
+  if (o.estado              !== undefined) out.estado               = o.estado;
+  if (o.fechaEstimada       !== undefined) out.fecha_estimada       = o.fechaEstimada;
+  if (o.avisadoWhatsappEn   !== undefined) out.avisado_whatsapp_en  = o.avisadoWhatsappEn;
+  if (o.notas                !== undefined) out.notas                = o.notas;
+  return out;
+}
+
+/* ====== Caja ====== */
+export function rowToCaja(r: Record<string, unknown>): Caja {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id),
+    sucursalId: r.sucursal_id ? String(r.sucursal_id) : undefined,
+    empleadoAperturaId: r.empleado_apertura_id ? String(r.empleado_apertura_id) : undefined,
+    empleadoCierreId: r.empleado_cierre_id ? String(r.empleado_cierre_id) : undefined,
+    fechaApertura: String(r.fecha_apertura ?? ""),
+    fechaCierre: r.fecha_cierre ? String(r.fecha_cierre) : undefined,
+    montoInicial: Number(r.monto_inicial ?? 0),
+    desgloseApertura: Array.isArray(r.desglose_apertura) ? (r.desglose_apertura as ItemAperturaCaja[]) : [],
+    totalEfectivo: Number(r.total_efectivo ?? 0),
+    totalTarjeta: Number(r.total_tarjeta ?? 0),
+    totalYape: Number(r.total_yape ?? 0),
+    totalPlin: Number(r.total_plin ?? 0),
+    totalTransferencia: Number(r.total_transferencia ?? 0),
+    montoEfectivoEsperado: Number(r.monto_efectivo_esperado ?? 0),
+    montoEfectivoContado: r.monto_efectivo_contado != null ? Number(r.monto_efectivo_contado) : undefined,
+    diferencia: r.diferencia != null ? Number(r.diferencia) : undefined,
+    estado: (r.estado as EstadoCaja) ?? "abierta",
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function cajaToRow(c: Partial<Caja>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.sucursalId              !== undefined) out.sucursal_id              = c.sucursalId || null;
+  if (c.empleadoAperturaId      !== undefined) out.empleado_apertura_id     = c.empleadoAperturaId || null;
+  if (c.empleadoCierreId        !== undefined) out.empleado_cierre_id       = c.empleadoCierreId || null;
+  if (c.fechaCierre              !== undefined) out.fecha_cierre             = c.fechaCierre;
+  if (c.montoInicial             !== undefined) out.monto_inicial            = c.montoInicial;
+  if (c.desgloseApertura         !== undefined) out.desglose_apertura        = c.desgloseApertura;
+  if (c.totalEfectivo            !== undefined) out.total_efectivo           = c.totalEfectivo;
+  if (c.totalTarjeta             !== undefined) out.total_tarjeta            = c.totalTarjeta;
+  if (c.totalYape                !== undefined) out.total_yape               = c.totalYape;
+  if (c.totalPlin                !== undefined) out.total_plin               = c.totalPlin;
+  if (c.totalTransferencia       !== undefined) out.total_transferencia      = c.totalTransferencia;
+  if (c.montoEfectivoEsperado    !== undefined) out.monto_efectivo_esperado  = c.montoEfectivoEsperado;
+  if (c.montoEfectivoContado     !== undefined) out.monto_efectivo_contado   = c.montoEfectivoContado;
+  if (c.estado                    !== undefined) out.estado                   = c.estado;
+  if (c.notas                      !== undefined) out.notas                    = c.notas;
+  return out;
 }
 
 /* ====== Gastos ====== */

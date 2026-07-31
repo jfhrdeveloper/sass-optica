@@ -94,7 +94,23 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       adelante por la separación de patrimonio (se custodian datos de salud de terceros), y qué
       nombre comercial ve el cliente en el descriptor de cobro de Culqi.
 - [ ] Tests de RLS (aislamiento entre ópticas) — el riesgo real del producto sigue sin cobertura;
-      necesita el proyecto Supabase creado para poder correrlos
+      necesita el proyecto Supabase creado para poder correrlos. **Ahora es más urgente**: la RLS
+      de `citas`/`ventas`/`stock_sucursal` (Multisedes, bitácora 2026-07-31) agregó una condición
+      nueva (`current_sucursal() is null or sucursal_id is null or sucursal_id = current_sucursal()`)
+      que, si está mal escrita, rompe el acceso de TODOS los negocios de una sola sede — probar
+      contra Postgres real antes de dar por buena esa migración es el primer test de RLS a correr.
+- [ ] **Multisedes — falta la UI de reparto de stock** al crear la primera sucursal de un negocio
+      que YA tiene stock cargado en `inventario` (Fase B, bitácora 2026-07-31): hoy `ajustarStock`
+      soporta un `sucursalId` opcional a nivel de datos, pero ningún formulario del dashboard
+      todavía deja elegir sede al ajustar stock — sin ese flujo explícito, el stock de un producto
+      existente "desaparecería" de los reportes por sede en vez de asignarse a la sede correcta.
+      No construir un default silencioso (ver el propio comentario en `supabase-schema.sql` junto
+      a `stock_sucursal`).
+- [ ] Selector de sede del topbar (`DashboardTopbar.tsx`) es hoy solo un filtro de UI guardado en
+      localStorage — ninguna página (`citas`, `ventas`) todavía FILTRA sus listas por la sede
+      elegida ahí. La infraestructura (RLS, `sucursal_id` en las tablas) está lista; conectar el
+      filtro a cada página es trabajo de UI pendiente, no bloqueante mientras casi ningún negocio
+      use multisedes.
 
 ## Ideas de UX de research de competencia (OkVet / Finegym) — ✅ LAS 13 IMPLEMENTADAS
 Research hecho en vivo contra las apps reales (landing + señal de cuenta creada + dashboard
@@ -148,6 +164,144 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-31 (21) — Lista de 20 pedidos de UX/negocio sobre Clientes, Citas, Comercial y Administración
+- **Qué cambió:** el usuario pegó una lista larga de pedidos puntuales (feedback de uso real) sobre
+  Clientes, Citas, Ventas, Cotizaciones, Laboratorio, Caja, Gastos, Informes y reglas generales del
+  dashboard, y pidió analizarla, convertirla en un plan y luego implementar todo. Se investigó cada
+  punto contra el código real (4 forks de exploración en paralelo) antes de tocar nada — varios
+  pedidos ya estaban resueltos (eliminar cita sin confirmación + deshacer, cancelado terminal en
+  laboratorio, venta no revertible en cotizaciones) y uno contradecía código existente (botón "Volver
+  a pendiente" en cotizaciones rechazadas). Confirmadas 3 decisiones abiertas con el usuario antes de
+  implementar (contenido de "Reportes" en Informes, instalar `exceljs`, quitar también la reversión en
+  rechazadas) y luego se implementaron los 20 puntos:
+  1. **Clientes**: acciones de la lista reducidas a Ver/Eliminar (`clientes/page.tsx`), Editar+Eliminar
+     movidos dentro de la ficha (`clientes/[id]/page.tsx`) con `ConfirmDialog`; botón "← Clientes" con
+     underline animado (`.link`, ya existía en `globals.css`); validación propia de email (regex +
+     mensaje inline + `noValidate`) reemplazando el tooltip nativo en `ClienteFormSlideOver.tsx`;
+     flechas del `DatePicker`/`DateRangePicker` a `dark:text-slate-100` (bajo contraste en dark mode);
+     notas editables inline sin abrir el wizard completo; citas y exámenes optométricos paginados a 4
+     por página (`usePaginado` parametrizado, antes tenía `10` fijo). Móvil: filtros en grid 2×2,
+     columna "Historial" oculta (`hidden md:table-cell`, mismo patrón ya usado en productos/ventas),
+     exámenes optométricos como 2 tarjetas OD/OI apiladas en vez de tabla con scroll horizontal.
+  2. **Citas**: la eliminación ya no pedía confirmación (ya estaba así, con deshacer vía toast) — sin
+     cambios. Móvil: vista por defecto "Día" (antes "Mes"), selector de vista partido en 2
+     `SegmentedControl` (Día/3 días/5 días · Semana/Mes/Lista), filtro de estado + rango de fecha en
+     grid 2 columnas, botón "Agendar cita" a ancho completo.
+  3. **Ventas**: opción "+ Nuevo cliente" en el selector con mini-formulario inline (crea el cliente
+     con `addCliente` al confirmar la venta); código de descuento pasó de input libre a `<select>` con
+     los cupones activos/vigentes (indicando % o S/); checkbox "Incluir recargo por tarjeta" (5%,
+     constante `RECARGO_TARJETA_PCT` local) visible solo con método "tarjeta", registrado en
+     `ventas.notas` para no tocar el schema.
+  4. **Cotizaciones**: mismo dropdown de descuentos que ventas; quitado el botón "Volver a pendiente"
+     de cotizaciones rechazadas (confirmado con el usuario: ningún estado se revierte, no solo "ya es
+     venta" que ya estaba resuelto).
+  5. **Laboratorio**: "Fecha estimada de entrega" pasó de `<input type="date">` nativo al `DatePicker`
+     propio del proyecto.
+  6. **Caja**: apertura con desglose por método (`cajas.desglose_apertura jsonb`, columna nueva
+     aditiva — filas de "método + monto" dinámicas, suma automática); `lib/caja.ts` ganó
+     `sumaDesglose`/`efectivoDeDesglose` (solo el ítem "efectivo" participa del cuadre físico, el
+     resto es informativo — cajas sin desglose siguen tratando `monto_inicial` como 100% efectivo,
+     comportamiento anterior intacto). Export a Excel con diseño real (`exceljs`, import dinámico —
+     nueva dependencia, confirmada con el usuario, introduce vulnerabilidades `high` transitivas vía
+     `archiver`/`brace-expansion` que no tienen fix sin romper `eslint`; riesgo bajo en este uso
+     porque solo escribe `.xlsx` desde datos propios, nunca parsea entrada externa) y a PDF vía el
+     mismo patrón HTML-imprimible ya usado (`construirHtmlListadoCaja`, sin dependencia nueva).
+  7. **Gastos**: el `<select>` de categoría mostraba "Sueldos" cerrado pero "sueldos" abierto —
+     causa real: `className="capitalize"` puesto en `<option>`, que el popover nativo desplegado no
+     respeta. Fix: capitalizar el texto en JS, no vía CSS.
+  8. **Informes**: reestructurado con `SettingsTabs` (generalizado para aceptar `tabs` por prop, antes
+     tenía el array de Ajustes/Facturación hardcodeado) — pestaña "Ingresos y egresos" (contenido
+     anterior intacto) + pestaña nueva "Reportes" (`/dashboard/informes/reportes`): generador de
+     reportes exportables (Excel/PDF) de Ingresos vs Egresos por rango de fechas, con desglose por
+     método de pago y por categoría de gasto (`lib/informes.ts`: `desgloseIngresosPorMetodo`/
+     `desgloseEgresosPorCategoria`, nuevas funciones puras).
+  9. **General**: ventas y cotizaciones bloqueadas sin una caja abierta (`CajaCerradaBanner.tsx`
+     nuevo, deshabilita el botón de confirmar); fix del acordeón de "Administración" que se cerraba
+     al cambiar entre pestañas de Ajustes/Facturación o de Informes/Reportes (`DashboardNav.tsx`:
+     `esActivo` no reconocía `/dashboard/facturacion` ni `/dashboard/informes/reportes` como parte del
+     mismo ítem del sidebar — generalizado a un mapa `RUTAS_HERMANAS`); accesos rápidos de Inicio
+     ahora configurables (lápiz junto al título abre un `SlideOver` con checkboxes sobre el catálogo
+     completo de `NAV`, persistido en localStorage por negocio — mismo patrón que el selector de sede
+     de `DashboardTopbar.tsx`); rol "trabajador" se muestra como "Vendedor/Empleado" en la UI de
+     Empleados (`lib/roles.ts` nuevo, el valor real del enum no cambia — RLS/proxy.ts siguen intactos).
+     Multisedes: no era un pedido de implementación, era una pregunta ("¿cómo sería?") — se le explicó
+     al usuario que la infraestructura ya existe pero el selector de sede del topbar sigue siendo solo
+     un filtro de UI sin conectar a las queries de citas/ventas (pendiente ya trackeado más arriba).
+  - Verificado: `npm test` (202/202), `npx tsc --noEmit`, `npm run lint` y `npm run build` limpios
+    tras cada bloque de cambios — incluida la ruta nueva `/dashboard/informes/reportes` en el output
+    del build.
+- **Por qué:** pedido explícito del usuario de analizar una lista larga de feedback real de uso y
+  luego implementar todo, tras confirmar 3 decisiones que genuinamente no tenían un default razonable
+  (contenido de "Reportes", instalar una dependencia nueva, alcance exacto de "no revertir" en
+  cotizaciones).
+- **Pendiente:** nada nuevo de esta sesión que no estuviera ya trackeado — el punto de Multisedes
+  (conectar el selector de sede a los filtros de citas/ventas) sigue en "Pendientes activos" de más
+  arriba, sin cambios. `npm audit` reporta vulnerabilidades `high` nuevas por la cadena de `exceljs`
+  (`archiver`→`readdir-glob`→`brace-expansion`, ReDoS) sin fix disponible que no rompa `eslint` — a
+  revisar si conviene reemplazar `exceljs` más adelante; el uso actual (solo escritura de `.xlsx`
+  desde datos propios del negocio) acota bastante el riesgo real.
+
+### 2026-07-31 (20) — 7 features nuevas: historia clínica ampliada, comisiones, multisedes, laboratorio y caja
+- **Qué cambió:** el usuario pidió analizar dos propuestas externas sobre qué le faltaba al SaaS
+  (módulo clínico, laboratorio, inventario especializado, caja, comisiones, adaptación a Perú,
+  multisedes). El análisis contra el código real mostró que varias cosas ya estaban hechas
+  (Yape/Plin, IGV, terminología peruana, anular-sin-borrar) y que otras eran huecos genuinos. Tras
+  confirmar alcance con el usuario en varias rondas de preguntas (excluyendo explícitamente lo que
+  depende de un proveedor externo pago: RENIEC/SUNAT, facturación electrónica OSE, notas de
+  crédito/débito, envío real de email), se entró en modo plan (3 agentes Explore + 1 agente Plan)
+  y se implementaron 7 features 100% de código interno, en este orden:
+  1. **Parámetros de lentes de contacto** — `productos.curva_base/diametro/potencia` (nullable,
+     con `check` que exige `categoria = 'lente_contacto'`), sección condicional en el `SlideOver`
+     de `/dashboard/productos` que se limpia sola al cambiar de categoría.
+  2. **Historia clínica ampliada** — tabla nueva `examenes_optometricos` (agudeza visual sc/cc,
+     queratometría K1/K2/eje, anamnesis), **separada de `recetas` a propósito**: un examen no
+     siempre coincide 1:1 con una receta nueva (control sin cambio de graduación, o reposición sin
+     examen nuevo). Sin página propia, mismo precedente que `recetas`: sección + alta dentro de
+     `clientes/[id]/page.tsx`.
+  3. **Comisiones por vendedor** — hallazgo real durante la investigación: `ventas.empleado_id`
+     ya existía en el schema pero estaba **muerto** (no estaba en la interfaz `Venta` ni se seteaba
+     nunca desde `ventas/page.tsx`). Se cableó ese gap en vez de crear una columna nueva. % único
+     por empleado (`empleados.comision_pct`, admin-only gratis vía la RLS que ya existía),
+     `lib/comisiones.ts` (puro, con tests) + página `/dashboard/comisiones` con exportación CSV.
+  4. **Multisedes — Fase A (infraestructura)** — tabla `sucursales`, `current_sucursal()` (mismo
+     patrón `SECURITY DEFINER` que `current_tenant()`, lee `empleados.sucursal_id`, nunca una
+     cookie), `sucursal_id` opcional en `citas`/`ventas`/`empleados`, RLS con el filtro adicional
+     `current_sucursal() is null or sucursal_id is null or sucursal_id = current_sucursal()`,
+     selector de sede en `DashboardTopbar.tsx` (solo filtro de UI, localStorage — no toca RLS).
+     **Sin migración retroactiva**: un negocio que nunca crea una sucursal no nota ningún cambio
+     de comportamiento, `sucursal_id NULL` es un estado permanente y válido, no deuda técnica.
+  5. **Órdenes de laboratorio** — tabla `ordenes_laboratorio`, 8 estados (los 7 del brief del
+     usuario + `cancelado`, mismo criterio que `estado_venta.anulada`), `lib/laboratorio.ts` con
+     `TRANSICIONES_VALIDAS` (con tests), página `/dashboard/laboratorio` con botón "Avisar por
+     WhatsApp" (reusa `urlWhatsAppContacto` del patrón ya usado en `/dashboard/citas`). Permiso
+     granular nuevo `'laboratorio'` en `MODULOS_DELEGABLES`. **Sin Kanban a propósito** — no existe
+     ningún patrón drag-and-drop en el proyecto, un `<select>` de estado alcanza para el MVP.
+  6. **Caja** — apertura/cierre diario con cuadre por método de pago, `cajas` con `diferencia`
+     como columna generada y un índice único parcial (máximo una caja abierta por sede/negocio a
+     la vez, evita doble apertura por doble click). `lib/caja.ts` (`calcularCuadreCaja`, con
+     tests) + `lib/constancia-caja.ts` (HTML imprimible, mismo patrón que `lib/recibo.ts` pero
+     archivo propio para no forzar su interfaz acoplada a `Venta`).
+  7. **Multisedes — Fase B (stock por sede)** — tabla `stock_sucursal`, regla binaria en
+     `DataProvider.tsx`: sin sucursales creadas, `inventario` sigue siendo la fuente de verdad
+     (cero cambio); con al menos una, el stock se calcula como SUMA de `stock_sucursal` al cargar.
+     `ajustarStock` acepta un `sucursalId` opcional para escribir en la sede correcta — pero
+     **ningún formulario del dashboard todavía deja elegir sede** al ajustar stock, queda anotado
+     en pendientes (falta el flujo explícito de "a qué sede asignas el stock actual", ver ahí).
+  - **Decisiones de permisos confirmadas con el usuario** (no asumidas): Laboratorio y Caja son
+    ambos **operativos** (`puede_gestionar()` — administrador o encargado gestionan sin permiso
+    explícito, igual que ventas/citas), a diferencia de Gastos/Descuentos que son admin-gated.
+  - Verificado tras cada feature: `npm test` (202/202, eran 176), `npx tsc --noEmit`, `npm run
+    lint` y `npm run build` limpios; rutas nuevas confirmadas con `curl` en modo mock
+    (`/dashboard/comisiones`, `/laboratorio`, `/caja`, `/sucursales`, todas 200).
+- **Por qué:** pedido explícito del usuario ("implementa todo lo que se pueda realizar para que
+  esté correctamente") tras confirmar el alcance exacto en varias rondas de preguntas — incluyendo
+  Multisedes en versión completa, pese a la recomendación inicial de no construirlo de forma
+  especulativa (el usuario lo confirmó explícitamente dos veces).
+- **Pendiente:** ver los 3 ítems nuevos en "Pendientes activos (no bloquean)" — probar la RLS de
+  sede contra Postgres real, construir el flujo de reparto de stock al crear la primera sucursal,
+  y conectar el selector de sede del topbar a los filtros de `citas`/`ventas` (hoy solo guarda la
+  preferencia, ninguna página la usa todavía).
 
 ### 2026-07-30 (19) — Modelo freemium real: plan Gratis permanente + prueba de 30 días para planes pagos
 - **Qué cambió:** el usuario notó que Inicio mostraba "Plan: Gratis · Estado: Prueba gratuita" y

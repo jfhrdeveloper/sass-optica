@@ -4,25 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
-import { NAV, type Hijo } from "@/lib/dashboard-nav";
+import { NAV, aplanarNav } from "@/lib/dashboard-nav";
 import { coincideBusqueda } from "@/lib/formato/texto";
 
 /* Navegación rápida (Ctrl+K / ⌘K) entre las 13+ secciones del dashboard —
    con el sidebar + tab bar mobile ya cubriendo la navegación por clic, esto
    cubre al usuario que prefiere no soltar el teclado (patrón de
-   ferdocs-web, proyecto hermano). Aplana `NAV` (links sueltos + hijos de
-   grupo) en una sola lista buscable, reusando la misma fuente única que
-   el sidebar y el tab bar para no listar una sección que no exista ahí. */
-type Item = { href: string; label: string; icon: Hijo["icon"]; grupo?: string; soloAdmin?: boolean; permiso?: string };
-
-function aplanar(nav: typeof NAV): Item[] {
-  const items: Item[] = [];
-  for (const n of nav) {
-    if (n.kind === "link") items.push({ href: n.href, label: n.label, icon: n.icon, soloAdmin: n.soloAdmin, permiso: n.permiso });
-    else for (const h of n.children) items.push({ href: h.href, label: h.label, icon: h.icon, grupo: n.label, soloAdmin: h.soloAdmin, permiso: h.permiso });
-  }
-  return items;
-}
+   ferdocs-web, proyecto hermano). `aplanarNav` (links sueltos + hijos de
+   grupo en una sola lista) vive en lib/dashboard-nav.ts — misma fuente que
+   reusa el editor de accesos rápidos de /dashboard. */
 
 export function CommandPalette() {
   const router = useRouter();
@@ -35,7 +25,7 @@ export function CommandPalette() {
   const esAdmin = empleado?.rol === "administrador";
   const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
 
-  const todos = useMemo(() => aplanar(NAV), []);
+  const todos = useMemo(() => aplanarNav(NAV), []);
   const filtrados = useMemo(() => {
     const base = todos.filter((i) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso));
     if (!q.trim()) return base;

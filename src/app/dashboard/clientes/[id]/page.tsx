@@ -1,17 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { User, History, Pencil } from "lucide-react";
-import { useData } from "@/components/providers/DataProvider";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X } from "lucide-react";
+import { useData, type ExamenOptometrico } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { useClienteForm } from "@/lib/hooks/useClienteForm";
 import { ClienteFormSlideOver } from "@/components/clientes/ClienteFormSlideOver";
 import { BotonWhatsApp } from "@/components/clientes/BotonWhatsApp";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato/date";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";
+
+/* Citas y exámenes de la ficha se paginan más chico que las listas del
+   dashboard (usePaginado usa 10 por defecto) — pedido explícito del
+   usuario: acá el objetivo es un resumen rápido del cliente, no un listado
+   completo. */
+const TAMANO_PAGINA_FICHA = 4;
+
+const EXAMEN_VACIO: Partial<ExamenOptometrico> = {};
 
 type EntradaAuditoria = { id: number; ts: string; accion: string };
 const ACCION_LABEL: Record<string, string> = { INSERT: "Creado", UPDATE: "Editado", DELETE: "Eliminado" };
@@ -26,7 +40,9 @@ function fmtDiop(n?: number): string {
 
 export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
-  const { clientes, citas, recetas, ventas } = useData();
+  const router = useRouter();
+  const toast = useToast();
+  const { clientes, citas, recetas, examenesOptometricos, addExamenOptometrico, ventas, deleteCliente, updateCliente } = useData();
   const { empleado } = useSession();
   const esAdmin = empleado?.rol === "administrador";
   const formEstado = useClienteForm();
@@ -39,6 +55,58 @@ export default function ClienteDetallePage() {
   const recetasDelCliente = cliente
     ? [...recetas].filter((r) => r.clienteId === cliente.id).sort((a, b) => b.fecha.localeCompare(a.fecha))
     : [];
+  const examenesDelCliente = cliente
+    ? [...examenesOptometricos].filter((e) => e.clienteId === cliente.id).sort((a, b) => b.fecha.localeCompare(a.fecha))
+    : [];
+  const { pagina: paginaCitas, setPagina: setPaginaCitas, totalPaginas: totalPaginasCitas, visibles: citasVisibles } =
+    usePaginado(citasDelCliente, TAMANO_PAGINA_FICHA);
+  const { pagina: paginaExamenes, setPagina: setPaginaExamenes, totalPaginas: totalPaginasExamenes, visibles: examenesVisibles } =
+    usePaginado(examenesDelCliente, TAMANO_PAGINA_FICHA);
+
+  /* Eliminar/Editar viven acá (dentro de la ficha), no en la fila de la
+     tabla de clientes/page.tsx — reusa el mismo `deleteCliente` (soft-delete
+     a la papelera) que ya tenía la lista, solo que acá redirige de vuelta al
+     no quedar nada que mostrar. */
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  async function eliminarCliente() {
+    if (!cliente) return;
+    setConfirmarEliminar(false);
+    await deleteCliente(cliente.id);
+    toast(`${cliente.nombres} eliminado.`);
+    router.push("/dashboard/clientes");
+  }
+
+  /* Notas editables sin pasar por el wizard de 2 pasos de
+     ClienteFormSlideOver — un textarea + guardar directo con `updateCliente`,
+     para el caso común de "corregir/agregar una nota" sin reabrir todo el
+     formulario de edición. */
+  const [editandoNotas, setEditandoNotas] = useState(false);
+  const [notasValor, setNotasValor] = useState("");
+  const [guardandoNotas, setGuardandoNotas] = useState(false);
+  function iniciarEdicionNotas() {
+    setNotasValor(cliente?.notas ?? "");
+    setEditandoNotas(true);
+  }
+  async function guardarNotas() {
+    if (!cliente) return;
+    setGuardandoNotas(true);
+    await updateCliente(cliente.id, { notas: notasValor || undefined });
+    setGuardandoNotas(false);
+    setEditandoNotas(false);
+  }
+
+  const [abiertoExamen, setAbiertoExamen] = useState(false);
+  const [examenForm, setExamenForm] = useState<Partial<ExamenOptometrico>>(EXAMEN_VACIO);
+  const [guardandoExamen, setGuardandoExamen] = useState(false);
+  async function onSubmitExamen(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cliente) return;
+    setGuardandoExamen(true);
+    await addExamenOptometrico({ ...examenForm, clienteId: cliente.id });
+    setGuardandoExamen(false);
+    setAbiertoExamen(false);
+    setExamenForm(EXAMEN_VACIO);
+  }
   const ventasDelCliente = cliente
     ? [...ventas].filter((v) => v.clienteId === cliente.id).sort((a, b) => b.fecha.localeCompare(a.fecha))
     : [];
@@ -75,6 +143,13 @@ export default function ClienteDetallePage() {
 
   return (
     <main>
+      {/* La ficha no tenía forma de volver a la lista salvo el botón "atrás"
+          del navegador — `.link` ya trae el underline azul animado de
+          izquierda a derecha (globals.css), no hace falta CSS nuevo. */}
+      <Link href="/dashboard/clientes" className="link inline-flex items-center gap-1.5 text-sm font-medium">
+        <ArrowLeft size={15} /> Clientes
+      </Link>
+
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">
@@ -85,9 +160,14 @@ export default function ClienteDetallePage() {
             <p className="text-xs text-slate-400 dark:text-slate-500">{cliente.documentoTipo} {cliente.documentoNumero ?? "—"}</p>
           </div>
         </div>
-        <button onClick={() => formEstado.editar(cliente)} className="btn-outline shrink-0 gap-1.5 px-3 py-1.5 text-xs">
-          <Pencil size={13} /> Editar
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button onClick={() => formEstado.editar(cliente)} className="btn-outline gap-1.5 px-3 py-1.5 text-xs">
+            <Pencil size={13} /> Editar
+          </button>
+          <button onClick={() => setConfirmarEliminar(true)} className="btn-outline gap-1.5 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10">
+            <Trash2 size={13} /> Eliminar
+          </button>
+        </div>
       </div>
 
       <div className="card mt-5 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -114,26 +194,59 @@ export default function ClienteDetallePage() {
         </div>
       </div>
 
-      {cliente.notas && (
-        <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">{cliente.notas}</p>
-      )}
+      <div className="mt-4">
+        {editandoNotas ? (
+          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+            <textarea
+              rows={3}
+              value={notasValor}
+              onChange={(e) => setNotasValor(e.target.value)}
+              placeholder="Notas del cliente…"
+              className="input w-full text-sm"
+              autoFocus
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <button onClick={() => setEditandoNotas(false)} className="btn-outline gap-1.5 px-3 py-1.5 text-xs">
+                <X size={13} /> Cancelar
+              </button>
+              <button onClick={guardarNotas} disabled={guardandoNotas} className="btn-primary gap-1.5 px-3 py-1.5 text-xs">
+                <Check size={13} /> {guardandoNotas ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </div>
+        ) : cliente.notas ? (
+          <div className="group flex items-start justify-between gap-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+            <p className="text-sm text-slate-600 dark:text-slate-300">{cliente.notas}</p>
+            <button onClick={iniciarEdicionNotas} title="Editar nota" aria-label="Editar nota" className="row-icon-btn shrink-0">
+              <Pencil size={13} />
+            </button>
+          </div>
+        ) : (
+          <button onClick={iniciarEdicionNotas} className="link-muted inline-flex items-center gap-1.5 text-sm">
+            <Plus size={14} /> Agregar nota
+          </button>
+        )}
+      </div>
 
       <div className="mt-8">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Citas ({citasDelCliente.length})</h2>
         {citasDelCliente.length === 0 ? (
           <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">Primera vez — todavía no tiene citas registradas.</p>
         ) : (
-          <ul className="mt-2 space-y-2">
-            {citasDelCliente.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
-                <div>
-                  <p className="text-slate-700 dark:text-slate-200">{formatearFecha(c.fechaHora)}</p>
-                  {c.motivo && <p className="text-xs text-slate-400 dark:text-slate-500">{c.motivo}</p>}
-                </div>
-                <span className={`badge ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>{ESTADO_CITA_LABEL[c.estado] ?? c.estado}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="mt-2 space-y-2">
+              {citasVisibles.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
+                  <div>
+                    <p className="text-slate-700 dark:text-slate-200">{formatearFecha(c.fechaHora)}</p>
+                    {c.motivo && <p className="text-xs text-slate-400 dark:text-slate-500">{c.motivo}</p>}
+                  </div>
+                  <span className={`badge ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>{ESTADO_CITA_LABEL[c.estado] ?? c.estado}</span>
+                </li>
+              ))}
+            </ul>
+            <Pagination pagina={paginaCitas} totalPaginas={totalPaginasCitas} onCambiar={setPaginaCitas} />
+          </>
         )}
       </div>
 
@@ -186,6 +299,85 @@ export default function ClienteDetallePage() {
         </div>
       )}
 
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Exámenes optométricos ({examenesDelCliente.length})</h2>
+          <button onClick={() => setAbiertoExamen(true)} className="btn-outline gap-1.5 px-3 py-1.5 text-xs">
+            <Plus size={13} /> Nuevo examen
+          </button>
+        </div>
+        {examenesDelCliente.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">Todavía no tiene exámenes registrados.</p>
+        ) : (
+          <>
+            <ul className="mt-2 space-y-3">
+              {examenesVisibles.map((ex) => (
+                <li key={ex.id} className="rounded-lg border border-slate-100 p-3 text-sm dark:border-slate-800">
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{formatearFecha(ex.fecha)}</span>
+
+                  {/* Desktop: tabla comparativa OD/OI. Mobile: 2 tarjetas apiladas
+                      (evita el scroll horizontal de una tabla de 6 columnas en pantallas angostas). */}
+                  <div className="mt-2 hidden overflow-x-auto sm:block">
+                    <table className="w-full min-w-[360px] text-xs">
+                      <thead>
+                        <tr className="text-slate-400 dark:text-slate-500">
+                          <th className="pb-1 pr-3 text-left font-normal"></th>
+                          <th className="pb-1 pr-3 text-left font-normal">AV s/c</th>
+                          <th className="pb-1 pr-3 text-left font-normal">AV c/c</th>
+                          <th className="pb-1 pr-3 text-left font-normal">K1</th>
+                          <th className="pb-1 pr-3 text-left font-normal">K2</th>
+                          <th className="pb-1 text-left font-normal">Eje K</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-slate-700 dark:text-slate-200">
+                        <tr>
+                          <td className="py-0.5 pr-3 font-medium text-slate-500 dark:text-slate-400">OD</td>
+                          <td className="py-0.5 pr-3">{ex.odAvSc ?? "—"}</td>
+                          <td className="py-0.5 pr-3">{ex.odAvCc ?? "—"}</td>
+                          <td className="py-0.5 pr-3">{ex.odK1 ?? "—"}</td>
+                          <td className="py-0.5 pr-3">{ex.odK2 ?? "—"}</td>
+                          <td className="py-0.5">{ex.odEjeK != null ? `${ex.odEjeK}°` : "—"}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-0.5 pr-3 font-medium text-slate-500 dark:text-slate-400">OI</td>
+                          <td className="py-0.5 pr-3">{ex.oiAvSc ?? "—"}</td>
+                          <td className="py-0.5 pr-3">{ex.oiAvCc ?? "—"}</td>
+                          <td className="py-0.5 pr-3">{ex.oiK1 ?? "—"}</td>
+                          <td className="py-0.5 pr-3">{ex.oiK2 ?? "—"}</td>
+                          <td className="py-0.5">{ex.oiEjeK != null ? `${ex.oiEjeK}°` : "—"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:hidden">
+                    {([
+                      { ojo: "OD", avSc: ex.odAvSc, avCc: ex.odAvCc, k1: ex.odK1, k2: ex.odK2, ejeK: ex.odEjeK },
+                      { ojo: "OI", avSc: ex.oiAvSc, avCc: ex.oiAvCc, k1: ex.oiK1, k2: ex.oiK2, ejeK: ex.oiEjeK },
+                    ] as const).map((o) => (
+                      <div key={o.ojo} className="rounded-lg bg-slate-50 p-2 text-xs dark:bg-slate-900">
+                        <p className="mb-1 font-medium text-slate-500 dark:text-slate-400">{o.ojo}</p>
+                        <p className="text-slate-700 dark:text-slate-200">AV s/c: {o.avSc ?? "—"}</p>
+                        <p className="text-slate-700 dark:text-slate-200">AV c/c: {o.avCc ?? "—"}</p>
+                        <p className="text-slate-700 dark:text-slate-200">K1/K2: {o.k1 ?? "—"} / {o.k2 ?? "—"}</p>
+                        <p className="text-slate-700 dark:text-slate-200">Eje K: {o.ejeK != null ? `${o.ejeK}°` : "—"}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {ex.anamnesis && (
+                    <p className="mt-2 rounded bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300"><strong>Anamnesis:</strong> {ex.anamnesis}</p>
+                  )}
+                  {ex.notas && (
+                    <p className="mt-1.5 rounded bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">{ex.notas}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Pagination pagina={paginaExamenes} totalPaginas={totalPaginasExamenes} onCambiar={setPaginaExamenes} />
+          </>
+        )}
+      </div>
+
       {ventasDelCliente.length > 0 && (
         <div className="mt-8">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Compras ({ventasDelCliente.length})</h2>
@@ -217,6 +409,77 @@ export default function ClienteDetallePage() {
       )}
 
       <ClienteFormSlideOver estado={formEstado} />
+
+      <ConfirmDialog
+        abierto={confirmarEliminar}
+        titulo="¿Eliminar cliente?"
+        mensaje={`${cliente.nombres} ${cliente.apellidos} pasará a la papelera de Clientes: podrás restaurarlo durante 30 días, después se elimina definitivamente (junto con sus citas y recetas).`}
+        confirmarTexto="Eliminar"
+        onConfirmar={eliminarCliente}
+        onCancelar={() => setConfirmarEliminar(false)}
+      />
+
+      <SlideOver abierto={abiertoExamen} onClose={() => setAbiertoExamen(false)} titulo="Nuevo examen optométrico">
+        <form onSubmit={onSubmitExamen} className="space-y-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Agudeza visual</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OD sin corrección</label>
+              <input placeholder="20/40" value={examenForm.odAvSc ?? ""} onChange={(e) => setExamenForm({ ...examenForm, odAvSc: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OD con corrección</label>
+              <input placeholder="20/20" value={examenForm.odAvCc ?? ""} onChange={(e) => setExamenForm({ ...examenForm, odAvCc: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OI sin corrección</label>
+              <input placeholder="20/50" value={examenForm.oiAvSc ?? ""} onChange={(e) => setExamenForm({ ...examenForm, oiAvSc: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OI con corrección</label>
+              <input placeholder="20/20" value={examenForm.oiAvCc ?? ""} onChange={(e) => setExamenForm({ ...examenForm, oiAvCc: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+          </div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Queratometría</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OD K1</label>
+              <input type="number" step="0.01" value={examenForm.odK1 ?? ""} onChange={(e) => setExamenForm({ ...examenForm, odK1: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OD K2</label>
+              <input type="number" step="0.01" value={examenForm.odK2 ?? ""} onChange={(e) => setExamenForm({ ...examenForm, odK2: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OD eje</label>
+              <input type="number" min={0} max={180} value={examenForm.odEjeK ?? ""} onChange={(e) => setExamenForm({ ...examenForm, odEjeK: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OI K1</label>
+              <input type="number" step="0.01" value={examenForm.oiK1 ?? ""} onChange={(e) => setExamenForm({ ...examenForm, oiK1: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OI K2</label>
+              <input type="number" step="0.01" value={examenForm.oiK2 ?? ""} onChange={(e) => setExamenForm({ ...examenForm, oiK2: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">OI eje</label>
+              <input type="number" min={0} max={180} value={examenForm.oiEjeK ?? ""} onChange={(e) => setExamenForm({ ...examenForm, oiEjeK: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Anamnesis</label>
+            <textarea rows={3} value={examenForm.anamnesis ?? ""} onChange={(e) => setExamenForm({ ...examenForm, anamnesis: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Notas (opcional)</label>
+            <textarea rows={2} value={examenForm.notas ?? ""} onChange={(e) => setExamenForm({ ...examenForm, notas: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+          </div>
+          <button type="submit" disabled={guardandoExamen} className="btn-primary w-full">
+            {guardandoExamen ? "Guardando…" : "Guardar examen"}
+          </button>
+        </form>
+      </SlideOver>
     </main>
   );
 }
