@@ -6,7 +6,7 @@ import { Check, Sparkles } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import {
   PLANES, precioSegunCiclo, ahorroAnual, etiquetaOferta, descripcionOferta,
-  type CicloFacturacion,
+  LIMITE_EMPLEADOS_GRATIS, LIMITE_VENTAS_MES_GRATIS, type CicloFacturacion,
 } from "@/lib/precios";
 
 /* Precios de la landing. Los montos, el descuento anual y los meses de
@@ -66,10 +66,10 @@ export function PreciosSection() {
           <ul className="mt-4 flex-1 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
             <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Clientes, citas y recetas</li>
             <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Ventas e inventario</li>
-            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta 2 empleados</li>
-            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta 30 ventas al mes</li>
+            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta {LIMITE_EMPLEADOS_GRATIS} empleados</li>
+            <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta {LIMITE_VENTAS_MES_GRATIS} ventas al mes</li>
           </ul>
-          <Link href="/registro" className="btn-outline mt-4 w-full">Crear cuenta gratis</Link>
+          <Link href="/registro?plan=gratis" className="btn-outline mt-4 w-full">Crear cuenta gratis</Link>
         </div>
 
         {PLANES.map((p) => {
@@ -94,8 +94,8 @@ export function PreciosSection() {
                   </li>
                 ))}
               </ul>
-              <Link href="/registro" className={p.destacado ? "btn-primary mt-4 w-full" : "btn-outline mt-4 w-full"}>
-                Empezar con {p.nombre}
+              <Link href={`/registro?plan=${p.id}`} className={p.destacado ? "btn-primary mt-4 w-full" : "btn-outline mt-4 w-full"}>
+                Probar 30 días · {p.nombre}
               </Link>
             </div>
           );

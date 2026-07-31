@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
 import { DashboardTopbar } from "@/components/dashboard/DashboardTopbar";
 import { BottomTabBar } from "@/components/dashboard/BottomTabBar";
+import { CommandPalette } from "@/components/dashboard/CommandPalette";
+import { WelcomePlanModal } from "@/components/dashboard/WelcomePlanModal";
 
 const CLAVE_COLAPSADO = "sidebar-colapsado";
 
@@ -43,6 +45,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <BottomTabBar />
+      <CommandPalette />
+      <WelcomePlanModal />
     </div>
   );
 }

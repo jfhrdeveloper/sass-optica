@@ -58,9 +58,14 @@ export default function ProveedoresPage() {
   }
 
   async function eliminar(id: string) {
+    const p = proveedores.find((pr) => pr.id === id);
     await deleteProveedor(id);
     setConfirmandoId(null);
-    toast("Proveedor eliminado.", "info");
+    if (p) {
+      toast("Proveedor eliminado.", "info", { label: "Deshacer", onClick: () => { void addProveedor(p); } });
+    } else {
+      toast("Proveedor eliminado.", "info");
+    }
   }
 
   return (
@@ -82,7 +87,7 @@ export default function ProveedoresPage() {
             <thead>
               <tr>
                 <th className="table-head-cell">Nombre</th>
-                <th className="table-head-cell">Contacto</th>
+                <th className="table-head-cell hidden md:table-cell">Contacto</th>
                 <th className="table-head-cell">Teléfono</th>
                 <th className="table-head-cell">Estado</th>
                 <th className="table-head-cell text-right">Acciones</th>
@@ -100,7 +105,7 @@ export default function ProveedoresPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{p.contacto ?? "—"}</td>
+                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{p.contacto ?? "—"}</td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">
                     {p.telefono ? (
                       <span className="flex items-center gap-2">

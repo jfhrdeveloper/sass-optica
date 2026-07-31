@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, Trash2 } from "lucide-react";
+import { Receipt, Trash2, Printer } from "lucide-react";
 import { useData, type Venta, type VentaItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -9,6 +9,10 @@ import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 import { buscarDescuentoValido, montoDescuento } from "@/lib/descuentos";
+import { construirHtmlRecibo } from "@/lib/recibo";
+import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
+import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
+import { LimitePlanBanner } from "@/components/dashboard/LimitePlanBanner";
 
 const IGV = 0.18;
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;
@@ -26,8 +30,17 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function VentasPage() {
-  const { ventas, ventaItems, clientes, productos, descuentos, addVenta, anularVenta, updateDescuento } = useData();
+  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, addVenta, anularVenta, updateDescuento } = useData();
   const toast = useToast();
+
+  /* Límite de 30 ventas/mes del plan Gratis (freemium) — este chequeo del
+     lado del cliente es solo UX inmediata (evita que el usuario arme todo
+     el ticket para recién enterarse); la aplicación real es el trigger de
+     la base (bloquear_venta_limite_gratis, supabase-schema.sql), porque
+     `ventas` se inserta directo desde el navegador y un chequeo solo-cliente
+     sería bypasseable con la propia sesión del negocio. */
+  const ventasEsteMes = useMemo(() => contarVentasDelMes(ventas), [ventas]);
+  const alLimiteVentas = suscripcion?.plan === "gratis" && !puedeRegistrarVenta(suscripcion.plan, ventasEsteMes);
   const [clienteId, setClienteId] = useState("");
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -94,14 +107,18 @@ export default function VentasPage() {
   async function confirmarVenta() {
     if (items.length === 0) return;
     setGuardando(true);
-    await addVenta(
+    const { id, error } = await addVenta(
       { clienteId: clienteId || undefined, subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total },
       items,
     );
+    setGuardando(false);
+    if (!id) {
+      toast(error ?? "No se pudo registrar la venta.", "error");
+      return; // no limpia el ticket: el usuario no debería tener que rearmarlo
+    }
     if (descuentoAplicado) {
       await updateDescuento(descuentoAplicado.id, { usos: descuentoAplicado.usos + 1 });
     }
-    setGuardando(false);
     setItems([]);
     setClienteId("");
     setCodigoDescuento("");
@@ -114,6 +131,26 @@ export default function VentasPage() {
     return c ? `${c.nombres} ${c.apellidos}` : "—";
   };
 
+  /* Ventana nueva con `document.write` + `print()` — patrón estándar para un
+     recibo de una sola vez sin librería de PDF: el HTML ya trae su propio
+     `<style>` (ver lib/recibo.ts), así que no depende de los estilos de la
+     app ni se ve afectado por el dark mode del dashboard. */
+  function imprimirRecibo(v: Venta) {
+    const html = construirHtmlRecibo({
+      negocioNombre: negocio?.nombre ?? "Óptica",
+      negocioRuc: negocio?.ruc,
+      clienteNombre: nombreCliente(v.clienteId),
+      venta: v,
+      items: ventaItems.filter((it) => it.ventaId === v.id),
+    });
+    const ventana = window.open("", "_blank", "width=400,height=600");
+    if (!ventana) { toast("El navegador bloqueó la ventana de impresión.", "error"); return; }
+    ventana.document.write(html);
+    ventana.document.close();
+    ventana.focus();
+    ventana.print();
+  }
+
   const ordenadas = [...ventas]
     .filter((v) => filtroMetodo === "todos" || v.metodoPago === filtroMetodo)
     .filter((v) => !desde || v.fecha.slice(0, 10) >= desde)
@@ -124,6 +161,12 @@ export default function VentasPage() {
   return (
     <main>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ventas</h1>
+
+      {alLimiteVentas && (
+        <div className="mt-4">
+          <LimitePlanBanner mensaje={`Llegaste a las ${LIMITE_VENTAS_MES_GRATIS} ventas de este mes en el plan Gratis.`} />
+        </div>
+      )}
 
       <div className="card mt-4 p-4">
         <h2 className="font-medium">Nueva venta</h2>
@@ -228,7 +271,7 @@ export default function VentasPage() {
         </div>
 
         <button
-          onClick={confirmarVenta} disabled={guardando || items.length === 0}
+          onClick={confirmarVenta} disabled={guardando || items.length === 0 || alLimiteVentas}
           className="btn-primary mt-3 w-full"
         >
           {guardando ? "Guardando…" : "Confirmar venta"}
@@ -254,7 +297,7 @@ export default function VentasPage() {
               <tr>
                 <th className="table-head-cell">Fecha</th>
                 <th className="table-head-cell">Cliente</th>
-                <th className="table-head-cell">Método</th>
+                <th className="table-head-cell hidden md:table-cell">Método</th>
                 <th className="table-head-cell">Total</th>
                 <th className="table-head-cell">Estado</th>
                 <th className="table-head-cell text-right">Acciones</th>
@@ -272,7 +315,7 @@ export default function VentasPage() {
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(v.clienteId)}</span>
                     </div>
                   </td>
-                  <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
+                  <td className="table-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
                   <td className="table-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">
@@ -285,17 +328,27 @@ export default function VentasPage() {
                     </span>
                   </td>
                   <td className="table-cell text-right">
-                    {v.estado !== "anulada" && (
+                    <div className="flex justify-end gap-1">
                       <button
-                        onClick={() => setConfirmarAnular(v)}
-                        disabled={anulandoId === v.id}
-                        title="Anular venta"
-                        aria-label="Anular venta"
-                        className="row-icon-btn row-icon-btn-danger disabled:opacity-50"
+                        onClick={() => imprimirRecibo(v)}
+                        title="Imprimir recibo"
+                        aria-label={`Imprimir recibo de la venta a ${nombreCliente(v.clienteId)}`}
+                        className="row-icon-btn"
                       >
-                        <Trash2 size={15} />
+                        <Printer size={15} />
                       </button>
-                    )}
+                      {v.estado !== "anulada" && (
+                        <button
+                          onClick={() => setConfirmarAnular(v)}
+                          disabled={anulandoId === v.id}
+                          title="Anular venta"
+                          aria-label="Anular venta"
+                          className="row-icon-btn row-icon-btn-danger disabled:opacity-50"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

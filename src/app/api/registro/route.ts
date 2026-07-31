@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validarFormatoSlug } from "@/lib/slug";
 import { limiteExcedido, ipDelRequest } from "@/lib/rate-limit";
+import { esPlanIdValido, datosSuscripcionParaPlan } from "@/lib/precios";
 
 /* 5 altas cada 10 min por IP — generoso para un uso legítimo (nadie registra
    5 ópticas seguidas desde la misma red en 10 minutos) pero corta el loop
@@ -29,6 +30,8 @@ export async function POST(req: Request) {
   const apellidos     = String(body.apellidos ?? "").trim();
   const email          = String(body.email ?? "").trim().toLowerCase();
   const password       = String(body.password ?? "");
+  const planCandidato  = String(body.plan ?? "");
+  const planElegido    = esPlanIdValido(planCandidato) ? planCandidato : "gratis";
 
   /* ====== 1. Validación server-side (NUNCA confiar solo en el frontend) ====== */
   if (!nombreNegocio) return NextResponse.json({ error: "El nombre del negocio es obligatorio." }, { status: 400 });
@@ -101,12 +104,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No se pudo completar tu perfil. Intenta de nuevo." }, { status: 500 });
   }
 
-  /* ====== 6. Suscripción en trial (30 días — defaults de la tabla) ====== */
-  const { error: subErr } = await admin.from("suscripciones").insert({ negocio_id: negocio.id });
+  /* ====== 6. Suscripción según el plan elegido: "gratis" queda permanente
+     y activa de inmediato; "básico"/"premium" arrancan un trial de 30 días
+     sin pago (ver datosSuscripcionParaPlan, misma función que usan
+     /api/registro/completar y /api/suscripcion/probar-plan). ====== */
+  const { error: subErr } = await admin
+    .from("suscripciones")
+    .insert({ negocio_id: negocio.id, ...datosSuscripcionParaPlan(planElegido) });
   if (subErr) {
     await admin.auth.admin.deleteUser(userId); // rollback total
     await admin.from("negocios").delete().eq("id", negocio.id);
-    return NextResponse.json({ error: "No se pudo activar tu prueba gratuita. Intenta de nuevo." }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo activar tu plan. Intenta de nuevo." }, { status: 500 });
   }
 
   return NextResponse.json({ subdominio: negocio.subdominio });

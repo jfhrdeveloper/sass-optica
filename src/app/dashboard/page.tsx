@@ -1,16 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Users, CalendarDays, PackageX, ShoppingCart, Search, Truck, FileText, Package } from "lucide-react";
+import { Users, CalendarDays, PackageX, ShoppingCart, Truck, FileText, Package } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
 import { CoachTooltip } from "@/components/dashboard/CoachTooltip";
 import { ChangelogBanner } from "@/components/dashboard/ChangelogBanner";
-import { coincideBusqueda } from "@/lib/formato/texto";
 import { formatearFechaPE } from "@/lib/formato/date";
+import { nombrePlanSuscripcion } from "@/lib/precios";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -28,111 +26,6 @@ const ACCESOS_RAPIDOS = [
   { href: "/dashboard/productos", label: "Stock", icon: Package },
 ] as const;
 
-const MAX_RESULTADOS = 5;
-
-/* Buscador global de Inicio: en vez de tener que entrar a Clientes/Stock/
-   Proveedores por separado para ubicar algo, se busca una vez acá y salta
-   directo al registro (o a la sección, si el registro no tiene ficha propia
-   todavía). Cubre las 3 listas con identidad propia por nombre; citas/
-   cotizaciones/ventas son registros transaccionales sin ficha individual
-   navegable, así que quedan fuera de este buscador puntual. */
-function BuscadorGlobal() {
-  const router = useRouter();
-  const { clientes, productos, proveedores } = useData();
-  const [q, setQ] = useState("");
-  const [enfocado, setEnfocado] = useState(false);
-
-  const resultados = useMemo(() => {
-    if (!q.trim()) return null;
-    return {
-      clientes: clientes
-        .filter((c) => !c.eliminadoEn && coincideBusqueda(`${c.nombres} ${c.apellidos} ${c.documentoNumero ?? ""}`, q))
-        .slice(0, MAX_RESULTADOS),
-      productos: productos
-        .filter((p) => coincideBusqueda(`${p.nombre} ${p.codigo ?? ""} ${p.marca ?? ""}`, q))
-        .slice(0, MAX_RESULTADOS),
-      proveedores: proveedores
-        .filter((p) => coincideBusqueda(`${p.nombre} ${p.contacto ?? ""}`, q))
-        .slice(0, MAX_RESULTADOS),
-    };
-  }, [q, clientes, productos, proveedores]);
-
-  const hayResultados = resultados && (resultados.clientes.length > 0 || resultados.productos.length > 0 || resultados.proveedores.length > 0);
-
-  function ir(href: string) {
-    router.push(href);
-    setQ("");
-    setEnfocado(false);
-  }
-
-  return (
-    <div className="relative mt-4 max-w-md">
-      <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onFocus={() => setEnfocado(true)}
-        onBlur={() => setTimeout(() => setEnfocado(false), 150)}
-        placeholder="Buscar cliente, producto o proveedor…"
-        className="input w-full pl-9 text-sm"
-      />
-
-      {enfocado && q.trim() && (
-        <div className="card absolute z-30 mt-1 max-h-96 w-full overflow-y-auto p-2 shadow-lg">
-          {!hayResultados ? (
-            <p className="p-3 text-sm text-slate-400 dark:text-slate-500">Sin resultados para &quot;{q}&quot;.</p>
-          ) : (
-            <>
-              {resultados!.clientes.length > 0 && (
-                <div className="mb-1">
-                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Clientes</p>
-                  {resultados!.clientes.map((c) => (
-                    <button
-                      key={c.id}
-                      onMouseDown={() => ir(`/dashboard/clientes/${c.id}`)}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      <Users size={14} className="shrink-0 text-slate-400" /> {c.nombres} {c.apellidos}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {resultados!.proveedores.length > 0 && (
-                <div className="mb-1">
-                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Proveedores</p>
-                  {resultados!.proveedores.map((p) => (
-                    <button
-                      key={p.id}
-                      onMouseDown={() => ir(`/dashboard/proveedores/${p.id}`)}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      <Truck size={14} className="shrink-0 text-slate-400" /> {p.nombre}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {resultados!.productos.length > 0 && (
-                <div>
-                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Productos</p>
-                  {resultados!.productos.map((p) => (
-                    <button
-                      key={p.id}
-                      onMouseDown={() => ir("/dashboard/productos")}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      <Package size={14} className="shrink-0 text-slate-400" /> {p.nombre}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* Resumen del dashboard: confirma que auth + tenant + roles + módulos de
    dominio funcionan de punta a punta, con accesos rápidos a cada módulo. */
 export default function DashboardPage() {
@@ -148,17 +41,34 @@ export default function DashboardPage() {
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Hola, {empleado?.nombres || "—"}</h1>
       <p className="text-sm text-slate-500 dark:text-slate-400">{negocio?.nombre} · rol <span className="capitalize">{empleado?.rol}</span></p>
 
-      <BuscadorGlobal />
-
       {suscripcion?.estado === "trial" && (
         <p className="badge badge-warning mt-4 px-3 py-1.5">
-          Estás en prueba gratuita hasta el {formatearFechaPE(suscripcion.trialFin)}.
+          Estás probando {nombrePlanSuscripcion(suscripcion.plan)} hasta el {formatearFechaPE(suscripcion.trialFin)}. Si no activas el pago, vuelves al plan Gratis.
         </p>
       )}
       {suscripcion?.estado === "vencida" && (
         <p className="badge badge-danger mt-4 px-3 py-1.5">
-          Tu prueba gratuita venció. <Link href="/dashboard/facturacion" className="ml-1 font-semibold transition-colors hover:text-red-900 dark:hover:text-red-200">Activa tu plan</Link>
+          Tu suscripción venció. <Link href="/dashboard/facturacion" className="ml-1 font-semibold transition-colors hover:text-red-900 dark:hover:text-red-200">Activa tu plan</Link>
         </p>
+      )}
+
+      {/* Alerta proactiva de stock bajo — el stat card de abajo ya cuenta
+         cuántos productos están en ese estado, pero con el mismo peso visual
+         que "Clientes" o "Ventas totales" pasa desapercibido. Este banner
+         nombra los productos afectados, igual que las alertas de
+         trial/vencido de arriba. */}
+      {stockBajo.length > 0 && (
+        <Link
+          href="/dashboard/productos"
+          className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+        >
+          <PackageX size={16} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>{stockBajo.length}</strong> {stockBajo.length === 1 ? "producto está" : "productos están"} con stock bajo:{" "}
+            {stockBajo.slice(0, 3).map((p) => p.nombre).join(", ")}
+            {stockBajo.length > 3 ? ` y ${stockBajo.length - 3} más` : ""}.
+          </span>
+        </Link>
       )}
 
       <ChangelogBanner negocioId={negocio?.id} />
@@ -197,11 +107,6 @@ export default function DashboardPage() {
           );
         })}
       </div>
-
-      <dl className="mt-8 space-y-1 text-xs text-slate-400 dark:text-slate-500">
-        <div>Negocio: {negocio?.nombre} ({negocio?.subdominio})</div>
-        <div>Plan: {suscripcion?.plan ?? "—"} · Estado: {suscripcion?.estado ?? "—"}</div>
-      </dl>
     </main>
   );
 }

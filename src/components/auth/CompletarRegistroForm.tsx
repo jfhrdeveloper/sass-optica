@@ -5,8 +5,15 @@ import Link from "next/link";
 import { Check, Loader2, X } from "lucide-react";
 import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { PLANES, type PlanId } from "@/lib/precios";
 
 type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponible" | "invalido";
+
+const OPCIONES_PLAN = [
+  { valor: "gratis", label: "Gratis" },
+  ...PLANES.map((p) => ({ valor: p.id, label: p.nombre })),
+];
 
 /* ================= COMPLETAR REGISTRO (cuentas de Google) =================
    Última parada de "Registrarse con Google" (ver AuthPage.tsx →
@@ -16,9 +23,10 @@ type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponib
    de Google. Reutiliza el mismo picker de subdominio en vivo del paso 1 de
    RegistroForm (duplicado a propósito: es un flujo distinto —sin
    contraseña, sin paso 2— no una variación del mismo formulario). */
-export function CompletarRegistroForm({ email }: { email: string }) {
+export function CompletarRegistroForm({ email, planInicial }: { email: string; planInicial: PlanId }) {
   const [nombreNegocio, setNombreNegocio] = useState("");
   const [formato, setFormato] = useState<FormatoSlug>("guiones");
+  const [plan, setPlan] = useState<PlanId>(planInicial);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -75,7 +83,7 @@ export function CompletarRegistroForm({ email }: { email: string }) {
     const res = await fetch("/api/registro/completar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombreNegocio, subdominio: slug }),
+      body: JSON.stringify({ nombreNegocio, subdominio: slug, plan }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -85,7 +93,7 @@ export function CompletarRegistroForm({ email }: { email: string }) {
     }
 
     const port = typeof window !== "undefined" && window.location.port ? `:${window.location.port}` : "";
-    window.location.href = `${window.location.protocol}//${data.subdominio}.${rootDomain}${port}/dashboard`;
+    window.location.href = `${window.location.protocol}//${data.subdominio}.${rootDomain}${port}/dashboard?bienvenida=${plan}`;
   }
 
   return (
@@ -99,6 +107,17 @@ export function CompletarRegistroForm({ email }: { email: string }) {
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu plan</p>
+            <SegmentedControl
+              aria-label="Elige tu plan"
+              variante="opciones"
+              valor={plan}
+              onChange={(v) => setPlan(v as PlanId)}
+              opciones={OPCIONES_PLAN}
+              className="mt-2"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="completar-negocio">Nombre de tu óptica</label>
             <input

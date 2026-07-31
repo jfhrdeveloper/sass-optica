@@ -4,9 +4,13 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
 
 type ToastTipo = "success" | "error" | "info";
-interface ToastItem { id: string; mensaje: string; tipo: ToastTipo }
+interface ToastAccion { label: string; onClick: () => void }
+interface ToastItem { id: string; mensaje: string; tipo: ToastTipo; accion?: ToastAccion }
 
 const DURACION_MS = 3500;
+/* Más larga cuando trae un "Deshacer": 3.5s alcanza para leer el mensaje,
+   pero no para decidir y hacer clic en la acción. */
+const DURACION_CON_ACCION_MS = 6000;
 
 const ICONO: Record<ToastTipo, typeof CheckCircle2> = {
   success: CheckCircle2, error: XCircle, info: Info,
@@ -17,7 +21,7 @@ const ESTILO: Record<ToastTipo, string> = {
   info: "border-l-4 border-primary [&>svg]:text-primary",
 };
 
-const Ctx = createContext<((mensaje: string, tipo?: ToastTipo) => void) | null>(null);
+const Ctx = createContext<((mensaje: string, tipo?: ToastTipo, accion?: ToastAccion) => void) | null>(null);
 
 /* Confirmación transitoria tras guardar/eliminar — antes no había ningún
    feedback más allá del texto del botón cambiando a "Guardando…". Viewport
@@ -31,10 +35,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const toast = useCallback((mensaje: string, tipo: ToastTipo = "success") => {
+  const toast = useCallback((mensaje: string, tipo: ToastTipo = "success", accion?: ToastAccion) => {
     const id = crypto.randomUUID();
-    setItems((prev) => [...prev, { id, mensaje, tipo }]);
-    setTimeout(() => descartar(id), DURACION_MS);
+    setItems((prev) => [...prev, { id, mensaje, tipo, accion }]);
+    setTimeout(() => descartar(id), accion ? DURACION_CON_ACCION_MS : DURACION_MS);
   }, [descartar]);
 
   const value = useMemo(() => toast, [toast]);
@@ -53,7 +57,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               className={`card pointer-events-auto flex w-72 items-start gap-2.5 px-3.5 py-3 text-sm shadow-lg ${ESTILO[t.tipo]}`}
             >
               <Icono size={18} className="mt-0.5 shrink-0" />
-              <p className="flex-1 text-slate-700 dark:text-slate-200">{t.mensaje}</p>
+              <div className="flex-1">
+                <p className="text-slate-700 dark:text-slate-200">{t.mensaje}</p>
+                {t.accion && (
+                  <button
+                    onClick={() => { t.accion!.onClick(); descartar(t.id); }}
+                    className="mt-1 text-sm font-semibold text-primary hover:underline"
+                  >
+                    {t.accion.label}
+                  </button>
+                )}
+              </div>
               <button onClick={() => descartar(t.id)} aria-label="Descartar notificación" className="shrink-0 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={15} />
               </button>

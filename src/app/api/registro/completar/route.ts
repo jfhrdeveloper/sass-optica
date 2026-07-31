@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validarFormatoSlug } from "@/lib/slug";
+import { esPlanIdValido, datosSuscripcionParaPlan } from "@/lib/precios";
 
 /* ================= COMPLETAR REGISTRO (cuentas de Google) =================
    Contraparte de /api/registro para quien llegó por "Registrarse con
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const nombreNegocio = String(body.nombreNegocio ?? "").trim();
   const subdominio    = String(body.subdominio ?? "").trim().toLowerCase();
+  const planCandidato = String(body.plan ?? "");
+  const planElegido   = esPlanIdValido(planCandidato) ? planCandidato : "gratis";
 
   if (!nombreNegocio) return NextResponse.json({ error: "El nombre del negocio es obligatorio." }, { status: 400 });
   const formato = validarFormatoSlug(subdominio);
@@ -77,11 +80,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No se pudo completar tu perfil. Intenta de nuevo." }, { status: 500 });
   }
 
-  const { error: subErr } = await admin.from("suscripciones").insert({ negocio_id: negocio.id });
+  const { error: subErr } = await admin
+    .from("suscripciones")
+    .insert({ negocio_id: negocio.id, ...datosSuscripcionParaPlan(planElegido) });
   if (subErr) {
     await admin.from("empleados").update({ negocio_id: null, rol: "trabajador" }).eq("id", user.id); // rollback
     await admin.from("negocios").delete().eq("id", negocio.id);
-    return NextResponse.json({ error: "No se pudo activar tu prueba gratuita. Intenta de nuevo." }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo activar tu plan. Intenta de nuevo." }, { status: 500 });
   }
 
   return NextResponse.json({ subdominio: negocio.subdominio });

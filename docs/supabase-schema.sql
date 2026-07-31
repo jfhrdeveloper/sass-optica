@@ -27,7 +27,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type plan_suscripcion as enum ('trial', 'basico', 'premium');
+  create type plan_suscripcion as enum ('gratis', 'basico', 'premium');
 exception when duplicate_object then null; end $$;
 
 -- ====== Trigger genérico updated_at ======
@@ -147,20 +147,25 @@ create trigger trg_empleados_lock_privilegios
   before update on public.empleados
   for each row execute function public.bloquear_autoescalada_empleado();
 
--- suscripciones (una por negocio: trial → básico/premium vía Culqi) --------
+-- suscripciones (una por negocio: gratis permanente ↔ trial de 30 días de un
+-- plan pago → básico/premium vía Culqi. `estado='trial'` SIEMPRE va con un
+-- plan pago (nunca con 'gratis') — lo garantiza el check de abajo. Si el
+-- trial vence sin pago, el cron `revertir_trials_a_gratis` (más abajo)
+-- vuelve el negocio a plan='gratis'/estado='activa', nunca lo bloquea. -----
 create table if not exists public.suscripciones (
   id                     uuid primary key default gen_random_uuid(),
   negocio_id             uuid not null unique references public.negocios(id) on delete cascade,
-  plan                   plan_suscripcion not null default 'trial',
-  estado                 estado_suscripcion not null default 'trial',
-  trial_inicio           date not null default current_date,
-  trial_fin              date not null default (current_date + interval '30 days'),
+  plan                   plan_suscripcion not null default 'gratis',
+  estado                 estado_suscripcion not null default 'activa',
+  trial_inicio           date,
+  trial_fin              date,
   fecha_pago_ultimo      date,
   proximo_cobro          date,
   culqi_customer_id      text,
   culqi_subscription_id  text,
   created_at             timestamptz not null default now(),
-  updated_at             timestamptz not null default now()
+  updated_at             timestamptz not null default now(),
+  constraint suscripciones_gratis_sin_trial check (not (plan = 'gratis' and estado = 'trial'))
 );
 create index if not exists idx_suscripciones_negocio on public.suscripciones(negocio_id);
 create index if not exists idx_suscripciones_estado  on public.suscripciones(estado);
@@ -220,6 +225,49 @@ create index if not exists idx_eventos_uso_negocio_fecha on public.eventos_uso(n
 -- Purga de eventos con más de 90 días — no hace falta el historial completo
 -- para siempre, solo la ventana reciente que muestra el admin panel.
 create index if not exists idx_eventos_uso_fecha on public.eventos_uso(created_at);
+
+-- libro_reclamaciones (D.S. 011-2011-PCE — exigido por INDECOPI) -----------
+-- Reclamos/quejas de CUALQUIER consumidor sobre SaaS Óptica (el proveedor
+-- del servicio, no un negocio-tenant individual) — NO tiene negocio_id, es
+-- global. Alta EXCLUSIVA vía service_role desde /api/libro-reclamaciones
+-- (rate-limitado, ver rate-limit.ts): nunca desde el cliente autenticado ni
+-- anon directo, mismo criterio deny-all que pagos_saas, porque contiene PII
+-- de un tercero (el reclamante) que ningún negocio-tenant debe poder leer.
+-- `numero` es el correlativo que la ley exige entregarle al consumidor como
+-- constancia (se genera solo, vía secuencia — nunca a mano ni por conteo,
+-- que tendría condición de carrera).
+create sequence if not exists public.libro_reclamaciones_numero_seq start 1;
+
+create table if not exists public.libro_reclamaciones (
+  id                           uuid primary key default gen_random_uuid(),
+  numero                       text not null unique
+    default ('RC-' || lpad(nextval('public.libro_reclamaciones_numero_seq')::text, 6, '0')),
+  tipo                         text not null check (tipo in ('reclamo', 'queja')),
+  consumidor_nombres           text not null,
+  consumidor_apellidos         text not null,
+  consumidor_documento_tipo    text not null,
+  consumidor_documento_numero  text not null,
+  consumidor_domicilio         text not null,
+  consumidor_telefono          text,
+  consumidor_email             text not null,
+  es_menor_edad                boolean not null default false,
+  -- Obligatorio (a nivel de aplicación) si es_menor_edad — la hoja oficial
+  -- de INDECOPI exige el nombre del padre/madre/apoderado en ese caso.
+  apoderado_nombre             text,
+  bien_tipo                    text not null check (bien_tipo in ('producto', 'servicio')),
+  bien_descripcion             text not null,
+  monto_reclamado              numeric(10,2),
+  detalle                      text not null,
+  pedido                       text not null,
+  estado                       text not null default 'pendiente' check (estado in ('pendiente', 'atendido')),
+  respuesta                    text,
+  created_at                   timestamptz not null default now(),
+  updated_at                   timestamptz not null default now()
+);
+create trigger trg_libro_reclamaciones_updated_at
+  before update on public.libro_reclamaciones
+  for each row execute function public.set_updated_at();
+create index if not exists idx_libro_reclamaciones_fecha on public.libro_reclamaciones(created_at desc);
 
 -- ================================================================
 -- TRIGGERS updated_at
@@ -339,6 +387,12 @@ drop policy if exists eventos_uso_insert on public.eventos_uso;
 create policy eventos_uso_insert on public.eventos_uso for insert
   with check (negocio_id = public.current_tenant());
 
+alter table public.libro_reclamaciones enable row level security;
+-- libro_reclamaciones: sin policies para anon/authenticated a propósito —
+-- deny-all, igual que pagos_saas. El alta pasa por service_role
+-- (/api/libro-reclamaciones) y la lectura/respuesta por service_role
+-- (admin-panel, membresía en super_admins) — nunca el cliente autenticado.
+
 -- ====== SUPER_ADMINS ======
 -- Cada quien solo confirma SU PROPIA membresía (lo usa el proxy para el
 -- gate de acceso a admin.dominio). Nadie escribe desde el cliente — el alta
@@ -376,10 +430,14 @@ create policy empleados_admin_update on public.empleados for update
 -- ====== SUSCRIPCIONES ======
 -- Lectura para TODO empleado del negocio (no solo administrador): el proxy
 -- necesita poder chequear el estado para cualquier rol, para bloquear el
--- acceso si el trial venció sin pago (brief §4/§10) — sin esto, RLS le
--- ocultaría la fila a encargado/trabajador y el bloqueo nunca se activaría
--- para ellos. Los cambios de estado los hace SIEMPRE service_role, vía
--- webhook/cargo de Culqi y el cron de expiración de trial — nunca el cliente.
+-- acceso si una suscripción pagada queda `vencida` (cobro recurrente sin
+-- renovar — brief §4/§10) — sin esto, RLS le ocultaría la fila a encargado/
+-- trabajador y el bloqueo nunca se activaría para ellos. Un trial de plan
+-- pago que vence SIN pago no pasa por acá: vuelve solo a plan='gratis' (ver
+-- el cron `revertir_trials_a_gratis` más abajo), nunca bloquea el acceso.
+-- Los cambios de plan/estado los hace SIEMPRE service_role, vía
+-- /api/registro, /api/suscripcion/probar-plan, webhook/cargo de Culqi y el
+-- cron de reversión de trial — nunca el cliente.
 drop policy if exists suscripciones_admin_read on public.suscripciones;
 drop policy if exists suscripciones_read on public.suscripciones;
 create policy suscripciones_read on public.suscripciones for select
@@ -569,6 +627,40 @@ create table if not exists public.venta_items (
   subtotal        numeric(10,2) not null default 0
 );
 create index if not exists idx_venta_items_venta on public.venta_items(venta_id);
+
+-- Límite de 30 ventas/mes del plan Gratis (freemium) — `ventas` se inserta
+-- directo desde el navegador (DataProvider.addVenta), a diferencia de
+-- empleados (que pasa 100% por /api/empleados/invitar con service_role), así
+-- que acá SÍ hace falta un trigger: RLS aísla tenants entre sí, pero no
+-- protege límites de negocio dentro del propio tenant — un check solo en el
+-- cliente sería bypasseable con la propia sesión del negocio. Mismo patrón
+-- que bloquear_cambio_subdominio/bloquear_autoescalada_empleado (trigger
+-- plano, sin security definer: solo lee filas que el propio tenant ya puede
+-- ver bajo RLS). ------------------------------------------------------------
+create or replace function public.bloquear_venta_limite_gratis()
+returns trigger language plpgsql as $$
+declare
+  v_plan plan_suscripcion;
+  v_conteo integer;
+begin
+  select plan into v_plan from public.suscripciones where negocio_id = new.negocio_id;
+  if v_plan = 'gratis' then
+    select count(*) into v_conteo
+      from public.ventas
+     where negocio_id = new.negocio_id
+       and estado <> 'anulada'
+       and date_trunc('month', fecha) = date_trunc('month', new.fecha);
+    if v_conteo >= 30 then
+      raise exception 'Llegaste al límite de 30 ventas del mes en el plan Gratis.';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_ventas_limite_gratis on public.ventas;
+create trigger trg_ventas_limite_gratis
+  before insert on public.ventas
+  for each row execute function public.bloquear_venta_limite_gratis();
 
 -- Cotizaciones (documento previo a la venta, sin comprometer stock — idea
 -- de UX tomada de research de competencia: comparar armazón+luna antes de
@@ -883,25 +975,32 @@ create policy "avatars_delete" on storage.objects for delete using (
   bucket_id = 'avatars' and auth.uid() = (storage.foldername(name))[1]::uuid);
 
 -- ================================================================
--- pg_cron: expiración diaria de trials vencidos sin pago (brief §4/§8)
+-- pg_cron: reversión diaria de trials de plan pago vencidos sin pago
+-- (freemium — brief §4/§8). Un trial que vence sin pago NUNCA bloquea el
+-- sistema: vuelve al negocio al plan Gratis permanente, con los límites de
+-- siempre. `vencida` queda reservado para el futuro (cobro recurrente que
+-- deja de renovarse, todavía no implementado) — este cron nunca produce ese
+-- estado.
 -- ================================================================
-create or replace function public.revisar_trials_vencidos()
+create or replace function public.revertir_trials_a_gratis()
 returns void language plpgsql security definer
 set search_path = public as $$
 begin
   update public.suscripciones
-     set estado = 'vencida'
+     set plan = 'gratis', estado = 'activa', trial_inicio = null, trial_fin = null
    where estado = 'trial'
      and trial_fin < current_date;
 end $$;
 
-revoke execute on function public.revisar_trials_vencidos() from public, anon, authenticated;
+revoke execute on function public.revertir_trials_a_gratis() from public, anon, authenticated;
 
 do $$ begin perform cron.unschedule('opticaly_revisar_trials');
 exception when others then null; end $$;
+do $$ begin perform cron.unschedule('opticaly_revertir_trials_gratis');
+exception when others then null; end $$;
 
-select cron.schedule('opticaly_revisar_trials', '0 3 * * *',
-  $$ select public.revisar_trials_vencidos(); $$);
+select cron.schedule('opticaly_revertir_trials_gratis', '0 3 * * *',
+  $$ select public.revertir_trials_a_gratis(); $$);
 
 -- ================================================================
 -- pg_cron: purga diaria de la papelera de clientes (más de 30 días

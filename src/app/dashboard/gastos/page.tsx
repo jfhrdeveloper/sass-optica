@@ -41,7 +41,7 @@ export default function GastosPage() {
 
   async function eliminar(g: Gasto) {
     await deleteGasto(g.id);
-    toast("Gasto eliminado.", "info");
+    toast("Gasto eliminado.", "info", { label: "Deshacer", onClick: () => { void addGasto(g); } });
   }
 
   const ordenados = [...gastos]
@@ -87,7 +87,7 @@ export default function GastosPage() {
               <tr>
                 <th className="table-head-cell">Fecha</th>
                 <th className="table-head-cell">Categoría</th>
-                <th className="table-head-cell">Descripción</th>
+                <th className="table-head-cell hidden md:table-cell">Descripción</th>
                 <th className="table-head-cell">Monto</th>
                 <th className="table-head-cell text-right">Acciones</th>
               </tr>
@@ -102,7 +102,7 @@ export default function GastosPage() {
                       <span className="font-medium capitalize text-slate-900 dark:text-slate-100">{g.categoria}</span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
+                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
                   <td className="table-cell font-medium text-slate-900 dark:text-slate-100">S/ {g.monto.toFixed(2)}</td>
                   <td className="table-cell text-right">
                     <button onClick={() => eliminar(g)} title="Eliminar" aria-label={`Eliminar gasto${g.descripcion ? `: ${g.descripcion}` : ""}`} className="row-icon-btn row-icon-btn-danger">

@@ -46,7 +46,7 @@ export default function DescuentosPage() {
 
   async function eliminar(d: Descuento) {
     await deleteDescuento(d.id);
-    toast(`Cupón ${d.codigo} eliminado.`, "info");
+    toast(`Cupón ${d.codigo} eliminado.`, "info", { label: "Deshacer", onClick: () => { void addDescuento(d); } });
   }
 
   return (
@@ -66,9 +66,9 @@ export default function DescuentosPage() {
               <tr>
                 <th className="table-head-cell">Código</th>
                 <th className="table-head-cell">Valor</th>
-                <th className="table-head-cell">Aplica a</th>
-                <th className="table-head-cell">Vigencia</th>
-                <th className="table-head-cell">Usos</th>
+                <th className="table-head-cell hidden md:table-cell">Aplica a</th>
+                <th className="table-head-cell hidden lg:table-cell">Vigencia</th>
+                <th className="table-head-cell hidden md:table-cell">Usos</th>
                 <th className="table-head-cell">Estado</th>
                 <th className="table-head-cell text-right">Acciones</th>
               </tr>
@@ -85,13 +85,13 @@ export default function DescuentosPage() {
                   <td className="table-cell text-slate-600 dark:text-slate-300">
                     {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
                   </td>
-                  <td className="table-cell text-slate-500 dark:text-slate-400">{APLICA_A_LABEL[d.aplicaA]}</td>
-                  <td className="table-cell text-slate-500 dark:text-slate-400">
+                  <td className="table-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{APLICA_A_LABEL[d.aplicaA]}</td>
+                  <td className="table-cell hidden lg:table-cell text-slate-500 dark:text-slate-400">
                     {d.vigenciaDesde || d.vigenciaHasta
                       ? `${d.vigenciaDesde ? formatearFechaPE(d.vigenciaDesde) : "—"} → ${d.vigenciaHasta ? formatearFechaPE(d.vigenciaHasta) : "—"}`
                       : "Sin límite"}
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
+                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
                   <td className="table-cell">
                     <label className="inline-flex cursor-pointer items-center gap-2">
                       <input

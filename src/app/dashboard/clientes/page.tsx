@@ -78,7 +78,7 @@ export default function ClientesPage() {
     if (!c) return;
     setConfirmarEliminar(null);
     await deleteCliente(c.id);
-    toast(`${c.nombres} eliminado. Puedes recuperarlo desde la papelera.`, "info");
+    toast(`${c.nombres} eliminado.`, "info", { label: "Deshacer", onClick: () => restaurar(c) });
   }
 
   async function restaurar(c: Cliente) {

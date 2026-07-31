@@ -40,7 +40,13 @@ export async function GET(request: Request) {
       const { data: empleado } = await supabase
         .from("empleados").select("negocio_id").eq("id", data.user.id).maybeSingle();
       if (!empleado?.negocio_id) {
-        return NextResponse.redirect(new URL("/registro/completar", origin));
+        /* `next` puede traer el plan elegido en el Paso 1 de RegistroForm
+           (?plan=..., ver AuthPage.tsx `conGoogle()`) — se preserva ese query
+           string en vez de descartarlo, para que /registro/completar sepa
+           qué plan mostrar preseleccionado. Cualquier otro destino de `next`
+           (ej. "/login") cae al bare "/registro/completar" de siempre. */
+        const destino = next.startsWith("/registro/completar") ? next : "/registro/completar";
+        return NextResponse.redirect(new URL(destino, origin));
       }
       return NextResponse.redirect(new URL(next, origin));
     }

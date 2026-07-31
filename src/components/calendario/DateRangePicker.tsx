@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
-import { DayPicker, type DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { es } from "react-day-picker/locale";
 import { CalendarDays, X } from "lucide-react";
 import { aCadenaISO, aFechaLocal, formatearFechaPE, ordenarRango } from "@/lib/formato/date";
+
+/* Ver el mismo comentario en DatePicker.tsx: se difiere la descarga de
+   react-day-picker al primer clic en vez de sumarla al JS inicial de cada
+   ruta con un filtro de fechas (citas, ventas, gastos, informes,
+   cotizaciones, descuentos). */
+const DayPicker = dynamic(() => import("react-day-picker").then((m) => m.DayPicker), { ssr: false });
 
 interface Props {
   desde: string;

@@ -25,6 +25,8 @@ import {
   rowToCotizacion, cotizacionToRow, rowToCotizacionItem,
 } from "@/lib/data/mappers";
 import { isMockMode } from "@/lib/mock/mock-mode";
+import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
+import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
 import {
   MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_GASTOS,
@@ -196,7 +198,7 @@ interface DataCtx {
   addProducto:    (p: Partial<Producto>, stockInicial: number, stockMinimo: number) => Promise<void>;
   updateProducto: (id: string, patch: Partial<Producto>) => Promise<void>;
   ajustarStock:   (productoId: string, tipo: string, cantidad: number, motivo?: string) => Promise<void>;
-  addVenta:       (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => Promise<string | null>;
+  addVenta:       (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => Promise<{ id: string | null; error: string | null }>;
   anularVenta:    (id: string) => Promise<void>;
   addGasto:       (g: Partial<Gasto>) => Promise<void>;
   deleteGasto:    (id: string) => Promise<void>;
@@ -209,7 +211,7 @@ interface DataCtx {
   addCotizacion:    (c: Partial<Cotizacion>, items: Array<Omit<CotizacionItem, "id" | "cotizacionId">>) => Promise<void>;
   updateCotizacion: (id: string, patch: Partial<Cotizacion>) => Promise<void>;
   deleteCotizacion: (id: string) => Promise<void>;
-  convertirCotizacionAVenta: (cotizacionId: string) => Promise<void>;
+  convertirCotizacionAVenta: (cotizacionId: string) => Promise<{ ok: boolean; error: string | null }>;
 }
 
 const Ctx = createContext<DataCtx | null>(null);
@@ -463,9 +465,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
      secuenciales (no hay transacción multi-tabla desde el cliente sin una
      función RPC en Postgres) — si el 2º paso fallara, quedaría una venta sin
      ítems; aceptable para el volumen de una óptica pyme, a revisar si se
-     vuelve un problema real. */
-  const addVenta = useCallback(async (v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>) => {
-    if (!negocio) return null;
+     vuelve un problema real.
+
+     Devuelve `{id, error}` en vez de solo el id (o null): antes el `error`
+     de Supabase se descartaba en silencio (`const { data } = ...`) y el
+     caller no tenía forma de distinguir "falló" de "no había nada que
+     hacer". El chequeo del límite de Gratis va PRIMERO, antes de tocar
+     Supabase/mock — evita el viaje de red para un caso que ya se sabe que
+     va a fallar (el trigger `bloquear_venta_limite_gratis` de la base es la
+     aplicación real; esto es solo para no depender del mensaje crudo de
+     Postgres y para que funcione igual en modo mock, que no tiene DB). */
+  const addVenta = useCallback(async (
+    v: Partial<Venta>, items: Array<Omit<VentaItem, "id" | "ventaId">>,
+  ): Promise<{ id: string | null; error: string | null }> => {
+    if (!negocio) return { id: null, error: "No hay negocio activo." };
+    if (suscripcion && !puedeRegistrarVenta(suscripcion.plan, contarVentasDelMes(ventas))) {
+      return { id: null, error: `Llegaste a las ${LIMITE_VENTAS_MES_GRATIS} ventas de este mes en el plan Gratis.` };
+    }
     if (mock) {
       const ventaId = crypto.randomUUID();
       setVentas((prev) => [...prev, {
@@ -476,10 +492,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       for (const it of items) {
         if (it.productoId) await ajustarStock(it.productoId, "salida", it.cantidad, `Venta ${ventaId}`);
       }
-      return ventaId;
+      return { id: ventaId, error: null };
     }
-    const { data } = await supabase.from("ventas").insert({ ...ventaToRow(v), negocio_id: negocio.id }).select("id").single();
-    if (!data) return null;
+    const { data, error } = await supabase.from("ventas").insert({ ...ventaToRow(v), negocio_id: negocio.id }).select("id").single();
+    if (error || !data) {
+      const limite = /límite de \d+ ventas/i.test(error?.message ?? "");
+      return { id: null, error: limite ? error!.message : "No se pudo registrar la venta." };
+    }
     const ventaId = String(data.id);
     if (items.length > 0) {
       await supabase.from("venta_items").insert(
@@ -496,8 +515,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await ajustarStock(it.productoId, "salida", it.cantidad, `Venta ${ventaId}`);
       }
     }
-    return ventaId;
-  }, [supabase, negocio, ajustarStock, mock]);
+    return { id: ventaId, error: null };
+  }, [supabase, negocio, suscripcion, ventas, ajustarStock, mock]);
 
   /* Anular ≠ borrar: la venta queda como registro (trazabilidad para SUNAT
      y para caja), pero el stock que descontó `addVenta` se devuelve vía
@@ -602,14 +621,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
      queda enlazada vía ventaId para no perder la trazabilidad. */
   const convertirCotizacionAVenta = useCallback(async (cotizacionId: string) => {
     const cot = cotizaciones.find((c) => c.id === cotizacionId);
-    if (!cot) return;
+    if (!cot) return { ok: false, error: "Cotización no encontrada." };
     const items = cotizacionItems.filter((it) => it.cotizacionId === cotizacionId);
-    const ventaId = await addVenta(
+    const { id: ventaId, error } = await addVenta(
       { clienteId: cot.clienteId, subtotal: cot.subtotal, igv: cot.igv, total: cot.total, notas: cot.notas },
       items.map((it) => ({ productoId: it.productoId, descripcion: it.descripcion, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.subtotal })),
     );
-    if (!ventaId) return;
+    if (!ventaId) return { ok: false, error };
     await updateCotizacion(cotizacionId, { estado: "aceptada", ventaId });
+    return { ok: true, error: null };
   }, [cotizaciones, cotizacionItems, addVenta, updateCotizacion]);
 
   const value: DataCtx = {

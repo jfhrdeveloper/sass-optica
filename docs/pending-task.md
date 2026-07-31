@@ -88,12 +88,11 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       correo `jfhrdeveloper@gmail.com`) — ver bitácora 2026-07-25 (7)
 - [x] Oferta anual: resuelto con una unión discriminada (`OFERTA_ANUAL`) que hace imposible
       configurar descuento Y meses gratis a la vez. Activo hoy: `{ tipo: "meses_gratis", meses: 2 }`
-- [ ] **Definir el RUC y el régimen tributario** (consultado en la sesión (7), sin decidir): RUC 10
-      (persona natural) es inmediato pero se responde con patrimonio personal; RUC 20 (EIRL/SAC)
-      separa el patrimonio, que pesa más de lo normal acá porque se custodian datos de salud de
-      pacientes de terceros. En ambos casos se puede operar con un **nombre comercial** distinto de
-      la razón social. Confirmar con un contador; de esta decisión depende también qué nombre ve el
-      cliente en el cobro de Culqi (el descriptor del comercio se registra en el onboarding de Culqi).
+- [x] **RUC definido**: RUC 10 `10708343931` (persona natural), cargado en `src/lib/contacto.ts`
+      y usado en el Libro de Reclamaciones (ver bitácora 2026-07-29 (15)). Sigue abierto, pero ya
+      no bloquea nada: confirmar con un contador si conviene migrar a RUC 20 (EIRL/SAC) más
+      adelante por la separación de patrimonio (se custodian datos de salud de terceros), y qué
+      nombre comercial ve el cliente en el descriptor de cobro de Culqi.
 - [ ] Tests de RLS (aislamiento entre ópticas) — el riesgo real del producto sigue sin cobertura;
       necesita el proyecto Supabase creado para poder correrlos
 
@@ -149,6 +148,285 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-07-30 (19) — Modelo freemium real: plan Gratis permanente + prueba de 30 días para planes pagos
+- **Qué cambió:** el usuario notó que Inicio mostraba "Plan: Gratis · Estado: Prueba gratuita" y
+  preguntó por qué — la investigación destapó que la landing (`PreciosSection.tsx`) prometía hace
+  varias sesiones un modelo freemium real ("Empieza gratis, para siempre", tarjeta "Gratis" con
+  límites de 2 empleados/30 ventas al mes) que el backend nunca implementó: el registro seguía
+  creando siempre un trial de 30 días que, al vencer, bloqueaba el dashboard entero
+  (`estado='vencida'` + `proxy.ts`). Promesa de marketing incumplida por el producto real. Se
+  entró en modo plan (2 agentes Explore + 1 agente Plan, investigación exhaustiva del modelo de
+  suscripción existente) y se implementó el modelo correcto, confirmado con el usuario:
+  1. **Elegir plan al registrarse** (Gratis/Básico/Premium) — nuevo `SegmentedControl` en el
+     Paso 1 de `AuthPage.tsx`/`CompletarRegistroForm.tsx`, preseleccionado según `?plan=` (que
+     ahora sí mandan los 3 botones de `PreciosSection.tsx`, antes todos iban a `/registro` a
+     secas). `/auth/callback/route.ts` se ajustó para no descartar ese query string en el flujo
+     de Google.
+  2. **Gratis es permanente** — `plan_suscripcion` pasó de `('trial','basico','premium')` a
+     `('gratis','basico','premium')` en `supabase-schema.sql` (proyecto aún sin desplegar, cambio
+     de enum sin costo de migración). `estado='trial'` ahora SIEMPRE significa "probando un plan
+     pago sin pagar" — nunca puede coexistir con `plan='gratis'` (constraint explícito). Límites
+     de Gratis (2 empleados, 30 ventas/mes, confirmados por el usuario) ya reales: nuevo
+     `src/lib/limites-plan.ts` (con tests), aplicado server-side en `/api/empleados/invitar` y
+     vía un trigger nuevo (`bloquear_venta_limite_gratis`) + gate visual
+     (`LimitePlanBanner.tsx`, hermano de `FeatureGateBanner.tsx`, no una variante) en
+     `/dashboard/ventas`. La razón de usar un trigger de DB para ventas y no solo un chequeo en
+     cliente: `ventas` se inserta directo desde el navegador (a diferencia de empleados, que
+     siempre pasa por un route handler), así que un chequeo solo-cliente sería bypasseable con la
+     sesión del propio negocio — RLS aísla tenants entre sí, nunca protegió límites de plan
+     dentro de un mismo tenant.
+  3. **Probar un plan pago sin pagar** — nuevo endpoint `/api/suscripcion/probar-plan` (sin
+     Culqi) arranca un trial de 30 días de Básico/Premium; si vence sin pago, el cron
+     `revisar_trials_vencidos` (reescrito como `revertir_trials_a_gratis`) NO bloquea nada — vuelve
+     el negocio a `plan='gratis'/estado='activa'` automáticamente. Botón "Probar 30 días gratis"
+     nuevo en `/dashboard/facturacion` (visible solo si el plan actual es Gratis).
+  4. **Popup de bienvenida** tras crear la cuenta (pedido explícito del usuario) —
+     `WelcomePlanModal.tsx` nuevo, montado en `DashboardShell.tsx`, dispara con `?bienvenida=` que
+     agregan los redirects de registro; contenido armado desde `PLANES`/`LIMITE_*` (una sola
+     fuente, no texto duplicado). Se muestra una sola vez por negocio (localStorage, mismo patrón
+     que `CoachTooltip`) y limpia el query param al cerrar.
+  5. **Bug real encontrado en la propia verificación visual** (Playwright, no solo tests): el KPI
+     "Pagando" del admin panel (`/admin-panel` y el filtro de `NegociosTable.tsx`) contaba
+     `estado==='activa'` sin excluir `plan==='gratis'` — como Gratis también es siempre "activa"
+     (su estado normal y permanente), un negocio que nunca pagó nada inflaba ese conteo. El MRR
+     ya estaba a salvo solo porque `PRECIO_PLAN["gratis"] ?? 0`; el conteo de negocios no tenía
+     ese mismo "escudo" y hubo que agregar `&& plan !== "gratis"` en los dos lugares.
+  6. **Arreglado de paso**: `addVenta` en `DataProvider.tsx` descartaba en silencio el `error` de
+     Supabase (`const { data } = await ...`) — ahora devuelve `{id, error}`, permitiendo mostrar
+     el mensaje real del límite (o de cualquier otro fallo) en vez de fallar mudo. Afecta también
+     a `convertirCotizacionAVenta`/`cotizaciones/page.tsx`, únicos otros llamadores.
+  7. **Mock data**: `MOCK_SUSCRIPCION` y `MOCK_ADMIN_SUSCRIPCIONES` actualizados a los nuevos
+     valores de enum, con un 6º negocio nuevo (`adm-neg-6`, Gratis) agregado sin romper las
+     historias ya existentes de pagos/uso de los otros 5 (verificado contra `MOCK_ADMIN_PAGOS`
+     antes de reasignar estados, para no contradecir pagos reales ya simulados — ej. adm-neg-4
+     pagó una vez y no renovó, por eso sigue en `vencida`, no revirtió a Gratis).
+  - Verificado con Playwright en navegador real contra los 3 flujos (landing→registro con plan
+    preseleccionado, popup de bienvenida no reaparece tras recargar, panel admin con las
+    etiquetas/KPIs correctos) y con la suite completa: `npm test` (176/176), `npm run build`,
+    `tsc --noEmit`, `lint` limpios.
+- **Por qué:** el usuario detectó la inconsistencia entre lo que promete la landing y lo que hace
+  el producto real, y pidió implementar el modelo freemium tal como ya estaba anunciado
+  públicamente — no una idea nueva, sino cerrar una promesa de marketing que llevaba varias
+  sesiones sin cumplirse en el código.
+- **Pendiente:** el límite de empleados (403 del route handler) solo se puede probar de punta a
+  punta contra Supabase real — sigue anotado en "Pendientes activos" como parte del mismo bloqueo
+  de siempre (falta desplegar el proyecto real). La suscripción recurrente automática de Culqi
+  (ya trackeada como pendiente) es la pieza que en el futuro haría que `estado='vencida'` se
+  produzca de verdad — hoy ningún flujo nuevo la genera, queda reservada para eso.
+
+### 2026-07-30 (18) — Buscador global movido al sidebar + reorden de Comercial + separadores en colapsado
+- **Qué cambió:** tres pedidos encadenados del usuario sobre `DashboardNav.tsx`/`DashboardTopbar.tsx`:
+  1. **Buscador global al sidebar:** el usuario pidió mover "el buscador de Inicio" al sidebar.
+     Primer intento (equivocado, corregido en el mismo hilo): moví el botón "Buscar (Ctrl+K)" del
+     command palette, que el usuario aclaró que debía quedarse en el topbar. El pedido real era el
+     `BuscadorGlobal` (clientes/productos/proveedores con dropdown de resultados) que vivía suelto
+     en `/dashboard/page.tsx`, visible solo en Inicio. Se movió el componente completo a
+     `DashboardNav.tsx`, arriba de la navegación — ahora es visible y funcional desde **cualquier**
+     página del dashboard, no solo Inicio (mejora incidental). Colapsado, se reduce a un ícono de
+     lupa que expande el sidebar (`onToggle`) al hacer clic, mismo patrón que un sidebar tipo
+     Notion. `dashboard/page.tsx` quedó sin el buscador y sin los imports que solo usaba él.
+  2. **Reorden de "Comercial":** a pedido del usuario, sin crear un grupo nuevo — Ventas,
+     Cotizaciones y Descuentos ahora van primero; Stock y Proveedores quedan después, en
+     `lib/dashboard-nav.ts` (fuente única que comparten sidebar y `BottomTabBar` mobile).
+  3. **Sidebar colapsado, primer intento — separadores:** el usuario notó que colapsado se veían
+     12 íconos aplanados (los grupos "Comercial"/"Administración" pierden su encabezado al
+     colapsar) sin separación visual. Se le presentaron 2 opciones (separador simple vs. colapsar
+     a solo íconos principales + "expandir al click"); eligió la primera (`border-t` arriba de
+     cada grupo aplanado) — implementada, pero descartada en el mismo hilo un mensaje después.
+  4. **Sidebar colapsado, versión final — solo principales + expandir al elegir:** el usuario
+     reconsideró y pidió la segunda opción después de todo. Cada grupo (Comercial/Administración)
+     colapsado pasó de "N hijos aplanados" a **un solo ícono** (el del grupo): al hacer clic
+     expande el sidebar completo Y abre ese grupo puntual (`onToggle()` + `setOverride({ path,
+     key: item.key })`), en vez de solo listar los hijos sueltos. El riel colapsado quedó en 5
+     íconos principales (Inicio/Clientes/Citas/Comercial/Administración) + el buscador, contra los
+     14 de antes — reemplaza por completo el cambio del punto 3 (ya no aplica el `border-t`, no
+     hace falta con solo 1 ícono por grupo).
+  - Verificado con Playwright en navegador real en cada iteración (expandido, colapsado, dropdown
+    de resultados, clic en ícono de grupo colapsado → expande y abre "Comercial"). `lint`/
+    `tsc --noEmit` limpios.
+- **Por qué:** pedidos explícitos del usuario tras revisar el sidebar en vivo; la aclaración del
+  punto 1 fue necesaria porque la primera lectura del pedido ("el buscador que está en el inicio")
+  era ambigua entre el command palette (Ctrl+K, vive en el topbar) y el buscador real de registros
+  (vivía en la página Inicio) — el usuario corrigió apenas vio el resultado.
+
+### 2026-07-30 (17) — Badge del Libro de Reclamaciones con transparencia real
+- **Qué cambió:** el usuario preguntó si el badge `public/libro-reclamaciones-badge.png` (sesión
+  (16), envuelto en una tarjeta blanca porque el PNG era RGB opaco sin canal alfa) se podía hacer
+  transparente. Un chroma-key directo sobre blanco no servía: las páginas del libro son blancas
+  igual que el fondo, así que hubiera perforado el propio libro. Se encontró el PDF fuente
+  original (`AvisoVirtual.pdf`, en las Descargas del usuario, ya no versionado en el repo) y se
+  re-renderizó con PyMuPDF usando `page.get_pixmap(alpha=True)`: esto distingue "no se dibujó
+  nada" (transparente) de "se dibujó blanco" (opaco), preservando el libro y su sombra difusa
+  intactos y dejando transparente solo el verdadero fondo de página. Verificado componiendo el
+  PNG resultante sobre el color exacto del footer en ambos modos (`slate-950` dark / blanco
+  light): se ve idéntico, sin halo ni recorte.
+  - `public/libro-reclamaciones-badge.png` reemplazado por la versión con alfa real.
+  - `src/app/page.tsx`: quitada la tarjeta blanca (`border`/`bg-white`/`shadow-sm`/padding) que
+    envolvía el badge en el footer, ya no hace falta.
+  - El usuario probó en paralelo una alternativa con una herramienta de remoción de fondo por IA
+    (removebg) sobre un screenshot que ya tenía a mano; comparada con la versión de PyMuPDF, esa
+    alternativa perdía la sombra del libro (la IA la interpretó como parte del fondo) y partía de
+    menor resolución (screenshot 896×692 vs. render vectorial). Se descartó en un primer momento a
+    favor de la versión con canal alfa exacto, y se borraron del repo los dos PNG de referencia
+    que habían quedado sueltos sin trackear (`Captura de pantalla 2026-07-29 214607.png` y su
+    variante `-removebg-preview.png`).
+  - **Cambio final (mismo día):** el usuario pidió reusar directamente el PNG que ya tiene en
+    `sass-combate` (su otro SaaS) — `public/libro-reclamaciones.png` ahí, mismo recorte por IA
+    (568×439, alfa real 0-255) que ese proyecto usa sin tarjeta blanca en su footer
+    (`footer-landing.tsx`). Copiado a `public/libro-reclamaciones-badge.png` en este proyecto
+    (reemplazando la versión PyMuPDF), para que el badge de "Libro de Reclamaciones" se vea
+    idéntico en ambos SaaS del usuario — prioridad de consistencia de marca entre proyectos por
+    encima de la calidad ligeramente mayor (con sombra) de la versión propia. Ajustado
+    `width`/`height` en `src/app/page.tsx` a la proporción real del nuevo PNG (568×439).
+  - `lint` y `tsc --noEmit` limpios.
+- **Por qué:** pedido explícito del usuario tras notar que el badge llevaba una tarjeta blanca de
+  respaldo — resuelto de raíz en vez de solo ajustar el color de esa tarjeta, y luego alineado con
+  el asset ya validado en su proyecto hermano `sass-combate` para mantener el mismo badge visual
+  en todos sus SaaS.
+
+### 2026-07-29 (16) — Ajuste del Libro de Reclamaciones contra la hoja oficial + badge del footer
+- **Qué cambió:** el usuario pasó dos archivos de referencia (`virtual_archivo.pdf`, la Hoja de
+  Reclamación Virtual oficial ya con la estructura de campos; `AvisoVirtual.pdf`, el gráfico oficial
+  "Libro de Reclamaciones" que se muestra en el footer de un sitio). Se ajustó la implementación de
+  la sesión (15) contra ambos:
+  1. **Bug encontrado al comparar contra la hoja oficial**: el plazo de respuesta estaba mal —
+     tenía escrito "30 días calendario" en 4 lugares (`lib/reclamos.ts`, `/libro-reclamaciones`
+     ×2, `/admin-panel/reclamos`). La hoja oficial dice explícitamente "quince (15) días hábiles,
+     el cual es improrrogable". Corregido en los 4 lugares.
+  2. **Campo faltante**: la hoja oficial exige "SI ES MENOR DE EDAD, NOMBRE DEL PADRE, MADRE O
+     APODERADO" — el formulario solo tenía el checkbox "Soy menor de edad" sin capturar ese nombre.
+     Agregado `apoderado_nombre` (columna nueva en `libro_reclamaciones`, campo condicional en el
+     formulario público — obligatorio solo si el checkbox está marcado, validado en
+     `validarReclamo()` — y mostrado en el detalle del admin panel y en la constancia imprimible).
+  3. **Badge del footer**: `AvisoVirtual.pdf` (gráfico "Libro de Reclamaciones" con ícono de libro)
+     se renderizó a PNG con PyMuPDF (`pip install pymupdf`, no había herramienta de conversión
+     PDF→imagen en el entorno), se recortó al contenido real (sin el espacio en blanco de página A4
+     completa) y se redujo a 480×328px — nuevo `public/libro-reclamaciones-badge.png` (primer uso
+     de `next/image` en el proyecto: es un asset estático de build, no contenido de usuario, así
+     que no aplica la razón por la que se evitó `next/image` en la sesión (14)). Ubicado en la
+     columna "Soporte" del footer, envuelto en una tarjeta blanca con borde — el gráfico trae sus
+     propios colores fijos (no seguía la paleta ni el dark mode), así que necesitaba un fondo
+     siempre claro para no verse roto sobre el footer oscuro.
+  - Tests actualizados (`reclamos.test.ts`, 158/158 en total): validación del apoderado obligatorio/
+    no obligatorio según `esMenorEdad`. `npm run build`/`lint`/`tsc --noEmit` limpios, badge servido
+    y visible verificado con `curl` (200, `image/png`, srcset de `next/image` presente en el HTML).
+- **Por qué:** el usuario proporcionó los documentos oficiales de referencia después de implementado
+  el Libro de Reclamaciones, para verificar exactitud contra el modelo real en vez de solo contra la
+  ley en abstracto — encontró 2 discrepancias reales (plazo mal y campo faltante) que se corrigieron
+  de inmediato.
+
+### 2026-07-29 (15) — Libro de Reclamaciones (INDECOPI) + resolución del RUC
+- **Qué cambió:** el usuario pegó el checklist de aprobación de comercio de Culqi/INDECOPI y pidió
+  auditar si el proyecto lo cumplía (fork de solo lectura). Hallazgo principal: el **Libro de
+  Reclamaciones no existía en absoluto** (0 resultados de "reclamaci"/"indecopi" en todo el repo) —
+  es obligatorio por ley (D.S. 011-2011-PCE) para cualquier proveedor peruano, con o sin Culqi de
+  por medio. El usuario pidió implementarlo y confirmó dos datos que faltaban:
+  - **RUC**: `10708343931` (RUC 10, persona natural) — cargado en `src/lib/contacto.ts`, resuelve
+    el pendiente abierto desde la sesión (7).
+  - **Dirección física**: NO existe — el servicio se ofrece 100% en línea, sin local físico. Se
+    optó por declararlo explícitamente (`ATENCION_100_VIRTUAL` en `contacto.ts`) donde antes iría
+    una dirección, en vez de inventar una.
+  1. **`docs/supabase-schema.sql`**: tabla nueva `libro_reclamaciones` (global, SIN `negocio_id` —
+     es sobre SaaS Óptica como proveedor, no sobre un negocio-tenant) con los campos que exige
+     INDECOPI (datos del consumidor, del bien contratado, detalle, pedido) + `numero` correlativo
+     (`RC-000001`...) generado por una `sequence`, nunca por conteo (evita condición de carrera).
+     RLS deny-all para anon/authenticated, mismo patrón que `pagos_saas`: contiene PII de un
+     tercero que ningún negocio-tenant debe poder leer: el alta es EXCLUSIVA vía `service_role`.
+  2. **`src/lib/reclamos.ts`** (nuevo, con tests): `validarReclamo()` (validación server-side) +
+     `construirHtmlConstanciaReclamo()` — arma la constancia imprimible que la ley exige entregarle
+     al consumidor, generada en el propio navegador (`window.print()`, mismo patrón que
+     `lib/recibo.ts` de la sesión anterior). Esto es clave para el requisito explícito del
+     checklist: "no puede depender de formularios, enlaces ni archivos externos como Google Drive".
+  3. **`/api/libro-reclamaciones`** (POST, público, rate-limitado a 3 cada 10 min por IP): valida
+     e inserta vía `service_role`, devuelve el `numero` de constancia.
+  4. **`/libro-reclamaciones`** (página pública nueva, sin login): formulario completo (datos del
+     consumidor, bien contratado, Reclamo/Queja, detalle, pedido) → al confirmar, muestra el N° de
+     reclamo y un botón "Descargar/Imprimir constancia". Enlazado desde el footer de la landing y
+     agregado a `sitemap.ts`.
+  5. **`/admin-panel/reclamos`** (nuevo, cuarto ítem de `ADMIN_NAV`): lista cross-tenant de todos
+     los reclamos (Server Component + `service_role`, mismo patrón que `/admin-panel/pagos`), con
+     stat de "Pendientes de responder" y un `SlideOver` para ver el detalle completo y marcar como
+     atendido con una respuesta — sin esto, el Libro hubiera quedado sin forma real de procesarse.
+     `/api/admin/reclamos/actualizar` reusa el mismo patrón de autorización (membresía en
+     `super_admins`) que `/api/admin/negocios/toggle-activo`. Modo mock: overrides por cookie
+     (`MOCK_RECLAMOS_OVERRIDE_COOKIE`), mismo criterio que `mock-admin-overrides.ts` ya usaba para
+     suspender/reactivar negocios.
+  - Tests nuevos: `reclamos.test.ts` (validación + escape XSS de la constancia) — 156/156 en
+    total. `npm run build`/`lint`/`tsc --noEmit` limpios.
+- **Por qué:** cumplimiento legal obligatorio (INDECOPI), detectado al auditar el checklist de
+  aprobación de Culqi que el usuario compartió — independiente de si Culqi lo exige o no, la ley
+  peruana ya lo exigía y no existía.
+- **Pendiente:** el resto de hallazgos del mismo checklist quedaron fuera de esta sesión a
+  propósito (el usuario solo pidió estos dos): falta de íconos de redes sociales (dijo que son
+  opcionales), "Política de cambios y devoluciones" como sección propia (hoy solo cubierta
+  parcialmente por "Cancelación" en Términos), y el punto de "mínimo 5 productos con foto" no
+  aplica tal cual al ser un SaaS por suscripción — a aclarar directamente con Culqi si hace falta.
+
+### 2026-07-29 (14) — Análisis completo + 9 funciones nuevas y pase de adaptación mobile en tablas
+- **Qué cambió:** a pedido explícito del usuario ("analiza todo mi proyecto, qué podemos
+  añadir/implementar" y luego "agregamos todo lo que me dijiste, y adaptamos todo a móvil"), un
+  análisis exploratorio (research en fork, sin tocar código) encontró oportunidades nuevas no
+  trackeadas todavía en este documento, y se implementaron todas en la misma sesión:
+  1. **Headers HTTP de seguridad** (`next.config.ts`) — CSP, `X-Frame-Options: DENY`,
+     `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. Defensa en profundidad a
+     nivel de navegador (clickjacking, MIME sniffing) que no existía; NO reemplaza RLS/proxy.ts,
+     que siguen siendo el modelo de amenaza real. CSP con allowlist explícito para
+     `checkout.culqi.com` (script + frame) y `*.supabase.co` (fetch + websocket de Realtime).
+  2. **Recetas: Adición + comparación con receta anterior** — el campo `odAdicion`/`oiAdicion`
+     YA EXISTÍA en el modelo de datos y en los mappers (sesión previa), pero el formulario de
+     `/dashboard/citas` nunca lo exponía (solo esfera/cilindro/eje + DIP). Se agregó el input de
+     Adición por ojo y un bloque que muestra la última receta guardada del mismo cliente al abrir
+     el formulario, para ver progresión de la graduación de un vistazo.
+  3. **Alerta de stock bajo en el dashboard principal** — ya existía como stat card (mismo peso
+     visual que "Clientes"/"Ventas totales"), se sumó un banner explícito (mismo patrón que las
+     alertas de trial/vencido) que nombra los productos afectados.
+  4. **Recordatorio de citas por WhatsApp** (`/dashboard/citas`) — botón por fila que abre WhatsApp
+     con un mensaje prellenado (nombre, fecha/hora, motivo), más un badge "Mañana" en las citas
+     programadas para el día siguiente. Manual a propósito: automatizarlo pediría un cron + número
+     de negocio verificado en la API de WhatsApp Business, fuera de alcance del MVP.
+  5. **Informes enriquecidos** (`lib/informes.ts`, nuevo, con tests) — pestaña "Análisis" en
+     `/dashboard/informes` junto al libro existente: ticket promedio, cliente más frecuente, top 5
+     productos vendidos (por monto, con barra horizontal) y comparativa mensual de ingresos/egresos
+     (últimos 6 meses, barras de dos series). Toda aritmética pura reusando datos ya existentes en
+     `DataProvider`, sin tocar el schema.
+  6. **Exportación de datos** — `lib/csv.ts` (RFC 4180 + BOM para que Excel en Windows respete
+     tildes) con botón "Exportar CSV" en el libro de informes; `lib/recibo.ts` (HTML autocontenido,
+     con tests de escape XSS) + botón "Imprimir recibo" por venta en `/dashboard/ventas` (abre
+     ventana nueva, `window.print()`). No es comprobante SUNAT — eso sigue en el roadmap posterior
+     al MVP.
+  7. **Command palette (Ctrl+K)** — `CommandPalette.tsx`, navegación rápida a cualquier sección del
+     dashboard aplanando `lib/dashboard-nav.ts` (misma fuente única que el sidebar y el tab bar
+     mobile, respeta permisos granulares/soloAdmin). Botón visible "Buscar" en `DashboardTopbar`
+     para quien no conoce el atajo, además del propio `Ctrl+K`/`⌘K`.
+  8. **Deshacer tras eliminar** — `ToastProvider` ahora soporta una acción opcional en el toast
+     (botón "Deshacer", con más duración visible que un toast normal). Aplicado a citas, gastos,
+     proveedores y descuentos (deletes duros, sin papelera) y a clientes (ya tenía papelera propia,
+     esto evita tener que navegar hasta ahí para el caso común de "me equivoqué recién"). Productos
+     no lo necesitaba: no tiene delete real, ya usa el patrón Activo/Borrador.
+  9. **Performance** — `react-day-picker` (usado por `DatePicker`/`DateRangePicker` en 7 rutas del
+     dashboard) pasó a `next/dynamic({ ssr: false })`: se descarga recién al primer clic en el
+     selector, no en el JS inicial de cada página. **`next/image` se dejó fuera a propósito**: los
+     3 usos de `<img>` del proyecto son avatares/logos en base64 subidos por el usuario
+     (`lib/imagen.ts`), y activar el optimizador de Next sobre contenido de usuario reintroduciría
+     el mismo trade-off de `sharp` que una sesión anterior (10) decidió evitar deliberadamente.
+  10. **Adaptación mobile de TODAS las tablas del dashboard y admin panel** — patrón tomado del
+     proyecto hermano `tramys-rrhh` (`ocultar columnas secundarias con `hidden md:table-cell`/
+     `lg:table-cell` en vez de depender solo de scroll horizontal): aplicado en productos, ventas,
+     gastos, cotizaciones, proveedores, descuentos, informes, y las tablas cross-tenant del admin
+     panel (`NegociosTable`, `PagosTable`). Se dejaron sin tocar `clientes` (ya angosta, todas sus
+     columnas cargan una acción real) y `empleados` (la columna "Permisos extra" es el ÚNICO punto
+     de entrada para gestionar permisos delegables — ocultarla en mobile los haría inalcanzables
+     desde el celular, se detectó y revirtió antes de aplicarlo).
+  - Tests nuevos: `citas.test.ts`, `descuentos.test.ts`, `informes.test.ts`, `csv.test.ts`,
+    `recibo.test.ts` — 147/147 en total (eran 108). `npm run build`/`lint`/`tsc --noEmit` limpios
+    después de cada pieza, no solo al final.
+- **Por qué:** pedido explícito del usuario de analizar el proyecto completo en busca de mejoras,
+  y luego implementar todo lo encontrado más una adaptación mobile total usando como referencia el
+  patrón ya validado en `tramys-rrhh` (proyecto hermano del mismo usuario).
+- **Pendiente:** ninguno nuevo de este pase — todo lo no implementado (facturación SUNAT, Culqi
+  recurrente, RUC/régimen tributario, revisión legal, tests de RLS, credenciales reales) ya estaba
+  trackeado arriba en "Pendientes activos" y sigue igual.
 
 ### 2026-07-28 (13) — Adaptación mobile del admin panel, fix de fechas, SEO, bug crítico del proxy, tokens de diseño y rate limiting
 - **Qué cambió:** sesión de "usa las skills disponibles y dime/hazlo todo" — seis piezas

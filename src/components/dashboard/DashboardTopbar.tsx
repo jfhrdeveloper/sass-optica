@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Search, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -36,6 +36,17 @@ export function DashboardTopbar() {
       <Breadcrumbs sinMargen />
 
       <div className="flex shrink-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("abrir-command-palette"))}
+          aria-label="Buscar secciones (Ctrl+K)"
+          className="hidden items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 md:flex"
+        >
+          <Search size={14} />
+          <span className="hidden lg:inline">Buscar</span>
+          <kbd className="rounded border border-slate-200 px-1 dark:border-slate-700">Ctrl K</kbd>
+        </button>
+
         <div className="hidden items-center gap-2 sm:flex">
           {negocio?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element

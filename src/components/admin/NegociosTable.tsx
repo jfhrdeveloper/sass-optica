@@ -28,7 +28,7 @@ const DIAS_POR_VENCER = 7;
    activos y sin cancelar: uno ya suspendido no necesita esta alerta. */
 const DIAS_SIN_USO_ALERTA = 14;
 
-const PLAN_LABEL: Record<string, string> = { trial: "Prueba", basico: "Básico", premium: "Premium" };
+const PLAN_LABEL: Record<string, string> = { gratis: "Gratis", basico: "Básico", premium: "Premium" };
 const ESTADO_LABEL: Record<string, string> = { trial: "Trial", activa: "Activa", vencida: "Vencida", cancelada: "Cancelada" };
 const ESTADO_BADGE: Record<string, string> = { trial: "badge-warning", activa: "badge-success", vencida: "badge-danger", cancelada: "badge-neutral" };
 
@@ -67,6 +67,10 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
         case "por_vencer": return porVencer(n);
         case "inactivo": return !n.activo;
         case "sin_uso": return sinUsoReciente(n);
+        /* "Pagando" ≠ solo estado activa: el plan Gratis también es siempre
+           "activa" (su estado normal, permanente) — sin excluirlo acá el
+           filtro mezclaría negocios que nunca pagaron nada. */
+        case "activa": return n.estado === "activa" && n.plan !== "gratis";
         default: return n.estado === filtro;
       }
     })
@@ -102,11 +106,11 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
           <thead>
             <tr>
               <th className="table-head-cell">Negocio</th>
-              <th className="table-head-cell">Plan</th>
+              <th className="table-head-cell hidden sm:table-cell">Plan</th>
               <th className="table-head-cell">Estado</th>
-              <th className="table-head-cell">Última actividad</th>
-              <th className="table-head-cell">Trial hasta</th>
-              <th className="table-head-cell">Alta</th>
+              <th className="table-head-cell hidden lg:table-cell">Última actividad</th>
+              <th className="table-head-cell hidden md:table-cell">Trial hasta</th>
+              <th className="table-head-cell hidden lg:table-cell">Alta</th>
               <th className="table-head-cell text-right"></th>
             </tr>
           </thead>
@@ -126,7 +130,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
                       </span>
                     </Link>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{n.plan ? PLAN_LABEL[n.plan] ?? n.plan : "—"}</td>
+                  <td className="table-cell hidden sm:table-cell text-slate-600 dark:text-slate-300">{n.plan ? PLAN_LABEL[n.plan] ?? n.plan : "—"}</td>
                   <td className="table-cell">
                     <span className="flex flex-wrap items-center gap-1.5">
                       {n.estado && <span className={`badge ${ESTADO_BADGE[n.estado] ?? "badge-neutral"}`}>{ESTADO_LABEL[n.estado] ?? n.estado}</span>}
@@ -135,9 +139,9 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
                       {sinUsoReciente(n) && <span className="badge badge-warning">Sin uso</span>}
                     </span>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{etiquetaUltimaActividad(n.ultimaActividad, new Date(ahora))}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{n.trialFin ? formatearFechaPE(n.trialFin) : "—"}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(n.createdAt)}</td>
+                  <td className="table-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{etiquetaUltimaActividad(n.ultimaActividad, new Date(ahora))}</td>
+                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{n.trialFin ? formatearFechaPE(n.trialFin) : "—"}</td>
+                  <td className="table-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(n.createdAt)}</td>
                   <td className="table-cell text-right">
                     <Link href={`/admin-panel/negocios/${n.id}`} aria-label={`Ver detalle de ${n.nombre}`} className="row-icon-btn ml-auto">
                       <ChevronRight size={15} />

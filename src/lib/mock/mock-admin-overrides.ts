@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { MOCK_NEGOCIOS_OVERRIDE_COOKIE } from "@/lib/mock/mock-mode";
+import { MOCK_NEGOCIOS_OVERRIDE_COOKIE, MOCK_RECLAMOS_OVERRIDE_COOKIE } from "@/lib/mock/mock-mode";
 
 /* Server-only a propósito (usa next/headers) — nunca importar desde un
    componente "use client" como AdminNav.tsx, por eso vive separado de
@@ -20,4 +20,24 @@ export function aplicarOverridesActivo<T extends { id: string; activo: boolean }
   overrides: Record<string, boolean>,
 ): T[] {
   return negocios.map((n) => (n.id in overrides ? { ...n, activo: overrides[n.id] } : n));
+}
+
+type OverrideReclamo = { estado: string; respuesta: string | null };
+
+export async function leerOverridesReclamos(): Promise<Record<string, OverrideReclamo>> {
+  const c = await cookies();
+  const raw = c.get(MOCK_RECLAMOS_OVERRIDE_COOKIE)?.value;
+  if (!raw) return {};
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return {};
+  }
+}
+
+export function aplicarOverridesReclamos<T extends { id: string; estado: string; respuesta: string | null }>(
+  reclamos: T[],
+  overrides: Record<string, OverrideReclamo>,
+): T[] {
+  return reclamos.map((r) => (r.id in overrides ? { ...r, ...overrides[r.id] } : r));
 }

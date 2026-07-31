@@ -32,10 +32,10 @@ export const MOCK_EMPLEADO: Empleado = {
 export const MOCK_SUSCRIPCION: Suscripcion = {
   id: "mock-sub-1",
   negocioId: MOCK_NEGOCIO.id,
-  plan: "trial",
-  estado: "trial",
-  trialInicio: new Date().toISOString().slice(0, 10),
-  trialFin: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  plan: "gratis",
+  estado: "activa",
+  trialInicio: "",
+  trialFin: "",
 };
 
 export const MOCK_CLIENTES: Cliente[] = [
@@ -98,15 +98,31 @@ export const MOCK_ADMIN_NEGOCIOS = [
   { id: "adm-neg-3", nombre: "Óptica Los Olivos", subdominio: "los-olivos", ruc: "20598765432", telefono: "977 333 444", direccion: "Av. Carlos Izaguirre 890, Los Olivos", activo: true, created_at: new Date(Date.now() - 95 * 86400000).toISOString() },
   { id: "adm-neg-4", nombre: "Óptica Puente Piedra", subdominio: "puente-piedra", ruc: "20487654321", telefono: "966 555 666", direccion: "Av. Zarumilla 321, Puente Piedra", activo: false, created_at: new Date(Date.now() - 90 * 86400000).toISOString() },
   { id: "adm-neg-5", nombre: "Óptica San Juan", subdominio: "optica-sjl", ruc: null, telefono: "955 777 888", direccion: null, activo: true, created_at: new Date(Date.now() - 27 * 86400000).toISOString() },
+  { id: "adm-neg-6", nombre: "Óptica del Norte", subdominio: "optica-del-norte", ruc: null, telefono: "944 222 333", direccion: null, activo: true, created_at: new Date(Date.now() - 10 * 86400000).toISOString() },
 ];
 
+/* Cobertura de los estados reales del modelo freemium — se preserva la
+   historia de cada negocio (pagos_saas/eventos_uso más abajo ya cuentan una
+   historia puntual por id, no hay que romperla):
+   - adm-neg-1: "recién arrancando", sin pagos — probando Premium, a 25 días
+     de que venza el trial de 30 (arrancó hace 5).
+   - adm-neg-2: paga de verdad (4 pagos exitosos de Premium, ver
+     MOCK_ADMIN_PAGOS) — el negocio "más comprometido".
+   - adm-neg-3: paga de verdad (3 pagos exitosos de Básico) — activa.
+   - adm-neg-4: pagó Básico UNA vez hace 2 meses y no renovó — vencida es la
+     lectura correcta acá (cobro recurrente que dejó de renovarse, no un
+     trial nunca pagado); ese estado sigue existiendo para este caso futuro.
+   - adm-neg-5: sin pagos, probando Básico, a 3 días de que venza — el caso
+     de "por vencer" que debe aparecer en ese widget del panel admin.
+   - adm-neg-6: Gratis permanente, nunca probó un plan pago — el caso nuevo
+     que no existía antes de este cambio. */
 export const MOCK_ADMIN_SUSCRIPCIONES = [
-  { negocio_id: "adm-neg-1", plan: "trial", estado: "trial", trial_fin: new Date(Date.now() + 25 * 86400000).toISOString().slice(0, 10) },
-  { negocio_id: "adm-neg-2", plan: "premium", estado: "activa", trial_fin: new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10) },
-  { negocio_id: "adm-neg-3", plan: "basico", estado: "activa", trial_fin: new Date(Date.now() - 15 * 86400000).toISOString().slice(0, 10) },
-  { negocio_id: "adm-neg-4", plan: "basico", estado: "vencida", trial_fin: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10) },
-  /* A 3 días de vencer — pensado para verse en el filtro "por vencer". */
-  { negocio_id: "adm-neg-5", plan: "trial", estado: "trial", trial_fin: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10) },
+  { negocio_id: "adm-neg-1", plan: "premium", estado: "trial", trial_fin: new Date(Date.now() + 25 * 86400000).toISOString().slice(0, 10) },
+  { negocio_id: "adm-neg-2", plan: "premium", estado: "activa", trial_fin: "" },
+  { negocio_id: "adm-neg-3", plan: "basico", estado: "activa", trial_fin: "" },
+  { negocio_id: "adm-neg-4", plan: "basico", estado: "vencida", trial_fin: "" },
+  { negocio_id: "adm-neg-5", plan: "basico", estado: "trial", trial_fin: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10) },
+  { negocio_id: "adm-neg-6", plan: "gratis", estado: "activa", trial_fin: "" },
 ];
 
 export const MOCK_ADMIN_EMPLEADOS = [
@@ -117,6 +133,7 @@ export const MOCK_ADMIN_EMPLEADOS = [
   { id: "adm-emp-5", negocio_id: "adm-neg-3", nombres: "Karina", apellidos: "Solís", rol: "encargado", email: "karina@losolivos.pe", activo: true },
   { id: "adm-emp-6", negocio_id: "adm-neg-4", nombres: "Jorge", apellidos: "Ramos", rol: "administrador", email: "jorge@puentepiedra.pe", activo: true },
   { id: "adm-emp-7", negocio_id: "adm-neg-5", nombres: "Vanessa", apellidos: "Quispe", rol: "administrador", email: "vanessa@opticasjl.pe", activo: true },
+  { id: "adm-emp-8", negocio_id: "adm-neg-6", nombres: "Renzo", apellidos: "Vega", rol: "administrador", email: "renzo@opticadelnorte.pe", activo: true },
 ];
 
 /* pagos_saas simulados — varios meses de historia para el gráfico de MRR de
@@ -136,6 +153,37 @@ export const MOCK_ADMIN_PAGOS = [
   { id: "pago-6", negocio_id: "adm-neg-3", monto: 89.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_6", estado: "exitoso", created_at: haceMeses(1, 20) },
   { id: "pago-7", negocio_id: "adm-neg-3", monto: 89.9, moneda: "PEN", metodo_pago: "yape", culqi_cargo_id: "chr_mock_7", estado: "exitoso", created_at: haceMeses(0, 20) },
   { id: "pago-8", negocio_id: "adm-neg-4", monto: 89.9, moneda: "PEN", metodo_pago: "tarjeta", culqi_cargo_id: "chr_mock_8", estado: "exitoso", created_at: haceMeses(2, 5) },
+];
+
+/* libro_reclamaciones simulado — 2 casos: uno pendiente de responder (el
+   que le importa ver al dueño del SaaS) y uno ya atendido (para probar que
+   el badge/estado cambia). */
+export const MOCK_ADMIN_RECLAMOS = [
+  {
+    id: "rec-1", numero: "RC-000001", tipo: "reclamo",
+    consumidor_nombres: "María", consumidor_apellidos: "Gonzáles",
+    consumidor_documento_tipo: "DNI", consumidor_documento_numero: "45678912",
+    consumidor_domicilio: "Jr. Las Flores 456, Los Olivos", consumidor_telefono: "51987654321",
+    consumidor_email: "maria.gonzales@example.com", es_menor_edad: false, apoderado_nombre: null,
+    bien_tipo: "servicio", bien_descripcion: "Plan Premium — cobro de julio",
+    monto_reclamado: 149.9,
+    detalle: "Se me cobró el plan Premium dos veces en el mismo mes.",
+    pedido: "Que se me devuelva el cobro duplicado.",
+    estado: "pendiente", respuesta: null, created_at: haceMeses(0, 22),
+  },
+  {
+    id: "rec-2", numero: "RC-000002", tipo: "queja",
+    consumidor_nombres: "Carlos", consumidor_apellidos: "Ramírez",
+    consumidor_documento_tipo: "DNI", consumidor_documento_numero: "78912345",
+    consumidor_domicilio: "Av. Universitaria 789, Puente Piedra", consumidor_telefono: null,
+    consumidor_email: "carlos.ramirez@example.com", es_menor_edad: false, apoderado_nombre: null,
+    bien_tipo: "servicio", bien_descripcion: "Soporte por WhatsApp",
+    monto_reclamado: null,
+    detalle: "Tardaron 2 días en responder una consulta de soporte.",
+    pedido: "Reducir el tiempo de respuesta de soporte.",
+    estado: "atendido", respuesta: "Reforzamos el equipo de soporte; el tiempo de respuesta ahora es menor a 24h.",
+    created_at: haceMeses(1, 5),
+  },
 ];
 
 /* eventos_uso simulados — alimentan la analítica de actividad del admin

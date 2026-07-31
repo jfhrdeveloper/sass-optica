@@ -30,3 +30,7 @@ export const MOCK_ADMIN_COOKIE = "mock_admin_session";
    que una mutación en memoria del array no siempre se ve reflejada. Una
    cookie sí es un estado real y compartido entre ambas requests. */
 export const MOCK_NEGOCIOS_OVERRIDE_COOKIE = "mock_negocios_override";
+
+/* Mismo criterio que la de arriba, para marcar un reclamo "atendido" +
+   respuesta en modo mock (ver /admin-panel/reclamos y mock-admin-overrides.ts). */
+export const MOCK_RECLAMOS_OVERRIDE_COOKIE = "mock_reclamos_override";

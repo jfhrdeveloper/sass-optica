@@ -49,7 +49,7 @@ export function HeroSection() {
         ópticas peruanas.
       </m.p>
       <m.div variants={ITEM} className="flex flex-wrap items-center justify-center gap-3">
-        <TransitionLink href="/registro" className="btn-primary px-6 py-3 text-base">Crear cuenta gratis</TransitionLink>
+        <TransitionLink href="/registro" className="btn-primary px-6 py-3 text-base transition-all hover:scale-105">Crear cuenta gratis</TransitionLink>
       </m.div>
       <m.p variants={ITEM} className="text-xs text-slate-400 dark:text-slate-500">
         Sin tarjeta de crédito · Gratis para siempre

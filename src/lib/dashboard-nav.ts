@@ -20,11 +20,11 @@ export const NAV: NavItem[] = [
   {
     kind: "group", key: "comercial", label: "Comercial", icon: ShoppingCart,
     children: [
+      { href: "/dashboard/ventas", label: "Ventas", icon: ShoppingCart },
+      { href: "/dashboard/cotizaciones", label: "Cotizaciones", icon: FileText },
+      { href: "/dashboard/descuentos", label: "Descuentos", icon: Tag, permiso: "descuentos" },
       { href: "/dashboard/productos", label: "Stock", icon: Package },
       { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
-      { href: "/dashboard/cotizaciones", label: "Cotizaciones", icon: FileText },
-      { href: "/dashboard/ventas", label: "Ventas", icon: ShoppingCart },
-      { href: "/dashboard/descuentos", label: "Descuentos", icon: Tag, permiso: "descuentos" },
     ],
   },
   {

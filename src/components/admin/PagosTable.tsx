@@ -57,7 +57,7 @@ export function PagosTable({ pagos }: { pagos: PagoFila[] }) {
               <th className="table-head-cell">Negocio</th>
               <th className="table-head-cell">Fecha</th>
               <th className="table-head-cell">Monto</th>
-              <th className="table-head-cell">Método</th>
+              <th className="table-head-cell hidden md:table-cell">Método</th>
               <th className="table-head-cell">Estado</th>
             </tr>
           </thead>
@@ -71,7 +71,7 @@ export function PagosTable({ pagos }: { pagos: PagoFila[] }) {
                 </td>
                 <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(p.createdAt)}</td>
                 <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{p.moneda} {p.monto.toFixed(2)}</td>
-                <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{p.metodoPago ?? "—"}</td>
+                <td className="table-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{p.metodoPago ?? "—"}</td>
                 <td className="table-cell"><span className="badge badge-success">{p.estado}</span></td>
               </tr>
             ))}

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   PLANES, OFERTA_ANUAL,
   precioAnual, ahorroAnual, precioSegunCiclo, montoCentimosSegunCiclo,
-  etiquetaOferta, descripcionOferta,
+  etiquetaOferta, descripcionOferta, nombrePlanSuscripcion, nombreEstadoSuscripcion,
+  esPlanIdValido, LIMITE_EMPLEADOS_GRATIS, LIMITE_VENTAS_MES_GRATIS,
 } from "@/lib/precios";
 
 /* Es aritmética de dinero mostrada al cliente: un error acá es un precio mal
@@ -140,5 +141,57 @@ describe("configuración de planes", () => {
       expect(plan.mensual).toBeGreaterThan(0);
       expect(plan.bullets.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("nombrePlanSuscripcion", () => {
+  it("gratis se muestra como Gratis, no como el valor crudo del enum", () => {
+    expect(nombrePlanSuscripcion("gratis")).toBe("Gratis");
+  });
+
+  it("planes pagos usan el nombre comercial de PLANES", () => {
+    expect(nombrePlanSuscripcion("basico")).toBe("Básico");
+    expect(nombrePlanSuscripcion("premium")).toBe("Premium");
+  });
+
+  it("un plan desconocido no rompe: devuelve el valor tal cual", () => {
+    expect(nombrePlanSuscripcion("algo-inventado")).toBe("algo-inventado");
+  });
+});
+
+describe("nombreEstadoSuscripcion", () => {
+  it("traduce los 4 estados del enum a texto legible", () => {
+    expect(nombreEstadoSuscripcion("trial")).toBe("En prueba");
+    expect(nombreEstadoSuscripcion("activa")).toBe("Activa");
+    expect(nombreEstadoSuscripcion("vencida")).toBe("Vencida");
+    expect(nombreEstadoSuscripcion("cancelada")).toBe("Cancelada");
+  });
+
+  it("un estado desconocido no rompe: devuelve el valor tal cual", () => {
+    expect(nombreEstadoSuscripcion("algo-inventado")).toBe("algo-inventado");
+  });
+});
+
+describe("esPlanIdValido", () => {
+  it("acepta los 3 planes reales", () => {
+    expect(esPlanIdValido("gratis")).toBe(true);
+    expect(esPlanIdValido("basico")).toBe(true);
+    expect(esPlanIdValido("premium")).toBe(true);
+  });
+
+  it("rechaza 'trial' — ya no es un plan válido, solo un estado", () => {
+    expect(esPlanIdValido("trial")).toBe(false);
+  });
+
+  it("rechaza valores inventados", () => {
+    expect(esPlanIdValido("")).toBe(false);
+    expect(esPlanIdValido("pro")).toBe(false);
+  });
+});
+
+describe("límites del plan Gratis", () => {
+  it("son los confirmados con el usuario — no cambiar sin que lo pida", () => {
+    expect(LIMITE_EMPLEADOS_GRATIS).toBe(2);
+    expect(LIMITE_VENTAS_MES_GRATIS).toBe(30);
   });
 });

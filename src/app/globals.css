@@ -209,10 +209,12 @@ input[type="number"]::-webkit-inner-spin-button {
      `width`, para que corra en el compositor y no dispare layout en cada
      frame. El nav superior NO lo usa: ahí el hover es una píldora de fondo
      (patrón de ferdocs-web, ver LandingHeader.tsx). */
-  .link-underline {
+  .link-underline,
+  .link {
     @apply relative;
   }
-  .link-underline::after {
+  .link-underline::after,
+  .link::after {
     content: "";
     position: absolute;
     left: 0;
@@ -224,7 +226,8 @@ input[type="number"]::-webkit-inner-spin-button {
     transform-origin: left;
     transition: transform 0.25s ease;
   }
-  .link-underline:hover::after {
+  .link-underline:hover::after,
+  .link:hover::after {
     transform: scaleX(1);
   }
 
@@ -270,14 +273,17 @@ input[type="number"]::-webkit-inner-spin-button {
   .accordion-item[open]::details-content {
     block-size: auto;
   }
-  /* Enlaces de texto (acciones de tabla, "← Inicio", links de auth): antes
-     `hover:underline` en cada componente — se ve más plano/anticuado que un
-     cambio de color, y el sitio ya transiciona `color` globalmente (ver la
-     regla de `@layer base` arriba), así que el hover queda suave gratis.
-     3 variantes por contexto de color: primario (navegación/acciones
-     neutras), danger (eliminar) y muted (cancelar/descartar). */
+  /* Enlaces de texto (acciones de tabla, "← Inicio", links de auth). La
+     variante primaria (`.link`) usaba oscurecer el azul en hover, pero el
+     tono resultante (`--color-primary-dark`) se nota poco por bajo
+     contraste con el azul base — se cambió al mismo subrayado animado de
+     izquierda a derecha que `.link-underline` (comparten el `::after` de
+     arriba), en vez del subrayado nativo instantáneo, para quedar
+     consistente con el resto del sitio.
+     `.link-danger`/`.link-muted` sí conservan el cambio de color (rojo/gris
+     tienen suficiente salto de contraste entre sus dos tonos). */
   .link {
-    @apply text-primary transition-colors hover:text-primary-dark;
+    @apply text-primary;
   }
   .link-danger {
     @apply text-red-600 transition-colors hover:text-red-700

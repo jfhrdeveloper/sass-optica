@@ -15,5 +15,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/legal?tab=terminos`, lastModified: ahora, changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/legal?tab=privacidad`, lastModified: ahora, changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/legal?tab=proteccion`, lastModified: ahora, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${SITE_URL}/libro-reclamaciones`, lastModified: ahora, changeFrequency: "yearly", priority: 0.2 },
   ];
 }

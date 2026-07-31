@@ -16,7 +16,7 @@ import {
 
 const DIAS_ACTIVIDAD = 14;
 
-const PLAN_LABEL: Record<string, string> = { trial: "Prueba", basico: "Básico", premium: "Premium" };
+const PLAN_LABEL: Record<string, string> = { gratis: "Gratis", basico: "Básico", premium: "Premium" };
 const ESTADO_LABEL: Record<string, string> = { trial: "Trial", activa: "Activa", vencida: "Vencida", cancelada: "Cancelada" };
 const ESTADO_BADGE: Record<string, string> = { trial: "badge-warning", activa: "badge-success", vencida: "badge-danger", cancelada: "badge-neutral" };
 

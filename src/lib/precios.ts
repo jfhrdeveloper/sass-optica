@@ -60,6 +60,65 @@ export const PLANES: Plan[] = [
   },
 ];
 
+/** Plan Gratis permanente (freemium) — a diferencia de Básico/Premium, NO es
+ *  un plan pago y por eso no vive en `PLANES` (ese array alimenta el
+ *  checkout de Culqi; "gratis" nunca se cobra ni pasa por ahí). Límites
+ *  confirmados con el usuario, no ajustar sin que lo pida: el resto del
+ *  sistema (clientes/citas/recetas/productos/inventario) queda sin límite. */
+export const LIMITE_EMPLEADOS_GRATIS = 2;
+export const LIMITE_VENTAS_MES_GRATIS = 30;
+
+export const PLAN_IDS = ["gratis", "basico", "premium"] as const;
+export type PlanId = (typeof PLAN_IDS)[number];
+
+export function esPlanIdValido(id: string): id is PlanId {
+  return (PLAN_IDS as readonly string[]).includes(id);
+}
+
+/** Fila a insertar/actualizar en `suscripciones` (snake_case, tal cual la
+ *  espera Supabase) para arrancar un plan elegido — usado por /api/registro,
+ *  /api/registro/completar y /api/suscripcion/probar-plan, para que las 3
+ *  ramifiquen exactamente igual entre "gratis" (permanente, sin trial) y
+ *  "básico/premium" (30 días de prueba sin pagar). No incluye `negocio_id`:
+ *  cada caller lo agrega según si es un insert o un update. */
+export function datosSuscripcionParaPlan(plan: PlanId): Record<string, unknown> {
+  if (plan === "gratis") return { plan: "gratis", estado: "activa", trial_inicio: null, trial_fin: null };
+  const hoy = new Date();
+  const trialFin = new Date(hoy);
+  trialFin.setDate(trialFin.getDate() + 30);
+  return {
+    plan,
+    estado: "trial",
+    trial_inicio: hoy.toISOString().slice(0, 10),
+    trial_fin: trialFin.toISOString().slice(0, 10),
+  };
+}
+
+/** Nombre de plan para mostrar al dueño del negocio. `gratis` no está en
+ *  `PLANES` (no es un plan pago), así que se etiqueta aparte en vez de
+ *  mostrar el valor crudo del enum de la base de datos. */
+export function nombrePlanSuscripcion(plan: string): string {
+  if (plan === "gratis") return "Gratis";
+  return PLANES.find((p) => p.id === plan)?.nombre ?? plan;
+}
+
+/** Estado de la suscripción para mostrar al dueño del negocio — mismo
+ *  criterio que `nombrePlanSuscripcion`: no mostrar el valor crudo del enum
+ *  (`estado_suscripcion` en `supabase-schema.sql`). `trial` ahora SIEMPRE
+ *  significa "probando un plan pago sin haber pagado todavía" (nunca el
+ *  plan Gratis, que es permanente) — "En prueba" en vez de "Prueba
+ *  gratuita" para no confundirlo con el plan Gratis. */
+const ESTADO_SUSCRIPCION_LABEL: Record<string, string> = {
+  trial: "En prueba",
+  activa: "Activa",
+  vencida: "Vencida",
+  cancelada: "Cancelada",
+};
+
+export function nombreEstadoSuscripcion(estado: string): string {
+  return ESTADO_SUSCRIPCION_LABEL[estado] ?? estado;
+}
+
 /** Redondeo a 2 decimales sin arrastrar el error binario de coma flotante
  *  (89.9 * 12 * 0.7 da 755.1600000000001 en JS si no se redondea). */
 function aDosDecimales(n: number): number {

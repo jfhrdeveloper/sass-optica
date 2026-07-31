@@ -147,7 +147,7 @@ export default function ProductosPage() {
             <thead>
               <tr>
                 <th className="table-head-cell">Producto</th>
-                <th className="table-head-cell">Categoría</th>
+                <th className="table-head-cell hidden md:table-cell">Categoría</th>
                 <th className="table-head-cell">Precio</th>
                 <th className="table-head-cell">Stock</th>
                 <th className="table-head-cell">Estado</th>
@@ -168,7 +168,7 @@ export default function ProductosPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{CATEGORIA_LABEL[p.categoria as (typeof CATEGORIAS)[number]] ?? p.categoria}</td>
+                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{CATEGORIA_LABEL[p.categoria as (typeof CATEGORIAS)[number]] ?? p.categoria}</td>
                   <td className="table-cell text-slate-600 dark:text-slate-300">S/ {p.precioVenta.toFixed(2)}</td>
                   <td className={`table-cell ${p.stockActual <= p.stockMinimo ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}>
                     {p.stockActual}

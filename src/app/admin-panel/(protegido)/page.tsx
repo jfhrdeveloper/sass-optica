@@ -57,7 +57,13 @@ export default async function AdminPanelPage() {
 
   const total = negocios?.length ?? 0;
   const trials = (suscripciones ?? []).filter((s) => s.estado === "trial").length;
-  const activas = (suscripciones ?? []).filter((s) => s.estado === "activa").length;
+  /* "Pagando" ≠ solo `estado === "activa"` desde el modelo freemium: el plan
+     Gratis TAMBIÉN es siempre "activa" (es su estado normal y permanente),
+     así que sin excluirlo acá un negocio que nunca pagó nada infla este
+     conteo. El MRR de abajo ya estaba a salvo de este mismo error porque
+     PRECIO_PLAN["gratis"] resuelve a 0, pero un conteo de negocios no tiene
+     ese mismo "escudo" automático. */
+  const activas = (suscripciones ?? []).filter((s) => s.estado === "activa" && s.plan !== "gratis").length;
   const vencidas = (suscripciones ?? []).filter((s) => s.estado === "vencida").length;
   const mrr = (suscripciones ?? [])
     .filter((s) => s.estado === "activa")
@@ -88,7 +94,7 @@ export default async function AdminPanelPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{total}</div><div className="text-sm text-slate-500 dark:text-slate-400">Negocios</div></div>
-        <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{trials}</div><div className="text-sm text-slate-500 dark:text-slate-400">En trial</div></div>
+        <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{trials}</div><div className="text-sm text-slate-500 dark:text-slate-400">Probando plan pago</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{activas}</div><div className="text-sm text-slate-500 dark:text-slate-400">Pagando</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-amber-600 dark:text-amber-400">{porVencer.length}</div><div className="text-sm text-slate-500 dark:text-slate-400">Por vencer</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-amber-600 dark:text-amber-400">{sinUso}</div><div className="text-sm text-slate-500 dark:text-slate-400">Sin uso reciente</div></div>
@@ -96,12 +102,12 @@ export default async function AdminPanelPage() {
       </div>
       {vencidas > 0 && (
         <p className="badge badge-warning mt-4 px-3 py-1.5">
-          {vencidas} negocio(s) con el trial vencido sin pagar.
+          {vencidas} negocio(s) con la suscripción vencida sin renovar.
         </p>
       )}
 
       <div className="mt-8 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Trials por vencer (≤{DIAS_POR_VENCER} días)</h2>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Pruebas de plan pago por vencer (≤{DIAS_POR_VENCER} días)</h2>
         <Link href="/admin-panel/negocios" className="flex items-center gap-1 text-sm font-medium link">
           Ver todos los negocios <ArrowRight size={14} />
         </Link>
@@ -122,7 +128,7 @@ export default async function AdminPanelPage() {
                 </tr>
               ))}
               {porVencer.length === 0 && (
-                <tr><td colSpan={3}><div className="table-empty">Ningún trial vence en los próximos {DIAS_POR_VENCER} días.</div></td></tr>
+                <tr><td colSpan={3}><div className="table-empty">Ninguna prueba de plan pago vence en los próximos {DIAS_POR_VENCER} días.</div></td></tr>
               )}
             </tbody>
           </table>

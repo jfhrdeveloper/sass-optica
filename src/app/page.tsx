@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ShieldCheck, Smartphone, Ban, ChevronDown } from "lucide-react";
 import { FuncionesShowcase } from "@/components/landing/FuncionesShowcase";
 import { PreciosSection } from "@/components/landing/PreciosSection";
@@ -280,6 +281,13 @@ export default function LandingPage() {
                 <li className="flex items-start gap-2"><Smartphone size={14} className="mt-0.5 shrink-0 text-accent" /> Funciona en cualquier dispositivo</li>
                 <li className="flex items-start gap-2"><Ban size={14} className="mt-0.5 shrink-0 text-accent" /> Sin permanencia</li>
               </ul>
+
+              {/* Badge del Libro de Reclamaciones (INDECOPI) — mismo PNG
+                 (con transparencia real) que usa sass-combate, para que el
+                 badge sea visualmente idéntico entre los SaaS del usuario. */}
+              <Link href="/libro-reclamaciones" className="mt-5 inline-block transition-opacity hover:opacity-80">
+                <Image src="/libro-reclamaciones.png" alt="Libro de Reclamaciones" width={160} height={124} />
+              </Link>
             </div>
           </div>
 
@@ -291,6 +299,7 @@ export default function LandingPage() {
               <Link href="/legal?tab=terminos" className="link-underline transition-colors hover:text-primary">Términos y condiciones</Link>
               <Link href="/legal?tab=privacidad" className="link-underline transition-colors hover:text-primary">Política de privacidad</Link>
               <Link href="/legal?tab=proteccion" className="link-underline transition-colors hover:text-primary">Protección de datos</Link>
+              <Link href="/libro-reclamaciones" className="link-underline transition-colors hover:text-primary">Libro de Reclamaciones</Link>
             </div>
           </div>
         </div>

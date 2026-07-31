@@ -9,8 +9,10 @@ import { isMockMode, MOCK_EMAIL, MOCK_PASSWORD, MOCK_COOKIE } from "@/lib/mock/m
 import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
 import { Stepper } from "@/components/ui/Stepper";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { GoogleIcon, DivisorO } from "@/components/auth/GoogleAuthUi";
 import { CreditoJFHR } from "@/components/landing/CreditoJFHR";
+import { PLANES, type PlanId } from "@/lib/precios";
 
 type Modo = "login" | "registro";
 type EstadoDisponibilidad = "idle" | "verificando" | "disponible" | "no-disponible" | "invalido";
@@ -35,7 +37,7 @@ const BENEFICIOS = [
    animación corre ahí mismo) y router.replace() actualiza la URL recién
    cuando la transición ya casi terminó, para que el remount entre rutas
    caiga sobre un estado visual idéntico y no se note. */
-export function AuthPage({ modoInicial }: { modoInicial: Modo }) {
+export function AuthPage({ modoInicial, planInicial = "gratis" }: { modoInicial: Modo; planInicial?: PlanId }) {
   const [modo, setModo] = useState<Modo>(modoInicial);
   const router = useRouter();
   const mock = isMockMode();
@@ -140,7 +142,7 @@ export function AuthPage({ modoInicial }: { modoInicial: Modo }) {
         <div className="absolute right-6 top-6 hidden md:block">
           <ThemeToggle />
         </div>
-        <RegistroForm onIrALogin={() => cambiarModo("login")} />
+        <RegistroForm onIrALogin={() => cambiarModo("login")} planInicial={planInicial} />
       </div>
     </div>
   );
@@ -328,11 +330,19 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
 
 const VACIO_REGISTRO = { nombreNegocio: "", nombres: "", apellidos: "", email: "", password: "" };
 
+/* Opciones del selector de plan (Paso 1) — "Gratis" no vive en `PLANES`
+   (no es un plan pago, no pasa por Culqi), así que se antepone a mano. */
+const OPCIONES_PLAN = [
+  { valor: "gratis", label: "Gratis" },
+  ...PLANES.map((p) => ({ valor: p.id, label: p.nombre })),
+];
+
 /* ================= FORMULARIO DE REGISTRO (2 pasos) ================= */
-function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
+function RegistroForm({ onIrALogin, planInicial }: { onIrALogin: () => void; planInicial: PlanId }) {
   const [paso, setPaso] = useState(1);
   const [form, setForm] = useState(VACIO_REGISTRO);
   const [formato, setFormato] = useState<FormatoSlug>("guiones");
+  const [plan, setPlan] = useState<PlanId>(planInicial);
   const [verPassword, setVerPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -342,7 +352,9 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
   /* Registrarse con Google salta directo al OAuth (sin pedir nombre de
      óptica/contraseña acá) — /auth/callback detecta que la cuenta de Google
      es nueva (sin negocio_id todavía, ver handle_new_user() en el schema) y
-     manda a /registro/completar, que solo pide el nombre de la óptica. */
+     manda a /registro/completar, que solo pide el nombre de la óptica. El
+     plan elegido acá viaja en el propio `next` para no perderse en la vuelta
+     de Google (ver auth/callback/route.ts, que preserva ese query string). */
   async function conGoogle() {
     if (mock) {
       setError("Modo mock activo — el registro con Google no está disponible aquí.");
@@ -350,9 +362,10 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
     }
     setEnviandoGoogle(true);
     const supabase = createClient();
+    const next = encodeURIComponent(`/registro/completar?plan=${plan}`);
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/registro/completar` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` },
     });
     if (err) {
       setEnviandoGoogle(false);
@@ -421,7 +434,7 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
     const res = await fetch("/api/registro", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombreNegocio: form.nombreNegocio, subdominio: slug, nombres: form.nombres, apellidos: form.apellidos, email: form.email, password: form.password }),
+      body: JSON.stringify({ nombreNegocio: form.nombreNegocio, subdominio: slug, nombres: form.nombres, apellidos: form.apellidos, email: form.email, password: form.password, plan }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -441,13 +454,13 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
     }
 
     const port = typeof window !== "undefined" && window.location.port ? `:${window.location.port}` : "";
-    window.location.href = `${window.location.protocol}//${data.subdominio}.${rootDomain}${port}/dashboard`;
+    window.location.href = `${window.location.protocol}//${data.subdominio}.${rootDomain}${port}/dashboard?bienvenida=${plan}`;
   }
 
   return (
     <div className="mx-auto w-full max-w-sm">
-      <h1 className="font-display text-2xl text-slate-900 dark:text-slate-100">Crea tu cuenta gratis</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sin tarjeta de crédito · Gratis para siempre</p>
+      <h1 className="font-display text-2xl text-slate-900 dark:text-slate-100">Crea tu cuenta</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sin tarjeta de crédito · Elige tu plan cuando quieras</p>
 
       {/* mt-6: sin este margen el stepper queda pegado al subtítulo (no tiene
          un header de panel arriba como en el SlideOver, que sí trae su
@@ -470,6 +483,29 @@ function RegistroForm({ onIrALogin }: { onIrALogin: () => void }) {
         {paso === 1 ? (
           <>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+            {/* Plan preseleccionado según la tarjeta de precios clickeada en
+               la landing (?plan=, ver registro/page.tsx), pero siempre
+               editable acá — quien entra por un CTA genérico ("Crear cuenta
+               gratis") también puede cambiar de opinión antes de crear la
+               cuenta. */}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu plan</p>
+              <SegmentedControl
+                aria-label="Elige tu plan"
+                variante="opciones"
+                valor={plan}
+                onChange={(v) => setPlan(v as PlanId)}
+                opciones={OPCIONES_PLAN}
+                className="mt-2"
+              />
+              <p className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+                {plan === "gratis"
+                  ? "Gratis para siempre, con límites — sube de plan cuando quieras."
+                  : "30 días de prueba sin tarjeta. Si no activas el pago, vuelves solo al plan Gratis."}
+              </p>
+            </div>
+
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu óptica</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-negocio">Nombre de tu óptica</label>

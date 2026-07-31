@@ -193,7 +193,7 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          <Link href="/" className="link-underline mt-6 inline-block text-xs font-medium link">← Volver al sitio</Link>
+          <Link href="/" className="mt-6 inline-block text-xs font-medium link">← Volver al sitio</Link>
 
           <CreditoJFHR className="mt-8 md:hidden" />
         </div>

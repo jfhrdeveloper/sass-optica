@@ -15,6 +15,8 @@ import { DatePicker } from "@/components/calendario/DatePicker";
 import { TimePicker } from "@/components/calendario/TimePicker";
 import { ClienteCombobox } from "@/components/clientes/ClienteCombobox";
 import { ESTADOS_CITA, ESTADO_CITA_LABEL, ESTADO_CITA_BADGE, DURACION_CITA_DEFECTO_MIN, sumarMinutosHora, diferenciaMinutos } from "@/lib/citas";
+import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
+import { urlWhatsAppContacto } from "@/lib/contacto";
 
 const VACIO: Partial<Cita> = { estado: "programada" };
 
@@ -54,7 +56,7 @@ type Vista = "dia" | "3dias" | "5dias" | "semana" | "mes" | "lista";
 const DIAS_POR_VISTA: Record<string, number> = { dia: 1, "3dias": 3, "5dias": 5, semana: 7 };
 
 export default function CitasPage() {
-  const { citas, clientes, addCita, updateCita, deleteCita, addReceta } = useData();
+  const { citas, clientes, recetas, negocio, addCita, updateCita, deleteCita, addReceta } = useData();
   const toast = useToast();
   const [form, setForm] = useState<Partial<Cita>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -99,6 +101,27 @@ export default function CitasPage() {
     const c = clientes.find((c) => c.id === id);
     return c ? `${c.nombres} ${c.apellidos}` : "—";
   };
+
+  /* Recordatorio de cita por WhatsApp — reduce el ausentismo real de una
+     óptica pyme, que hoy no tiene ningún aviso previo. Es manual a
+     propósito (un clic antes de irse el día anterior): automatizarlo
+     necesitaría un cron + un número de negocio verificado en la API de
+     WhatsApp Business, fuera de alcance de este MVP. */
+  function esManana(fechaHora: string): boolean {
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    return fechaHora.slice(0, 10) === manana.toISOString().slice(0, 10);
+  }
+
+  function urlRecordatorio(c: Cita): string | null {
+    const cliente = clientes.find((cl) => cl.id === c.clienteId);
+    if (!cliente?.telefono) return null;
+    const hora = new Date(c.fechaHora).toLocaleString("es-PE", {
+      timeZone: "America/Lima", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit",
+    });
+    const mensaje = `Hola ${cliente.nombres}, te recordamos tu cita en ${negocio?.nombre ?? "nuestra óptica"} el ${hora}${c.motivo ? ` (${c.motivo})` : ""}. ¡Te esperamos!`;
+    return urlWhatsAppContacto(cliente.telefono, mensaje);
+  }
 
   /* `fechaHora` opcional: viene prellenada cuando se abre desde un click en
      un día del calendario (ver aInputLocal más arriba); el botón "Agendar
@@ -156,7 +179,10 @@ export default function CitasPage() {
 
   async function eliminar(c: Cita) {
     await deleteCita(c.id);
-    toast("Cita eliminada.", "info");
+    /* Deshacer = volver a crear la cita (deleteCita no es soft-delete como
+       clientes) — el mapper de escritura (citaToRow) ignora `id`, así que
+       pasar `c` tal cual es seguro: nunca pisa el id nuevo que genera la DB. */
+    toast("Cita eliminada.", "info", { label: "Deshacer", onClick: () => { void addCita(c); } });
   }
 
   async function guardarReceta(citaId: string, clienteId: string) {
@@ -165,14 +191,25 @@ export default function CitasPage() {
       odEsfera: receta.odEsfera ? Number(receta.odEsfera) : undefined,
       odCilindro: receta.odCilindro ? Number(receta.odCilindro) : undefined,
       odEje: receta.odEje ? Number(receta.odEje) : undefined,
+      odAdicion: receta.odAdicion ? Number(receta.odAdicion) : undefined,
       oiEsfera: receta.oiEsfera ? Number(receta.oiEsfera) : undefined,
       oiCilindro: receta.oiCilindro ? Number(receta.oiCilindro) : undefined,
       oiEje: receta.oiEje ? Number(receta.oiEje) : undefined,
+      oiAdicion: receta.oiAdicion ? Number(receta.oiAdicion) : undefined,
       dip: receta.dip ? Number(receta.dip) : undefined,
     });
     setRecetaAbierta(null);
     setReceta({});
     toast("Receta guardada.");
+  }
+
+  /** Última receta guardada de un cliente (para comparar progresión al
+   *  registrar una nueva) — la más reciente por fecha, sin importar la cita
+   *  a la que quedó enlazada. */
+  function recetaAnterior(clienteId: string) {
+    return recetas
+      .filter((r) => r.clienteId === clienteId)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
   }
 
   const filtradas = citas
@@ -252,6 +289,9 @@ export default function CitasPage() {
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(c.clienteId)}</span>
                       <span className={`badge ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>{ESTADO_CITA_LABEL[c.estado] ?? c.estado}</span>
+                      {c.estado === "programada" && esManana(c.fechaHora) && (
+                        <span className="badge badge-warning">Mañana</span>
+                      )}
                     </div>
                     <div className="text-slate-500 dark:text-slate-400">
                       {/* suppressHydrationWarning: Intl puede formatear con espacios Unicode
@@ -263,6 +303,18 @@ export default function CitasPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
+                  {c.estado === "programada" && urlRecordatorio(c) && (
+                    <a
+                      href={urlRecordatorio(c)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Recordar cita por WhatsApp"
+                      aria-label={`Recordar por WhatsApp a ${nombreCliente(c.clienteId)}`}
+                      className="row-icon-btn text-[#25D366]"
+                    >
+                      <WhatsAppIcon size={15} />
+                    </a>
+                  )}
                   <button onClick={() => setRecetaAbierta(recetaAbierta === c.id ? null : c.id)} title="Receta" aria-label="Ver receta de esta cita" className="row-icon-btn">
                     <FileText size={15} />
                   </button>
@@ -276,19 +328,39 @@ export default function CitasPage() {
               </div>
 
               {recetaAbierta === c.id && (
-                <div className="mt-3 grid grid-cols-4 gap-2 border-t pt-3 text-xs">
-                  <span className="col-span-full font-medium">OD (ojo derecho)</span>
-                  <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, odEsfera: e.target.value })} className="input text-sm" />
-                  <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, odCilindro: e.target.value })} className="input text-sm" />
-                  <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, odEje: e.target.value })} className="input text-sm" />
-                  <span className="col-span-full mt-1 font-medium">OI (ojo izquierdo)</span>
-                  <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, oiEsfera: e.target.value })} className="input text-sm" />
-                  <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, oiCilindro: e.target.value })} className="input text-sm" />
-                  <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, oiEje: e.target.value })} className="input text-sm" />
-                  <input placeholder="DIP (mm)" onChange={(e) => setReceta({ ...receta, dip: e.target.value })} className="input text-sm" />
-                  <button onClick={() => guardarReceta(c.id, c.clienteId)} className="btn-primary col-span-full text-sm">
-                    Guardar receta
-                  </button>
+                <div className="mt-3 border-t pt-3 text-xs">
+                  {(() => {
+                    const anterior = recetaAnterior(c.clienteId);
+                    if (!anterior) return null;
+                    return (
+                      <div className="mb-3 rounded-lg bg-slate-50 p-2.5 dark:bg-white/5">
+                        <p className="mb-1.5 font-medium text-slate-500 dark:text-slate-400">
+                          Receta anterior ({new Date(anterior.fecha).toLocaleDateString("es-PE", { timeZone: "America/Lima" })})
+                        </p>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-slate-600 dark:text-slate-300">
+                          <span>OD: {anterior.odEsfera ?? "—"} / {anterior.odCilindro ?? "—"} / {anterior.odEje ?? "—"}° · Ad. {anterior.odAdicion ?? "—"}</span>
+                          <span>OI: {anterior.oiEsfera ?? "—"} / {anterior.oiCilindro ?? "—"} / {anterior.oiEje ?? "—"}° · Ad. {anterior.oiAdicion ?? "—"}</span>
+                          {anterior.dip != null && <span className="col-span-full">DIP: {anterior.dip} mm</span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <span className="col-span-full font-medium">OD (ojo derecho)</span>
+                    <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, odEsfera: e.target.value })} className="input text-sm" />
+                    <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, odCilindro: e.target.value })} className="input text-sm" />
+                    <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, odEje: e.target.value })} className="input text-sm" />
+                    <input placeholder="Adición" onChange={(e) => setReceta({ ...receta, odAdicion: e.target.value })} className="input text-sm" />
+                    <span className="col-span-full mt-1 font-medium">OI (ojo izquierdo)</span>
+                    <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, oiEsfera: e.target.value })} className="input text-sm" />
+                    <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, oiCilindro: e.target.value })} className="input text-sm" />
+                    <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, oiEje: e.target.value })} className="input text-sm" />
+                    <input placeholder="Adición" onChange={(e) => setReceta({ ...receta, oiAdicion: e.target.value })} className="input text-sm" />
+                    <input placeholder="DIP (mm)" onChange={(e) => setReceta({ ...receta, dip: e.target.value })} className="input text-sm col-span-2" />
+                    <button onClick={() => guardarReceta(c.id, c.clienteId)} className="btn-primary col-span-full text-sm">
+                      Guardar receta
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

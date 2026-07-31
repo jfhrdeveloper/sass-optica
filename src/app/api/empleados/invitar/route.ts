@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { puedeAgregarEmpleado } from "@/lib/limites-plan";
+import { LIMITE_EMPLEADOS_GRATIS } from "@/lib/precios";
 
 /* ================= INVITAR EMPLEADO ================= */
 /* Crea el usuario en Supabase Auth (envía email para fijar su contraseña) y  */
@@ -32,6 +34,24 @@ export async function POST(req: Request) {
      se puede dar de alta a otro administrador desde aquí (invariante 7). */
   const rolPedido = String(body.rol ?? "trabajador");
   const rol = rolPedido === "encargado" ? "encargado" : "trabajador";
+
+  /* ====== 2b. Límite del plan Gratis (freemium) ======
+     Se chequea acá (único camino real de alta de empleados, ver comentario
+     de archivo) con el cliente ya autenticado — RLS lo scopea al propio
+     negocio, no hace falta `admin` para leer esto. Antes de invitar, nunca
+     después: un email de invitación que no puede completarse sería peor UX
+     que bloquear el intento. */
+  const [{ data: suscripcion }, { count: empleadosActivos }] = await Promise.all([
+    supabase.from("suscripciones").select("plan").eq("negocio_id", actor.negocio_id).maybeSingle(),
+    supabase.from("empleados").select("id", { count: "exact", head: true })
+      .eq("negocio_id", actor.negocio_id).eq("activo", true),
+  ]);
+  if (suscripcion && !puedeAgregarEmpleado(suscripcion.plan, empleadosActivos ?? 0)) {
+    return NextResponse.json(
+      { error: `Llegaste al límite de ${LIMITE_EMPLEADOS_GRATIS} empleados del plan Gratis. Mejora tu plan para invitar más personas.` },
+      { status: 403 },
+    );
+  }
 
   const admin = createAdminClient();
 

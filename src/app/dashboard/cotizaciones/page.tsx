@@ -122,8 +122,12 @@ export default function CotizacionesPage() {
 
   async function convertir(id: string) {
     setConvirtiendoId(id);
-    await convertirCotizacionAVenta(id);
+    const { ok, error } = await convertirCotizacionAVenta(id);
     setConvirtiendoId(null);
+    if (!ok) {
+      toast(error ?? "No se pudo convertir la cotización en venta.", "error");
+      return;
+    }
     toast("Cotización convertida en venta.");
   }
 
@@ -284,7 +288,7 @@ export default function CotizacionesPage() {
               <tr>
                 <th className="table-head-cell">Fecha</th>
                 <th className="table-head-cell">Cliente</th>
-                <th className="table-head-cell">Vigencia</th>
+                <th className="table-head-cell hidden md:table-cell">Vigencia</th>
                 <th className="table-head-cell">Total</th>
                 <th className="table-head-cell">Estado</th>
                 <th className="table-head-cell text-right">Acciones</th>
@@ -300,7 +304,7 @@ export default function CotizacionesPage() {
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(c.clienteId)}</span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-500 dark:text-slate-400">{c.vigenciaHasta ? formatearFechaPE(c.vigenciaHasta) : "—"}</td>
+                  <td className="table-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{c.vigenciaHasta ? formatearFechaPE(c.vigenciaHasta) : "—"}</td>
                   <td className="table-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {c.total.toFixed(2)}</span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">

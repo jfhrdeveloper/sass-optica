@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
-import { DayPicker } from "react-day-picker";
 import { es } from "react-day-picker/locale";
 import { CalendarDays, X } from "lucide-react";
 import { aCadenaISO, aFechaLocal, formatearFechaPE } from "@/lib/formato/date";
+
+/* react-day-picker (~20KB) solo hace falta cuando el usuario ABRE el
+   calendario — no en el render inicial del botón "Elegir fecha", que está
+   en CASI TODAS las páginas del dashboard. `dynamic()` difiere la descarga
+   al primer clic en vez de sumarla al JS inicial de cada ruta. `ssr: false`
+   porque ya vive detrás de un `abierto &&` (nunca se renderiza en el
+   servidor de todas formas) y el propio DayPicker asume `window`. */
+const DayPicker = dynamic(() => import("react-day-picker").then((m) => m.DayPicker), { ssr: false });
 
 interface Props {
   valor: string; // "YYYY-MM-DD" o "" — mismo lenguaje de fecha civil que el resto del sistema
