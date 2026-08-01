@@ -59,7 +59,9 @@ export function DashboardTopbar() {
   }, []);
 
   return (
-    <div className="sticky top-0 z-20 mb-4 flex items-center justify-end gap-4 border-b border-slate-200 bg-slate-50/80 px-6 py-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
+    // `h-16` fijo (no `py-*`) para que el borde inferior quede exactamente a
+    // la misma altura que el header del sidebar — ver DashboardNav.tsx.
+    <div className="sticky top-0 z-20 mb-4 flex h-16 items-center justify-end gap-4 border-b border-slate-200 bg-slate-50/80 px-6 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
       <div className="flex shrink-0 items-center gap-3">
         <button
           type="button"

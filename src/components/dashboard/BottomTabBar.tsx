@@ -40,7 +40,12 @@ export function BottomTabBar() {
         aria-label="Navegación principal"
       >
         {TABS.map((t) => {
-          const activo = pathname === t.href;
+          /* Igual que en DashboardNav.tsx: "Clientes" tiene ficha de detalle
+             en /dashboard/clientes/[id], así que hace falta el `startsWith`
+             para que el tab siga marcado activo ahí (si no, se apaga al
+             entrar a la ficha y solo vuelve al salir). "Inicio" queda con
+             igualdad exacta porque su href es prefijo de todas las demás rutas. */
+          const activo = pathname === t.href || (t.href !== "/dashboard" && pathname.startsWith(`${t.href}/`));
           const Icon = t.icon;
           return (
             <Link

@@ -189,8 +189,18 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
     "/dashboard/ajustes": ["/dashboard/facturacion"],
     "/dashboard/informes": ["/dashboard/informes/reportes"],
   };
+  /* `/dashboard/clientes/[id]` (ficha del cliente) y `/dashboard/proveedores/[id]`
+     son sub-rutas de detalle de un link del NAV, no ítems propios — sin el
+     `startsWith` de acá el link "Clientes"/"Proveedores" perdía el resaltado
+     azul apenas se entraba a la ficha, y recién volvía al listar de nuevo.
+     Se excluye "/dashboard" (Inicio) porque es prefijo literal de TODAS las
+     rutas del dashboard: con `startsWith` ahí, "Inicio" quedaría marcado
+     activo en cualquier página. */
   const esActivo = (href: string) =>
-    pathname === href || (RUTAS_HERMANAS[href]?.includes(pathname) ?? false) || pathname === resolverHref(href);
+    pathname === href ||
+    (href !== "/dashboard" && pathname.startsWith(`${href}/`)) ||
+    (RUTAS_HERMANAS[href]?.includes(pathname) ?? false) ||
+    pathname === resolverHref(href);
   const grupoTieneActivo = (hijos: Hijo[]) => hijos.some((h) => esActivo(h.href));
 
   /* Acordeón: un solo grupo abierto a la vez, por defecto el que contiene la
@@ -326,15 +336,18 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-white transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-900 md:flex ${
+      className={`fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden rounded-r-[1.75rem] border-r border-slate-200 bg-white shadow-[4px_0_16px_-4px_rgba(15,23,42,0.12)] transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-900 dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)] md:flex ${
         colapsado ? "w-16" : "w-60"
       }`}
     >
       {/* Identidad del negocio/empleado y ThemeToggle viven en
           DashboardTopbar.tsx — este header queda solo con la marca de la
           app (genérica, no del tenant) y el botón de colapsar, así el
-          sidebar es puramente navegación. */}
-      <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-3 py-4 dark:border-slate-800">
+          sidebar es puramente navegación. `h-16` fijo (no `py-*`) para que la
+          línea inferior caiga exactamente a la misma altura que el borde del
+          topbar (DashboardTopbar.tsx: mismo `h-16`) sin depender de que el
+          contenido interno de ambos mida lo mismo. */}
+      <div className="flex h-16 items-center justify-between gap-1 border-b border-slate-100 px-3 dark:border-slate-800">
         {!colapsado && (
           <span className="truncate pl-1 font-display text-base text-slate-900 dark:text-slate-100">SaaS Óptica</span>
         )}

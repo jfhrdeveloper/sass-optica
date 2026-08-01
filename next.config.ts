@@ -21,6 +21,14 @@ const CSP = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  /* Permite acceder al dev server desde el túnel público de cloudflared
+     (preview-publico) — sin esto, Next.js bloquea por defecto los recursos
+     de dev (HMR/webpack) de cualquier origin que no sea localhost, lo que
+     deja la página en blanco al abrirla desde el link público/el celular.
+     Wildcard porque cloudflared genera un subdominio *.trycloudflare.com
+     nuevo cada vez que se abre el túnel. Solo afecta `next dev`, no aplica
+     en producción (`next build`/`next start`). */
+  allowedDevOrigins: ["*.trycloudflare.com"],
   async headers() {
     return [
       {

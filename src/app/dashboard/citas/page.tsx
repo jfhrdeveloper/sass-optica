@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, User, FileText, Pencil, Trash2 } from "lucide-react";
 import { useData, type Cita } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -84,15 +84,26 @@ export default function CitasPage() {
   const [recetaAbierta, setRecetaAbierta] = useState<string | null>(null);
   const [receta, setReceta] = useState<Record<string, string>>({});
 
-  /* "Día" por defecto (pedido explícito del usuario, sobre todo pensando en
-     mobile — un mes entero no entra bien en pantalla angosta). Lista sigue
-     disponible para cuando hace falta buscar por estado o rango de fechas,
-     algo que ningún calendario resuelve bien. Los filtros de estado/fecha
-     solo aplican a Lista. Día/3 días/5 días/Semana/Mes son la vista de
-     agenda tipo Google Calendar (CalendarioMes/CalendarioAgenda) — todas
-     comparten una sola fecha ancla (`fecha`) en vez de tener cada una su
-     propio estado, así cambiar de vista no te saca de dónde estabas parado. */
-  const [vista, setVista] = useState<Vista>("dia");
+  /* Mes por defecto en desktop (más útil de un vistazo para agendar) — Lista
+     sigue disponible para cuando hace falta buscar por estado o rango de
+     fechas, algo que ningún calendario resuelve bien. Los filtros de
+     estado/fecha solo aplican a Lista. Día/3 días/5 días/Semana/Mes son la
+     vista de agenda tipo Google Calendar (CalendarioMes/CalendarioAgenda) —
+     todas comparten una sola fecha ancla (`fecha`) en vez de tener cada una
+     su propio estado, así cambiar de vista no te saca de dónde estabas. */
+  const [vista, setVista] = useState<Vista>("mes");
+  /* En mobile el default pasa a "Día" (un mes entero no entra bien en
+     pantalla angosta) — pedido explícito del usuario, pero SOLO para mobile,
+     desktop se queda en "Mes". Se decide recién en el cliente (matchMedia,
+     no hay forma de saber el viewport durante el SSR) — un solo chequeo al
+     montar, no un listener de resize: es el default inicial, no algo que
+     deba cambiar de estado si el usuario después agranda la ventana. */
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 639px)").matches) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- el viewport solo se conoce en el cliente
+      setVista("dia");
+    }
+  }, []);
   const [fecha, setFecha] = useState(() => new Date());
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [desde, setDesde] = useState("");
@@ -225,10 +236,25 @@ export default function CitasPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Citas</h1>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* Mobile: 2 filas de 3 vistas cada una (Día/3 días/5 días · Semana/Mes/Lista) —
-            dos SegmentedControl independientes, cada uno con su propio indicador
-            deslizante, en vez de forzar 6 opciones en un solo track angosto. */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {/* Desktop: el control original de 6 opciones en un solo track, sin cambios.
+            Mobile (oculto acá, sm:hidden abajo): partido en 2 filas de 3, un track
+            angosto de 6 no entra bien en pantalla chica. */}
+        <SegmentedControl
+          aria-label="Vista de citas"
+          variante="opciones"
+          valor={vista}
+          onChange={(v) => setVista(v as Vista)}
+          className="hidden sm:block"
+          opciones={[
+            { valor: "dia", label: "Día" },
+            { valor: "3dias", label: "3 días" },
+            { valor: "5dias", label: "5 días" },
+            { valor: "semana", label: "Semana" },
+            { valor: "mes", label: "Mes" },
+            { valor: "lista", label: "Lista" },
+          ]}
+        />
+        <div className="flex flex-col gap-2 sm:hidden">
           <SegmentedControl
             aria-label="Vista de citas (rango)"
             variante="opciones"
@@ -255,11 +281,11 @@ export default function CitasPage() {
 
         {vista === "lista" && (
           <div className="grid w-full grid-cols-2 gap-2 sm:contents">
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="select w-full text-sm">
+            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="select w-full text-sm sm:w-auto">
               <option value="todos">Todos los estados</option>
               {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
             </select>
-            <div className="w-full [&>button]:w-full">
+            <div className="w-full [&>button]:w-full sm:w-auto sm:[&>button]:w-auto">
               <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
             </div>
           </div>

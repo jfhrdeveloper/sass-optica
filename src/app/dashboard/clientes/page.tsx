@@ -17,7 +17,7 @@ import { formatearFecha } from "@/lib/formato/date";
 const DIAS_RIESGO = 180;
 
 export default function ClientesPage() {
-  const { clientes, citas, deleteCliente, restaurarCliente, purgarCliente } = useData();
+  const { clientes, citas, restaurarCliente, purgarCliente } = useData();
   const toast = useToast();
   const router = useRouter();
   const formEstado = useClienteForm();
@@ -70,16 +70,7 @@ export default function ClientesPage() {
     });
   const { pagina, setPagina, totalPaginas, visibles } = usePaginado(filtrados);
 
-  const [confirmarEliminar, setConfirmarEliminar] = useState<Cliente | null>(null);
   const [confirmarPurgar, setConfirmarPurgar] = useState<Cliente | null>(null);
-
-  async function confirmarEliminarAccion() {
-    const c = confirmarEliminar;
-    if (!c) return;
-    setConfirmarEliminar(null);
-    await deleteCliente(c.id);
-    toast(`${c.nombres} eliminado.`, "info", { label: "Deshacer", onClick: () => restaurar(c) });
-  }
 
   async function restaurar(c: Cliente) {
     await restaurarCliente(c.id);
@@ -102,7 +93,7 @@ export default function ClientesPage() {
         <div className="table-filter-bar">
           {/* Mobile: 2 columnas fijas por fila (buscador + "al día" / papelera + nuevo
               cliente); sm:contents devuelve el layout de flex-wrap original en desktop. */}
-          <div className="grid grid-cols-2 gap-2 sm:contents">
+          <div className="grid w-full grid-cols-2 gap-2 sm:contents">
             <div className="relative sm:max-w-xs sm:flex-1">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -111,17 +102,21 @@ export default function ClientesPage() {
               />
             </div>
             {!verPapelera && (
-              <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select w-full text-sm">
+              <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select w-full text-sm sm:w-auto">
                 <option value="todos">Todos</option>
                 <option value="riesgo">En riesgo</option>
                 <option value="al_dia">Al día</option>
               </select>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:contents">
+          {/* Papelera/Nuevo cliente en una sola línea, mitad y mitad en mobile —
+              whitespace-nowrap + padding más chico para que el texto no se parta
+              en 2 líneas dentro de esa mitad; en desktop (sm:contents) vuelven al
+              flex-wrap original con su padding normal. */}
+          <div className="grid w-full grid-cols-2 gap-2 sm:contents">
             <button
               onClick={() => setVerPapelera((v) => !v)}
-              className={verPapelera ? "btn-primary w-full justify-center gap-1.5 sm:w-auto" : "btn-outline w-full justify-center gap-1.5 sm:w-auto"}
+              className={verPapelera ? "btn-primary w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:w-auto sm:px-4" : "btn-outline w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:w-auto sm:px-4"}
             >
               <Trash2 size={16} /> {verPapelera ? "Volver a clientes" : "Papelera"}
               {!verPapelera && clientesPapelera.length > 0 && (
@@ -129,7 +124,7 @@ export default function ClientesPage() {
               )}
             </button>
             {!verPapelera && (
-              <button onClick={formEstado.nuevo} className="btn-primary w-full justify-center gap-1.5 sm:ml-auto sm:w-auto">
+              <button onClick={formEstado.nuevo} className="btn-primary w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:ml-auto sm:w-auto sm:px-4">
                 <Plus size={16} /> Nuevo cliente
               </button>
             )}
@@ -141,8 +136,11 @@ export default function ClientesPage() {
             <thead>
               <tr>
                 <th className="table-head-cell">Cliente</th>
-                <th className="table-head-cell">Teléfono</th>
-                <th className="table-head-cell hidden md:table-cell">{verPapelera ? "Eliminado" : "Historial"}</th>
+                <th className="table-head-cell hidden md:table-cell">Teléfono</th>
+                {/* lg (1024px), no md (768px): un teléfono grande en horizontal puede
+                    superar los 768px — con lg queda oculta en cualquier orientación
+                    de celular, solo se ve en pantallas de verdad tipo laptop/desktop. */}
+                <th className="table-head-cell hidden lg:table-cell">{verPapelera ? "Eliminado" : "Historial"}</th>
                 <th className="table-head-cell text-right">Acciones</th>
               </tr>
             </thead>
@@ -155,7 +153,7 @@ export default function ClientesPage() {
                     onClick={verPapelera ? undefined : () => router.push(`/dashboard/clientes/${c.id}`)}
                     className={verPapelera ? "table-row" : "table-row cursor-pointer"}
                   >
-                    <td className="table-cell">
+                    <td className="table-body-cell">
                       <span className="flex items-center gap-3">
                         <span className="row-avatar"><User size={16} /></span>
                         <span>
@@ -168,7 +166,7 @@ export default function ClientesPage() {
                         </span>
                       </span>
                     </td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">
+                    <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">
                       {c.telefono ? (
                         <span className="flex items-center gap-2">
                           {c.telefono}
@@ -178,7 +176,7 @@ export default function ClientesPage() {
                         "—"
                       )}
                     </td>
-                    <td className="table-cell hidden md:table-cell">
+                    <td className="table-body-cell hidden lg:table-cell">
                       {verPapelera ? (
                         <span className="text-slate-500 dark:text-slate-400">
                           {formatearFecha(c.eliminadoEn!)} · se purga en {Math.max(0, 30 - Math.ceil((ahora - new Date(c.eliminadoEn!).getTime()) / 86400000))} días
@@ -192,8 +190,11 @@ export default function ClientesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="table-cell text-right">
-                      <div className="flex justify-end gap-1">
+                    <td className="table-body-cell text-right">
+                      {/* Papelera: 2 íconos, alineados al borde igual que el encabezado
+                          "Acciones" (text-right). Ver: un solo ícono, centrado en vez de
+                          pegado al borde — se ve raro un ícono solo colgando a la derecha. */}
+                      <div className={verPapelera ? "flex justify-end gap-1" : "flex justify-center gap-1"}>
                         {verPapelera ? (
                           <>
                             <button onClick={() => restaurar(c)} title="Restaurar" aria-label={`Restaurar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
@@ -204,18 +205,14 @@ export default function ClientesPage() {
                             </button>
                           </>
                         ) : (
-                          /* Editar ya NO vive en esta fila — se mueve dentro de la
-                             ficha del cliente (clientes/[id]/page.tsx), acá solo
-                             queda Ver (navega explícito, la fila también navega al
-                             hacer click completo) y Eliminar (papelera). */
-                          <>
-                            <button onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/clientes/${c.id}`); }} title="Ver" aria-label={`Ver a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
-                              <Eye size={15} />
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); setConfirmarEliminar(c); }} title="Eliminar" aria-label={`Eliminar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn row-icon-btn-danger">
-                              <Trash2 size={15} />
-                            </button>
-                          </>
+                          /* Editar y Eliminar ya NO viven en esta fila — se mueven
+                             dentro de la ficha del cliente (clientes/[id]/page.tsx).
+                             Acá solo queda Ver (la fila también navega al hacer
+                             click completo, este botón es el punto de entrada
+                             explícito/accesible). */
+                          <button onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/clientes/${c.id}`); }} title="Ver" aria-label={`Ver a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
+                            <Eye size={15} />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -240,18 +237,6 @@ export default function ClientesPage() {
 
       <ClienteFormSlideOver estado={formEstado} />
 
-      <ConfirmDialog
-        abierto={Boolean(confirmarEliminar)}
-        titulo="¿Eliminar cliente?"
-        mensaje={
-          confirmarEliminar
-            ? `${confirmarEliminar.nombres} ${confirmarEliminar.apellidos} pasará a la papelera: podrás restaurarlo durante 30 días, después se elimina definitivamente (junto con sus citas y recetas).`
-            : ""
-        }
-        confirmarTexto="Eliminar"
-        onConfirmar={confirmarEliminarAccion}
-        onCancelar={() => setConfirmarEliminar(null)}
-      />
       <ConfirmDialog
         abierto={Boolean(confirmarPurgar)}
         titulo="¿Eliminar definitivamente?"
