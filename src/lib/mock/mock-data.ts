@@ -372,3 +372,30 @@ export const MOCK_ADMIN_MEJORAS_VOTOS = [
   { mejora_id: "mej-4", negocio_id: "adm-neg-4" },
   { mejora_id: "mej-5", negocio_id: "adm-neg-1" }, { mejora_id: "mej-5", negocio_id: "adm-neg-3" },
 ];
+
+/* "Ver como negocio" — vista de solo lectura (/admin-panel/negocios/[id]/vista).
+   Datos crudos por negocio-tenant (namespace adm-neg-*, no confundir con
+   MOCK_CLIENTES/MOCK_CITAS/etc. de arriba, que son el ÚNICO negocio logueado
+   en el dashboard mock). Solo se completan adm-neg-1 y adm-neg-2 a propósito:
+   el resto queda vacío para poder probar también el estado "sin datos" de
+   cada sección sin tener que inventar contenido para los 6 negocios. */
+export const MOCK_ADMIN_VISTA_CLIENTES = [
+  { id: "vcli-1", negocio_id: "adm-neg-1", nombres: "Pedro", apellidos: "Huamán", telefono: "944 123 456", created_at: haceMeses(0, 20) },
+  { id: "vcli-2", negocio_id: "adm-neg-1", nombres: "Lucía", apellidos: "Campos", telefono: "955 234 567", created_at: haceMeses(0, 15) },
+  { id: "vcli-3", negocio_id: "adm-neg-2", nombres: "Fernando", apellidos: "Ríos", telefono: "966 345 678", created_at: haceMeses(0, 22) },
+];
+
+export const MOCK_ADMIN_VISTA_CITAS = [
+  { id: "vcit-1", negocio_id: "adm-neg-1", fecha_hora: new Date(Date.now() + 2 * 86400000).toISOString(), motivo: "Control anual", estado: "programada", cliente_nombre: "Pedro Huamán" },
+  { id: "vcit-2", negocio_id: "adm-neg-2", fecha_hora: new Date(Date.now() + 1 * 86400000).toISOString(), motivo: "Entrega de lentes", estado: "programada", cliente_nombre: "Fernando Ríos" },
+];
+
+export const MOCK_ADMIN_VISTA_VENTAS = [
+  { id: "vven-1", negocio_id: "adm-neg-1", fecha: haceMeses(0, 21), total: 280, metodo_pago: "efectivo", estado: "pagada", cliente_nombre: "Pedro Huamán" },
+  { id: "vven-2", negocio_id: "adm-neg-2", fecha: haceMeses(0, 23), total: 410, metodo_pago: "tarjeta", estado: "pagada", cliente_nombre: "Fernando Ríos" },
+];
+
+export const MOCK_ADMIN_VISTA_STOCK_BAJO = [
+  { producto_id: "vprod-1", negocio_id: "adm-neg-1", nombre: "Luna antireflejo 1.56", stock_actual: 1, stock_minimo: 3 },
+  { producto_id: "vprod-2", negocio_id: "adm-neg-2", nombre: "Armazón Ray-Ban RB2140", stock_actual: 0, stock_minimo: 2 },
+];

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Users, CreditCard, Activity } from "lucide-react";
+import { ArrowLeft, Eye, Users, CreditCard, Activity } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EMPLEADOS, MOCK_ADMIN_PAGOS, MOCK_ADMIN_EVENTOS_USO, MOCK_ADMIN_NOTAS_SOPORTE } from "@/lib/mock/mock-data";
@@ -90,7 +90,12 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{negocio.subdominio}.dominio.pe · alta {formatearFechaPE(negocio.created_at)}</p>
         </div>
-        <SuspenderNegocioButton id={negocio.id} activo={negocio.activo} />
+        <div className="flex items-center gap-2">
+          <Link href={`/admin-panel/negocios/${negocio.id}/vista`} className="btn-outline gap-1.5 text-sm">
+            <Eye size={15} /> Ver como este negocio
+          </Link>
+          <SuspenderNegocioButton id={negocio.id} activo={negocio.activo} />
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
