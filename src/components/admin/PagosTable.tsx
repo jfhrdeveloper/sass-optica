@@ -64,15 +64,15 @@ export function PagosTable({ pagos }: { pagos: PagoFila[] }) {
           <tbody>
             {visibles.map((p) => (
               <tr key={p.id} className="table-row">
-                <td className="table-cell">
+                <td className="table-body-cell">
                   <Link href={`/admin-panel/negocios/${p.negocioId}`} className="font-medium text-slate-900 transition-colors hover:text-primary dark:text-slate-100">
                     {p.negocioNombre}
                   </Link>
                 </td>
-                <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(p.createdAt)}</td>
-                <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{p.moneda} {p.monto.toFixed(2)}</td>
-                <td className="table-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{p.metodoPago ?? "—"}</td>
-                <td className="table-cell"><span className="badge badge-success">{p.estado}</span></td>
+                <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(p.createdAt)}</td>
+                <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{p.moneda} {p.monto.toFixed(2)}</td>
+                <td className="table-body-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{p.metodoPago ?? "—"}</td>
+                <td className="table-body-cell"><span className="badge badge-success">{p.estado}</span></td>
               </tr>
             ))}
             {filtrados.length === 0 && (

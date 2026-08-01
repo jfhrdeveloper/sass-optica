@@ -67,8 +67,8 @@ export default function ComisionesPage() {
             <tbody>
               {comisiones.map((c) => (
                 <tr key={c.empleadoId} className="table-row">
-                  <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{c.nombre}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">
+                  <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{c.nombre}</td>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">
                     {esAdmin ? (
                       <label className="inline-flex items-center gap-1">
                         <input
@@ -85,8 +85,8 @@ export default function ComisionesPage() {
                       `${c.comisionPct}%`
                     )}
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">S/ {c.totalVendido.toFixed(2)}</td>
-                  <td className="table-cell font-semibold text-primary">S/ {c.comision.toFixed(2)}</td>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">S/ {c.totalVendido.toFixed(2)}</td>
+                  <td className="table-body-cell font-semibold text-primary">S/ {c.comision.toFixed(2)}</td>
                 </tr>
               ))}
               {comisiones.length === 0 && (
@@ -100,8 +100,8 @@ export default function ComisionesPage() {
             {comisiones.length > 0 && (
               <tfoot>
                 <tr className="border-t border-slate-100 font-semibold text-slate-900 dark:border-slate-800 dark:text-slate-100">
-                  <td className="table-cell" colSpan={3}>Total a pagar</td>
-                  <td className="table-cell text-primary">S/ {totalComision.toFixed(2)}</td>
+                  <td className="table-body-cell" colSpan={3}>Total a pagar</td>
+                  <td className="table-body-cell text-primary">S/ {totalComision.toFixed(2)}</td>
                 </tr>
               </tfoot>
             )}

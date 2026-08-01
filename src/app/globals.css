@@ -1,4 +1,14 @@
 @import "tailwindcss";
+/* Tailwind v4 detecta clases automáticamente en TODO el repo (no solo en el
+   código de la app) — eso incluye `docs/*.md`, que en algún punto mencionó
+   `.table-cell`/`.table-row` (nombres de clases propias del proyecto que
+   también son utilidades nativas de Tailwind, ver el comentario junto a
+   `.table-body-cell` más abajo). Un simple texto descriptivo en una bitácora
+   vieja alcanzaba para que Tailwind generara esa utilidad nativa sin
+   condición, pisando cualquier `hidden` aplicado junto a ella — bug real que
+   costó varias rondas diagnosticar. `docs/` no necesita generar ninguna
+   clase de Tailwind, así que queda excluido del escaneo. */
+@source not "../../docs";
 
 /* Modo oscuro por CLASE (no por `prefers-color-scheme` del sistema): el
    toggle manual (ver ThemeToggle.tsx) agrega/quita `.dark` en <html>. Esta
@@ -351,11 +361,29 @@ input[type="number"]::-webkit-inner-spin-button {
     @apply bg-slate-50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide
            text-slate-400 dark:bg-slate-800/50 dark:text-slate-500;
   }
+  /* OJO al nombrar clases de tabla: "table‑row"/"table‑cell" (sin prefijo,
+     con guion normal en vez de este guion no-separable) son también nombres
+     de utilidades nativas de Tailwind (`display: table‑row` / `display:
+     table‑cell`). Si una clase propia se llama EXACTAMENTE igual (con guion
+     normal), Tailwind igual genera la utilidad nativa homónima con solo ver
+     ese texto en CUALQUIER archivo del repo (no distingue "es mi clase" de
+     "es la utilidad de Tailwind" — ver el `@source not` al inicio de este
+     archivo, agregado por el mismo motivo) — esa utilidad cae en `@layer
+     utilities`, que en Tailwind v4 tiene MÁS prioridad que `@layer
+     components` sin importar el orden en el código fuente, así que gana
+     ella y no lo que definimos acá. Bug real que hubo: `hidden md:table‑cell`
+     nunca ocultaba nada, porque la utilidad nativa (sin condición) le ganaba
+     a `.hidden` (display:none). Por eso esta clase se llama `.table-body-cell`
+     — no colisiona con ninguna utilidad de Tailwind. La clase de fila de
+     abajo NO se combina con `hidden` en ningún lado del proyecto hoy, así
+     que no manifiesta el bug, pero tiene el mismo riesgo latente: si alguna
+     vez se le agrega `hidden`/`md:hidden` a un `<tr>`, va a fallar igual — renombrarla
+     también si eso llega a hacer falta. */
   .table-row {
     @apply border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50
            dark:border-slate-800 dark:hover:bg-slate-800/60;
   }
-  .table-cell {
+  .table-body-cell {
     @apply px-4 py-3.5 align-middle;
   }
   /* Ícono/avatar circular de fila — mismo patrón que ya usaba el SlideOver

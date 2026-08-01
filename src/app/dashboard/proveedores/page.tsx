@@ -96,7 +96,7 @@ export default function ProveedoresPage() {
             <tbody>
               {visibles.map((p) => (
                 <tr key={p.id} onClick={() => router.push(`/dashboard/proveedores/${p.id}`)} className="table-row cursor-pointer">
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Truck size={16} /></span>
                       <span>
@@ -105,8 +105,8 @@ export default function ProveedoresPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{p.contacto ?? "—"}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{p.contacto ?? "—"}</td>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">
                     {p.telefono ? (
                       <span className="flex items-center gap-2">
                         {p.telefono}
@@ -116,7 +116,7 @@ export default function ProveedoresPage() {
                       "—"
                     )}
                   </td>
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <label className="inline-flex cursor-pointer items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox" role="switch" checked={p.activo}
@@ -126,7 +126,7 @@ export default function ProveedoresPage() {
                       <span className="text-sm text-slate-600 dark:text-slate-300">{p.activo ? "Activo" : "Inactivo"}</span>
                     </label>
                   </td>
-                  <td className="table-cell text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="table-body-cell text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     {confirmandoId === p.id ? (
                       <span className="inline-flex items-center gap-2">
                         <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>

@@ -404,28 +404,28 @@ export default function VentasPage() {
             <tbody>
               {visibles.map((v) => (
                 <tr key={v.id} className="table-row align-top">
-                  <td className="table-cell text-slate-600 dark:text-slate-300" suppressHydrationWarning>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300" suppressHydrationWarning>
                     {new Date(v.fecha).toLocaleString("es-PE", { timeZone: "America/Lima" })}
                   </td>
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Receipt size={16} /></span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(v.clienteId)}</span>
                     </div>
                   </td>
-                  <td className="table-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
+                  <td className="table-body-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">
                       {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
                     </div>
                   </td>
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <span className={`badge ${v.estado === "anulada" ? "badge-neutral" : "badge-success"}`}>
                       {v.estado === "anulada" ? "Anulada" : "Pagada"}
                     </span>
                   </td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell text-right">
                     <div className="flex justify-end gap-1">
                       <button
                         onClick={() => imprimirRecibo(v)}

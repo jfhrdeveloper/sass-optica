@@ -119,7 +119,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
               const dias = diasParaVencer(n.trialFin);
               return (
                 <tr key={n.id} className="table-row">
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <Link href={`/admin-panel/negocios/${n.id}`} className="flex items-center gap-3 text-left">
                       <span className="row-avatar"><Building2 size={16} /></span>
                       <span>
@@ -130,8 +130,8 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
                       </span>
                     </Link>
                   </td>
-                  <td className="table-cell hidden sm:table-cell text-slate-600 dark:text-slate-300">{n.plan ? PLAN_LABEL[n.plan] ?? n.plan : "—"}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell hidden sm:table-cell text-slate-600 dark:text-slate-300">{n.plan ? PLAN_LABEL[n.plan] ?? n.plan : "—"}</td>
+                  <td className="table-body-cell">
                     <span className="flex flex-wrap items-center gap-1.5">
                       {n.estado && <span className={`badge ${ESTADO_BADGE[n.estado] ?? "badge-neutral"}`}>{ESTADO_LABEL[n.estado] ?? n.estado}</span>}
                       {!n.activo && <span className="badge badge-neutral">Inactivo</span>}
@@ -139,10 +139,10 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
                       {sinUsoReciente(n) && <span className="badge badge-warning">Sin uso</span>}
                     </span>
                   </td>
-                  <td className="table-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{etiquetaUltimaActividad(n.ultimaActividad, new Date(ahora))}</td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{n.trialFin ? formatearFechaPE(n.trialFin) : "—"}</td>
-                  <td className="table-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(n.createdAt)}</td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{etiquetaUltimaActividad(n.ultimaActividad, new Date(ahora))}</td>
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{n.trialFin ? formatearFechaPE(n.trialFin) : "—"}</td>
+                  <td className="table-body-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(n.createdAt)}</td>
+                  <td className="table-body-cell text-right">
                     <Link href={`/admin-panel/negocios/${n.id}`} aria-label={`Ver detalle de ${n.nombre}`} className="row-icon-btn ml-auto">
                       <ChevronRight size={15} />
                     </Link>

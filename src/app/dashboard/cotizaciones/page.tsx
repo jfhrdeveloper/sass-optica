@@ -321,21 +321,21 @@ export default function CotizacionesPage() {
             <tbody>
               {visibles.map((c) => (
                 <tr key={c.id} className="table-row align-top">
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(c.fecha)}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(c.fecha)}</td>
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><FileText size={16} /></span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(c.clienteId)}</span>
                     </div>
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{c.vigenciaHasta ? formatearFechaPE(c.vigenciaHasta) : "—"}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{c.vigenciaHasta ? formatearFechaPE(c.vigenciaHasta) : "—"}</td>
+                  <td className="table-body-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {c.total.toFixed(2)}</span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">
                       {cotizacionItems.filter((it) => it.cotizacionId === c.id).map((it) => it.descripcion).join(", ")}
                     </div>
                   </td>
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     {/* Ningún estado se revierte una vez que sale de "pendiente"
                         (pedido explícito del usuario) — antes "rechazada" tenía
                         un botón "Volver a pendiente", se quitó a propósito. */}
@@ -347,7 +347,7 @@ export default function CotizacionesPage() {
                       <span className={`badge ${ESTADO_BADGE[c.estado]}`}>{ESTADO_LABEL[c.estado]}</span>
                     )}
                   </td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell text-right">
                     <div className="flex justify-end gap-1">
                       {c.estado === "pendiente" && (
                         <button

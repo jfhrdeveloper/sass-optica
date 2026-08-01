@@ -138,17 +138,17 @@ export default function InformesPage() {
                 <tbody>
                   {visibles.map((m, i) => (
                     <tr key={i} className="table-row">
-                      <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(m.fecha)}</td>
-                      <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{m.concepto}</td>
-                      <td className="table-cell hidden md:table-cell">
+                      <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(m.fecha)}</td>
+                      <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{m.concepto}</td>
+                      <td className="table-body-cell hidden md:table-cell">
                         <span className={`badge ${m.tipo === "ingreso" ? "badge-success" : "badge-danger"}`}>
                           {m.tipo === "ingreso" ? "Ingreso" : "Egreso"}
                         </span>
                       </td>
-                      <td className={`table-cell text-right ${m.tipo === "ingreso" ? "text-accent" : "text-red-600 dark:text-red-400"}`}>
+                      <td className={`table-body-cell text-right ${m.tipo === "ingreso" ? "text-accent" : "text-red-600 dark:text-red-400"}`}>
                         {m.tipo === "ingreso" ? "+" : "−"} S/ {m.monto.toFixed(2)}
                       </td>
-                      <td className="table-cell text-right font-medium text-slate-900 dark:text-slate-100">S/ {m.saldo.toFixed(2)}</td>
+                      <td className="table-body-cell text-right font-medium text-slate-900 dark:text-slate-100">S/ {m.saldo.toFixed(2)}</td>
                     </tr>
                   ))}
                   {conSaldo.length === 0 && (

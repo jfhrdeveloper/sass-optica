@@ -103,16 +103,16 @@ export default function GastosPage() {
             <tbody>
               {visibles.map((g) => (
                 <tr key={g.id} className="table-row">
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(g.fecha)}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(g.fecha)}</td>
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Receipt size={16} /></span>
                       <span className="font-medium capitalize text-slate-900 dark:text-slate-100">{g.categoria}</span>
                     </div>
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
-                  <td className="table-cell font-medium text-slate-900 dark:text-slate-100">S/ {g.monto.toFixed(2)}</td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
+                  <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">S/ {g.monto.toFixed(2)}</td>
+                  <td className="table-body-cell text-right">
                     <button onClick={() => eliminar(g)} title="Eliminar" aria-label={`Eliminar gasto${g.descripcion ? `: ${g.descripcion}` : ""}`} className="row-icon-btn row-icon-btn-danger">
                       <Trash2 size={15} />
                     </button>

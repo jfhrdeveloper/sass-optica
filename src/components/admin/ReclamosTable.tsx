@@ -79,9 +79,9 @@ export function ReclamosTable({ reclamos }: { reclamos: ReclamoFila[] }) {
             <tbody>
               {reclamos.map((r) => (
                 <tr key={r.id} className="table-row">
-                  <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{r.numero}</td>
-                  <td className="table-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{r.tipo}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{r.numero}</td>
+                  <td className="table-body-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{r.tipo}</td>
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><MessageSquareWarning size={16} /></span>
                       <span>
@@ -90,14 +90,14 @@ export function ReclamosTable({ reclamos }: { reclamos: ReclamoFila[] }) {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{r.bienDescripcion}</td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(r.createdAt.slice(0, 10))}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell hidden lg:table-cell text-slate-600 dark:text-slate-300">{r.bienDescripcion}</td>
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(r.createdAt.slice(0, 10))}</td>
+                  <td className="table-body-cell">
                     <span className={`badge ${r.estado === "atendido" ? "badge-success" : "badge-warning"}`}>
                       {r.estado === "atendido" ? "Atendido" : "Pendiente"}
                     </span>
                   </td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell text-right">
                     <button onClick={() => abrir(r)} title="Ver detalle" aria-label={`Ver reclamo ${r.numero}`} className="row-icon-btn ml-auto">
                       <Eye size={15} />
                     </button>

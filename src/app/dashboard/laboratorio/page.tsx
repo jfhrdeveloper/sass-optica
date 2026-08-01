@@ -108,7 +108,7 @@ export default function LaboratorioPage() {
                 const opcionesEstado = [o.estado, ...TRANSICIONES_VALIDAS[o.estado]];
                 return (
                   <tr key={o.id} className="table-row">
-                    <td className="table-cell">
+                    <td className="table-body-cell">
                       <div className="flex items-center gap-3">
                         <span className="row-avatar"><FlaskConical size={16} /></span>
                         <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -116,9 +116,9 @@ export default function LaboratorioPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{o.laboratorioNombre ?? "—"}</td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFecha(o.fechaGenerado)}</td>
-                    <td className="table-cell">
+                    <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{o.laboratorioNombre ?? "—"}</td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFecha(o.fechaGenerado)}</td>
+                    <td className="table-body-cell">
                       {puedeEditar ? (
                         <select
                           value={o.estado}
@@ -131,7 +131,7 @@ export default function LaboratorioPage() {
                         <span className={`badge ${ESTADO_ORDEN_LABORATORIO_BADGE[o.estado]}`}>{ESTADO_ORDEN_LABORATORIO_LABEL[o.estado]}</span>
                       )}
                     </td>
-                    <td className="table-cell text-right">
+                    <td className="table-body-cell text-right">
                       {o.estado === "recibido" && cliente?.telefono && (
                         <button
                           onClick={() => avisarWhatsapp(o)}

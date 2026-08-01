@@ -95,14 +95,14 @@ export default function SucursalesPage() {
             <tbody>
               {sucursales.map((s) => (
                 <tr key={s.id} className="table-row">
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Store size={16} /></span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">{s.nombre}</span>
                     </div>
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{s.direccion ?? "—"}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{s.direccion ?? "—"}</td>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">
                     {s.telefono ? (
                       <span className="flex items-center gap-2">
                         {s.telefono}
@@ -112,7 +112,7 @@ export default function SucursalesPage() {
                       "—"
                     )}
                   </td>
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <label className="inline-flex cursor-pointer items-center gap-2">
                       <input
                         type="checkbox" role="switch" checked={s.activo} disabled={!esPremium}
@@ -122,7 +122,7 @@ export default function SucursalesPage() {
                       <span className="text-sm text-slate-600 dark:text-slate-300">{s.activo ? "Activa" : "Inactiva"}</span>
                     </label>
                   </td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell text-right">
                     <button onClick={() => editar(s)} disabled={!esPremium} title="Editar" aria-label={`Editar ${s.nombre}`} className="row-icon-btn">
                       <Pencil size={15} />
                     </button>

@@ -288,14 +288,14 @@ export default function CajaPage() {
                 const diferencia = c.diferencia ?? 0;
                 return (
                   <tr key={c.id} className="table-row">
-                    <td className="table-cell text-slate-600 dark:text-slate-300">{c.fechaCierre ? formatearFechaHora(c.fechaCierre) : "—"}</td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">S/ {totalVentas.toFixed(2)}</td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">S/ {c.montoEfectivoEsperado.toFixed(2)}</td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">S/ {(c.montoEfectivoContado ?? 0).toFixed(2)}</td>
-                    <td className={`table-cell font-medium ${diferencia === 0 ? "text-slate-600 dark:text-slate-300" : "text-red-600 dark:text-red-400"}`}>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">{c.fechaCierre ? formatearFechaHora(c.fechaCierre) : "—"}</td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">S/ {totalVentas.toFixed(2)}</td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">S/ {c.montoEfectivoEsperado.toFixed(2)}</td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">S/ {(c.montoEfectivoContado ?? 0).toFixed(2)}</td>
+                    <td className={`table-body-cell font-medium ${diferencia === 0 ? "text-slate-600 dark:text-slate-300" : "text-red-600 dark:text-red-400"}`}>
                       {diferencia >= 0 ? "+" : ""}S/ {diferencia.toFixed(2)}
                     </td>
-                    <td className="table-cell text-right">
+                    <td className="table-body-cell text-right">
                       <button onClick={() => imprimirConstancia(c.id)} title="Imprimir constancia" aria-label="Imprimir constancia" className="row-icon-btn">
                         <Printer size={15} />
                       </button>

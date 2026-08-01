@@ -116,7 +116,7 @@ export default function EmpleadosPage() {
               {visibles.map((e) => (
                 <Fragment key={e.id}>
                   <tr className="table-row">
-                    <td className="table-cell">
+                    <td className="table-body-cell">
                       <div className="flex items-center gap-3">
                         <span className="row-avatar"><UserRound size={16} /></span>
                         <span>
@@ -125,8 +125,8 @@ export default function EmpleadosPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">{nombreRol(e.rol)}</td>
-                    <td className="table-cell">
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">{nombreRol(e.rol)}</td>
+                    <td className="table-body-cell">
                       {e.rol !== "administrador" && (
                         <button
                           onClick={() => setPermisosAbiertos(permisosAbiertos === e.id ? null : e.id)}
@@ -137,7 +137,7 @@ export default function EmpleadosPage() {
                         </button>
                       )}
                     </td>
-                    <td className="table-cell text-right">
+                    <td className="table-body-cell text-right">
                       {e.rol !== "administrador" && e.id !== yo?.id && (
                         confirmandoId === e.id ? (
                           <span className="inline-flex items-center gap-2 whitespace-nowrap">

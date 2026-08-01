@@ -76,23 +76,23 @@ export default function DescuentosPage() {
             <tbody>
               {visibles.map((d) => (
                 <tr key={d.id} className="table-row">
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Tag size={16} /></span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">{d.codigo}</span>
                     </div>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">
                     {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{APLICA_A_LABEL[d.aplicaA]}</td>
-                  <td className="table-cell hidden lg:table-cell text-slate-500 dark:text-slate-400">
+                  <td className="table-body-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{APLICA_A_LABEL[d.aplicaA]}</td>
+                  <td className="table-body-cell hidden lg:table-cell text-slate-500 dark:text-slate-400">
                     {d.vigenciaDesde || d.vigenciaHasta
                       ? `${d.vigenciaDesde ? formatearFechaPE(d.vigenciaDesde) : "—"} → ${d.vigenciaHasta ? formatearFechaPE(d.vigenciaHasta) : "—"}`
                       : "Sin límite"}
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
-                  <td className="table-cell">
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
+                  <td className="table-body-cell">
                     <label className="inline-flex cursor-pointer items-center gap-2">
                       <input
                         type="checkbox" role="switch" checked={d.activo}
@@ -102,7 +102,7 @@ export default function DescuentosPage() {
                       <span className="text-sm text-slate-600 dark:text-slate-300">{d.activo ? "Activo" : "Inactivo"}</span>
                     </label>
                   </td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell text-right">
                     <button onClick={() => eliminar(d)} title="Eliminar" aria-label={`Eliminar cupón ${d.codigo}`} className="row-icon-btn row-icon-btn-danger">
                       <Trash2 size={15} />
                     </button>
