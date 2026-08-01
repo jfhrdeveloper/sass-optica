@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, Trash2, Printer } from "lucide-react";
-import { useData, type Venta, type VentaItem } from "@/components/providers/DataProvider";
+import { Receipt, Trash2, Printer, ScanBarcode } from "lucide-react";
+import { EscanerCodigoBarras } from "@/components/ui/EscanerCodigoBarras";
+import { productosRelacionados } from "@/lib/venta-cruzada";
+import { useData, type Venta, type VentaItem, type Producto } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -57,6 +59,7 @@ export default function VentasPage() {
   const [items, setItems] = useState<ItemForm[]>([]);
   const [modoItem, setModoItem] = useState<"catalogo" | "personalizado">("catalogo");
   const [productoId, setProductoId] = useState("");
+  const [escanerAbierto, setEscanerAbierto] = useState(false);
   const [descripcionManual, setDescripcionManual] = useState("");
   const [precioManual, setPrecioManual] = useState(0);
   const [cantidad, setCantidad] = useState(1);
@@ -113,6 +116,21 @@ export default function VentasPage() {
     setCantidad(1);
   }
 
+  /* Agrega directo con cantidad 1 (a diferencia de agregarItem(), que usa
+     el <select> + el input de cantidad de al lado) — escanear ya es la
+     acción rápida, pedirle además que ajuste cantidad antes de confirmar le
+     saca el punto; si necesita más de 1, puede volver a escanear el mismo
+     código o editar la cantidad después con el input normal. */
+  function agregarItemEscaneado(codigo: string) {
+    setEscanerAbierto(false);
+    const producto = productos.find((p) => p.codigo === codigo);
+    if (!producto) { toast(`Ningún producto tiene el código "${codigo}".`, "error"); return; }
+    setItems((prev) => [...prev, {
+      productoId: producto.id, descripcion: producto.nombre,
+      cantidad: 1, precioUnitario: producto.precioVenta, subtotal: producto.precioVenta,
+    }]);
+  }
+
   function agregarItemManual() {
     if (!descripcionManual.trim() || precioManual <= 0) return;
     setItems([...items, {
@@ -127,6 +145,26 @@ export default function VentasPage() {
   function quitarItem(i: number) {
     setItems(items.filter((_, idx) => idx !== i));
   }
+
+  function agregarSugerido(producto: Producto) {
+    setItems((prev) => [...prev, {
+      productoId: producto.id, descripcion: producto.nombre,
+      cantidad: 1, precioUnitario: producto.precioVenta, subtotal: producto.precioVenta,
+    }]);
+  }
+
+  /* Venta cruzada sin IA: qué productos acompañaron al ÚLTIMO ítem agregado
+     en ventas pasadas (ver lib/venta-cruzada.ts) — se recalcula con cada
+     ítem nuevo, no solo al abrir la página, para que ir armando la venta
+     siga sugiriendo en base a lo último que se metió al carrito. Nunca
+     sugiere algo que ya está en el carrito actual. */
+  const ultimoProductoId = [...items].reverse().find((it) => it.productoId)?.productoId;
+  const idsEnCarrito = new Set(items.map((it) => it.productoId).filter(Boolean));
+  const sugerencias = ultimoProductoId
+    ? productosRelacionados(ultimoProductoId, ventaItems)
+        .map((id) => productos.find((p) => p.id === id))
+        .filter((p): p is Producto => p != null && !idsEnCarrito.has(p.id))
+    : [];
 
   async function confirmarAnularAccion() {
     const v = confirmarAnular;
@@ -276,6 +314,12 @@ export default function VentasPage() {
           >
             Personalizado
           </button>
+          <button
+            type="button" onClick={() => setEscanerAbierto(true)}
+            className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            <ScanBarcode size={14} /> Escanear
+          </button>
         </div>
 
         {modoItem === "catalogo" ? (
@@ -322,6 +366,23 @@ export default function VentasPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Venta cruzada sin IA: co-ocurrencia real de venta_items pasados
+           (ver lib/venta-cruzada.ts) — "quienes llevaron esto, también
+           llevaron...". Un clic agrega directo, sin pasar por el <select>. */}
+        {sugerencias.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-slate-400 dark:text-slate-500">Suelen llevar también:</span>
+            {sugerencias.map((p) => (
+              <button
+                key={p.id} type="button" onClick={() => agregarSugerido(p)}
+                className="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary"
+              >
+                + {p.nombre}
+              </button>
+            ))}
+          </div>
         )}
 
         <div className="mt-3 flex flex-wrap items-end justify-between gap-2 text-sm">
@@ -474,6 +535,8 @@ export default function VentasPage() {
         onConfirmar={confirmarAnularAccion}
         onCancelar={() => setConfirmarAnular(null)}
       />
+
+      <EscanerCodigoBarras abierto={escanerAbierto} onCerrar={() => setEscanerAbierto(false)} onDetectado={agregarItemEscaneado} />
     </main>
   );
 }

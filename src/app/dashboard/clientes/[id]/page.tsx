@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X } from "lucide-react";
+import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X, Contact } from "lucide-react";
 import { useData, type ExamenOptometrico } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -18,6 +18,7 @@ import { formatearFecha, formatearFechaHora } from "@/lib/formato/date";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";
+import { calcularSeguimientos, estaVencido } from "@/lib/seguimiento-clientes";
 
 /* Citas y exámenes de la ficha se paginan más chico que las listas del
    dashboard (usePaginado usa 10 por defecto) — pedido explícito del
@@ -42,7 +43,7 @@ export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { clientes, citas, recetas, examenesOptometricos, addExamenOptometrico, ventas, deleteCliente, updateCliente } = useData();
+  const { clientes, citas, recetas, examenesOptometricos, addExamenOptometrico, ventas, ventaItems, productos, deleteCliente, updateCliente } = useData();
   const { empleado } = useSession();
   const esAdmin = empleado?.rol === "administrador";
   const formEstado = useClienteForm();
@@ -57,6 +58,9 @@ export default function ClienteDetallePage() {
     : [];
   const examenesDelCliente = cliente
     ? [...examenesOptometricos].filter((e) => e.clienteId === cliente.id).sort((a, b) => b.fecha.localeCompare(a.fecha))
+    : [];
+  const seguimientosDelCliente = cliente
+    ? calcularSeguimientos(ventas, ventaItems, productos).filter((s) => s.clienteId === cliente.id)
     : [];
   const { pagina: paginaCitas, setPagina: setPaginaCitas, totalPaginas: totalPaginasCitas, visibles: citasVisibles } =
     usePaginado(citasDelCliente, TAMANO_PAGINA_FICHA);
@@ -169,6 +173,26 @@ export default function ClienteDetallePage() {
           </button>
         </div>
       </div>
+
+      {seguimientosDelCliente.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {seguimientosDelCliente.map((s) => (
+            <p
+              key={`${s.tipo}-${s.ventaId}`}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                estaVencido(s.fecha)
+                  ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+                  : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
+              }`}
+            >
+              <Contact size={15} className="shrink-0" />
+              {s.tipo === "reposicion"
+                ? <>Le toca reponer <strong>{s.productoNombre}</strong> el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencido)" : ""}.</>
+                : <>Garantía de <strong>{s.productoNombre}</strong> vence el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencida)" : ""}.</>}
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="card mt-5 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>

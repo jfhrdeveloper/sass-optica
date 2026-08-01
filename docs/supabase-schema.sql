@@ -873,12 +873,25 @@ create table if not exists public.productos (
   curva_base    numeric(4,2),
   diametro      numeric(4,2),
   potencia      numeric(5,2),
+  -- Cuántos días de uso rinde una caja/paquete de este producto (ej. 30 para
+  -- mensual, 1 para diario) — solo lente_contacto, mismo criterio que los 3
+  -- campos de arriba. Con esto + la fecha de una venta se calcula la
+  -- próxima reposición esperada del cliente (ver lib/seguimiento-clientes.ts),
+  -- sin necesidad de una tabla nueva ni de que el cliente "avise" cuándo se
+  -- le acaban.
+  duracion_reposicion_dias integer,
+  -- Meses de garantía del proveedor sobre este producto — a diferencia de
+  -- los campos de arriba, aplica a CUALQUIER categoría (una montura rota es
+  -- el caso típico, pero nada impide que un negocio quiera trackear
+  -- garantía de lunas o lentes de contacto también). NULL = sin garantía
+  -- declarada, no se calcula nada para ese producto.
+  garantia_meses integer,
   imagen_url    text,
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
   constraint productos_lente_contacto_campos check (
-    categoria = 'lente_contacto' or (curva_base is null and diametro is null and potencia is null)
+    categoria = 'lente_contacto' or (curva_base is null and diametro is null and potencia is null and duracion_reposicion_dias is null)
   )
 );
 create unique index if not exists idx_productos_negocio_codigo on public.productos(negocio_id, codigo) where codigo is not null;

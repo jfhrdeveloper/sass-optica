@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, CalendarDays, PackageX, ShoppingCart, Pencil, Check } from "lucide-react";
+import { Users, CalendarDays, PackageX, ShoppingCart, Pencil, Check, Contact } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
@@ -14,6 +14,7 @@ import { formatearFechaPE } from "@/lib/formato/date";
 import { nombrePlanSuscripcion } from "@/lib/precios";
 import { nombreRol } from "@/lib/roles";
 import { puedeLeerModulo } from "@/lib/permisos";
+import { calcularSeguimientos, seguimientosProximos, estaVencido } from "@/lib/seguimiento-clientes";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -50,7 +51,7 @@ function useAccesosRapidos(negocioId?: string): [string[], (hrefs: string[]) => 
    dominio funcionan de punta a punta, con accesos rápidos a cada módulo. */
 export default function DashboardPage() {
   const { empleado } = useSession();
-  const { negocio, suscripcion, clientes, citas, productos, ventas, rolesPersonalizados } = useData();
+  const { negocio, suscripcion, clientes, citas, productos, ventas, ventaItems, rolesPersonalizados } = useData();
   const esAdmin = empleado?.rol === "administrador";
   const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
 
@@ -84,6 +85,8 @@ export default function DashboardPage() {
   const citasHoy = citas.filter((c) => c.fechaHora.slice(0, 10) === new Date().toISOString().slice(0, 10));
   const stockBajo = productos.filter((p) => p.stockActual <= p.stockMinimo);
   const valores = [clientes.length, citasHoy.length, stockBajo.length, ventas.length];
+  const seguimientos = seguimientosProximos(calcularSeguimientos(ventas, ventaItems, productos));
+  const nombrePorCliente = new Map(clientes.map((c) => [c.id, `${c.nombres} ${c.apellidos}`]));
 
   return (
     <main>
@@ -116,6 +119,25 @@ export default function DashboardPage() {
             <strong>{stockBajo.length}</strong> {stockBajo.length === 1 ? "producto está" : "productos están"} con stock bajo:{" "}
             {stockBajo.slice(0, 3).map((p) => p.nombre).join(", ")}
             {stockBajo.length > 3 ? ` y ${stockBajo.length - 3} más` : ""}.
+          </span>
+        </Link>
+      )}
+
+      {/* Reposición de lentes de contacto + garantías por vencer — mismo
+         patrón que el banner de stock bajo: se calcula solo (ver
+         lib/seguimiento-clientes.ts), nadie tiene que acordarse de revisar
+         a mano quién le toca reponer o a quién se le vence una garantía. */}
+      {seguimientos.length > 0 && (
+        <Link
+          href="/dashboard/clientes"
+          className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
+        >
+          <Contact size={16} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>{seguimientos.length}</strong> {seguimientos.length === 1 ? "seguimiento" : "seguimientos"} de clientes{" "}
+            {seguimientos.some((s) => estaVencido(s.fecha)) ? "vencidos o próximos" : "próximos"}:{" "}
+            {seguimientos.slice(0, 3).map((s) => `${nombrePorCliente.get(s.clienteId) ?? "Cliente"} (${s.tipo === "reposicion" ? "reposición" : "garantía"})`).join(", ")}
+            {seguimientos.length > 3 ? ` y ${seguimientos.length - 3} más` : ""}.
           </span>
         </Link>
       )}

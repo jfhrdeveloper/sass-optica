@@ -255,6 +255,8 @@ export function rowToProducto(r: Record<string, unknown>): Producto {
     curvaBase: r.curva_base != null ? Number(r.curva_base) : undefined,
     diametro: r.diametro != null ? Number(r.diametro) : undefined,
     potencia: r.potencia != null ? Number(r.potencia) : undefined,
+    duracionReposicionDias: r.duracion_reposicion_dias != null ? Number(r.duracion_reposicion_dias) : undefined,
+    garantiaMeses: r.garantia_meses != null ? Number(r.garantia_meses) : undefined,
     imagenUrl: r.imagen_url ? String(r.imagen_url) : undefined,
     activo: Boolean(r.activo ?? true),
     stockActual: 0, stockMinimo: 0,
@@ -273,6 +275,8 @@ export function productoToRow(p: Partial<Producto>): Record<string, unknown> {
   if (p.curvaBase     !== undefined) out.curva_base     = p.curvaBase ?? null;
   if (p.diametro      !== undefined) out.diametro       = p.diametro ?? null;
   if (p.potencia      !== undefined) out.potencia       = p.potencia ?? null;
+  if (p.duracionReposicionDias !== undefined) out.duracion_reposicion_dias = p.duracionReposicionDias ?? null;
+  if (p.garantiaMeses !== undefined) out.garantia_meses = p.garantiaMeses ?? null;
   if (p.imagenUrl     !== undefined) out.imagen_url     = p.imagenUrl;
   if (p.activo         !== undefined) out.activo         = p.activo;
   return out;

@@ -160,6 +160,12 @@ export interface Producto {
   marca?: string; descripcion?: string; precioVenta: number; precioCosto: number;
   // Solo aplican si categoria === "lente_contacto" (ver check de la tabla productos).
   curvaBase?: number; diametro?: number; potencia?: number;
+  /** Solo lente_contacto — días de uso que rinde una caja/paquete. Con la
+   *  fecha de venta se calcula la próxima reposición esperada del cliente
+   *  (ver lib/seguimiento-clientes.ts). */
+  duracionReposicionDias?: number;
+  /** Meses de garantía del proveedor — aplica a cualquier categoría. */
+  garantiaMeses?: number;
   imagenUrl?: string; activo: boolean;
   stockActual: number; stockMinimo: number;
 }

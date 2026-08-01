@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Package, PackageSearch, Pencil } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Package, PackageSearch, Pencil, ScanBarcode, Download, Upload, X } from "lucide-react";
 import { useData, type Producto } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Stepper } from "@/components/ui/Stepper";
 import { Pagination } from "@/components/ui/Pagination";
+import { EscanerCodigoBarras } from "@/components/ui/EscanerCodigoBarras";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { descargarBlob } from "@/lib/archivo";
+import { generarExcelProductos, parsearExcelProductos } from "@/lib/productos-excel";
 
 const CATEGORIAS = ["montura", "luna", "lente_contacto", "liquido", "accesorio", "servicio"] as const;
 const CATEGORIA_LABEL: Record<(typeof CATEGORIAS)[number], string> = {
@@ -29,7 +32,7 @@ const TIPO_MOVIMIENTO_LABEL: Record<(typeof TIPOS_MOVIMIENTO)[number], string> =
 const VACIO: Partial<Producto> = { categoria: "montura", precioVenta: 0, precioCosto: 0, activo: true };
 
 export default function ProductosPage() {
-  const { productos, proveedores, addProducto, updateProducto, ajustarStock } = useData();
+  const { negocio, productos, proveedores, addProducto, updateProducto, ajustarStock } = useData();
   const { empleado } = useSession();
   // El margen (precio de costo) es un dato financiero: el brief dice
   // explícitamente que el rol "trabajador" ve solo ventas/atención y
@@ -58,6 +61,11 @@ export default function ProductosPage() {
 
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activo" | "borrador">("todos");
+  const [escanerAbierto, setEscanerAbierto] = useState(false);
+  const [exportando, setExportando] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const [erroresImportacion, setErroresImportacion] = useState<{ fila: number; mensaje: string }[]>([]);
+  const inputImportarRef = useRef<HTMLInputElement>(null);
 
   function nuevo() {
     setEditandoId(null);
@@ -124,6 +132,59 @@ export default function ProductosPage() {
     cerrarAjuste();
   }
 
+  /* Escanear busca por `codigo` (el "código interno" que ya existe en el
+     formulario) y abre directo la ficha del producto para editar/ajustar
+     stock — más rápido que filtrar una lista y buscarlo a ojo. */
+  function onEscaneado(codigo: string) {
+    setEscanerAbierto(false);
+    const encontrado = productos.find((p) => p.codigo === codigo);
+    if (encontrado) editar(encontrado);
+    else toast(`Ningún producto tiene el código "${codigo}".`, "error");
+  }
+
+  async function exportarExcel() {
+    setExportando(true);
+    const blob = await generarExcelProductos(negocio?.nombre ?? "Óptica", productos, proveedores);
+    descargarBlob(`productos-${negocio?.subdominio ?? "optica"}.xlsx`, blob);
+    setExportando(false);
+  }
+
+  /* Actualiza por `codigo` (si coincide con un producto ya existente) o crea
+     uno nuevo — nunca toca el stock de uno existente, ver el comentario en
+     parsearExcelProductos(). Secuencial (no Promise.all): son escrituras a
+     la misma tabla, en paralelo se arriesga a pisarse entre sí si dos filas
+     comparten código por error de tipeo en el Excel. */
+  async function onImportarExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+    setImportando(true);
+    setErroresImportacion([]);
+    const { validas, errores } = await parsearExcelProductos(archivo, proveedores);
+    let creados = 0, actualizados = 0;
+    for (const fila of validas) {
+      const existente = fila.codigo ? productos.find((p) => p.codigo === fila.codigo) : undefined;
+      const datos: Partial<Producto> = {
+        codigo: fila.codigo, nombre: fila.nombre, categoria: fila.categoria, marca: fila.marca,
+        proveedorId: fila.proveedorId, precioVenta: fila.precioVenta, precioCosto: fila.precioCosto,
+        duracionReposicionDias: fila.duracionReposicionDias, garantiaMeses: fila.garantiaMeses,
+      };
+      if (existente) {
+        await updateProducto(existente.id, datos);
+        actualizados++;
+      } else {
+        await addProducto(datos, fila.stockInicial, fila.stockMinimo);
+        creados++;
+      }
+    }
+    setImportando(false);
+    setErroresImportacion(errores);
+    toast(
+      `Importación lista: ${creados} nuevos, ${actualizados} actualizados${errores.length ? `, ${errores.length} filas con error` : ""}.`,
+      errores.length ? "error" : "success",
+    );
+  }
+
   const filtrados = productos
     .filter((p) => filtroCategoria === "todas" || p.categoria === filtroCategoria)
     .filter((p) => filtroEstado === "todos" || (filtroEstado === "activo" ? p.activo : !p.activo));
@@ -144,10 +205,34 @@ export default function ProductosPage() {
             <option value="activo">Activo</option>
             <option value="borrador">Borrador</option>
           </select>
-          <button onClick={nuevo} className="btn-primary ml-auto gap-1.5">
+          <button onClick={() => setEscanerAbierto(true)} className="btn-outline ml-auto gap-1.5">
+            <ScanBarcode size={16} /> Escanear
+          </button>
+          <button onClick={exportarExcel} disabled={exportando} className="btn-outline gap-1.5">
+            <Download size={16} /> {exportando ? "Exportando…" : "Exportar"}
+          </button>
+          <button onClick={() => inputImportarRef.current?.click()} disabled={importando} className="btn-outline gap-1.5">
+            <Upload size={16} /> {importando ? "Importando…" : "Importar"}
+          </button>
+          <input ref={inputImportarRef} type="file" accept=".xlsx" onChange={onImportarExcel} className="hidden" />
+          <button onClick={nuevo} className="btn-primary gap-1.5">
             <Plus size={16} /> Nuevo producto
           </button>
         </div>
+
+        {erroresImportacion.length > 0 && (
+          <div className="mx-4 mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-medium">{erroresImportacion.length} fila{erroresImportacion.length === 1 ? "" : "s"} del Excel no se importaron:</p>
+              <button onClick={() => setErroresImportacion([])} aria-label="Cerrar" className="shrink-0 text-red-600 hover:text-red-800 dark:text-red-400">
+                <X size={15} />
+              </button>
+            </div>
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+              {erroresImportacion.map((e, i) => <li key={i}>Fila {e.fila}: {e.mensaje}</li>)}
+            </ul>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -301,8 +386,19 @@ export default function ProductosPage() {
                       <input type="number" step="0.01" placeholder="-2.50" value={form.potencia ?? ""} onChange={(e) => setForm({ ...form, potencia: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Duración de una caja (días)</label>
+                    <input type="number" placeholder="30" value={form.duracionReposicionDias ?? ""} onChange={(e) => setForm({ ...form, duracionReposicionDias: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                      Con esto avisamos a tus clientes cuándo les toca reponer (ej. 30 para mensual, 1 para diario).
+                    </p>
+                  </div>
                 </>
               )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Garantía del proveedor (meses)</label>
+                <input type="number" placeholder="Opcional" value={form.garantiaMeses ?? ""} onChange={(e) => setForm({ ...form, garantiaMeses: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+              </div>
               {!editandoId && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -366,6 +462,8 @@ export default function ProductosPage() {
           </form>
         )}
       </SlideOver>
+
+      <EscanerCodigoBarras abierto={escanerAbierto} onCerrar={() => setEscanerAbierto(false)} onDetectado={onEscaneado} />
     </main>
   );
 }

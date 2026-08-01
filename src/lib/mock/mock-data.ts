@@ -109,19 +109,34 @@ export const MOCK_EXAMENES_OPTOMETRICOS: ExamenOptometrico[] = [
 ];
 
 export const MOCK_PRODUCTOS: Producto[] = [
-  { id: "prod-1", negocioId: MOCK_NEGOCIO.id, proveedorId: "prov-1", nombre: "Armazón Ray-Ban RB2140", categoria: "montura", marca: "Ray-Ban", precioVenta: 350, precioCosto: 180, activo: true, stockActual: 5, stockMinimo: 2 },
+  { id: "prod-1", negocioId: MOCK_NEGOCIO.id, proveedorId: "prov-1", nombre: "Armazón Ray-Ban RB2140", categoria: "montura", marca: "Ray-Ban", precioVenta: 350, precioCosto: 180, garantiaMeses: 12, activo: true, stockActual: 5, stockMinimo: 2 },
   { id: "prod-2", negocioId: MOCK_NEGOCIO.id, nombre: "Luna antireflejo 1.56", categoria: "luna", precioVenta: 120, precioCosto: 60, activo: true, stockActual: 1, stockMinimo: 3 },
-  { id: "prod-3", negocioId: MOCK_NEGOCIO.id, nombre: "Acuvue Oasys mensual", categoria: "lente_contacto", marca: "Johnson & Johnson", precioVenta: 90, precioCosto: 55, curvaBase: 8.4, diametro: 14, potencia: -2.5, activo: true, stockActual: 12, stockMinimo: 4 },
+  { id: "prod-3", negocioId: MOCK_NEGOCIO.id, nombre: "Acuvue Oasys mensual", categoria: "lente_contacto", marca: "Johnson & Johnson", precioVenta: 90, precioCosto: 55, curvaBase: 8.4, diametro: 14, potencia: -2.5, duracionReposicionDias: 30, activo: true, stockActual: 12, stockMinimo: 4 },
 ];
 
 export const MOCK_MOVIMIENTOS_STOCK: MovimientoStock[] = [];
 
 export const MOCK_VENTAS: Venta[] = [
   { id: "ven-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date().toISOString(), subtotal: 296.61, igv: 53.39, total: 350, metodoPago: "tarjeta", estado: "pagada", montoPagado: 350 },
+  // Hace 25 días -> con duracionReposicionDias=30 del Acuvue, la reposición
+  // cae en ~5 días — a propósito, para que el banner de seguimiento de
+  // Inicio (ventana de 30 días) tenga algo real que mostrar en modo mock.
+  { id: "ven-2", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", empleadoId: MOCK_EMPLEADO.id, fecha: new Date(Date.now() - 25 * 86400000).toISOString(), subtotal: 76.27, igv: 13.73, total: 90, metodoPago: "efectivo", estado: "pagada", montoPagado: 90 },
+  // Armazón + luna en la MISMA venta, un par de veces — a propósito, para
+  // que la venta cruzada (lib/venta-cruzada.ts) tenga un patrón real que
+  // sugerir en modo mock: al agregar el armazón a una venta nueva, debería
+  // sugerir la luna.
+  { id: "ven-3", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", empleadoId: MOCK_EMPLEADO.id, fecha: new Date(Date.now() - 40 * 86400000).toISOString(), subtotal: 398.31, igv: 71.69, total: 470, metodoPago: "efectivo", estado: "pagada", montoPagado: 470 },
+  { id: "ven-4", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date(Date.now() - 60 * 86400000).toISOString(), subtotal: 398.31, igv: 71.69, total: 470, metodoPago: "tarjeta", estado: "pagada", montoPagado: 470 },
 ];
 
 export const MOCK_VENTA_ITEMS: VentaItem[] = [
   { id: "vi-1", ventaId: "ven-1", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
+  { id: "vi-2", ventaId: "ven-2", productoId: "prod-3", descripcion: "Acuvue Oasys mensual", cantidad: 1, precioUnitario: 90, subtotal: 90 },
+  { id: "vi-3", ventaId: "ven-3", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
+  { id: "vi-4", ventaId: "ven-3", productoId: "prod-2", descripcion: "Luna antireflejo 1.56", cantidad: 1, precioUnitario: 120, subtotal: 120 },
+  { id: "vi-5", ventaId: "ven-4", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
+  { id: "vi-6", ventaId: "ven-4", productoId: "prod-2", descripcion: "Luna antireflejo 1.56", cantidad: 1, precioUnitario: 120, subtotal: 120 },
 ];
 
 export const MOCK_ORDENES_LABORATORIO: OrdenLaboratorio[] = [
