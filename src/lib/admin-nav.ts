@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Wallet, MessageSquareWarning, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Wallet, MessageSquareWarning, Lightbulb, type LucideIcon } from "lucide-react";
 
 export interface AdminNavItem {
   href: string;
@@ -16,4 +16,5 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin-panel/negocios", label: "Negocios", icon: Building2 },
   { href: "/admin-panel/pagos", label: "Pagos", icon: Wallet },
   { href: "/admin-panel/reclamos", label: "Reclamos", icon: MessageSquareWarning },
+  { href: "/admin-panel/mejoras", label: "Mejoras", icon: Lightbulb },
 ];

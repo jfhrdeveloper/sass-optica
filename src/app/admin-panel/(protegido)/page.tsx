@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
-import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EVENTOS_USO } from "@/lib/mock/mock-data";
+import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EVENTOS_USO, MOCK_ADMIN_PAGOS } from "@/lib/mock/mock-data";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { ultimaActividadPorNegocio, diasInactivo } from "@/lib/uso";
 
@@ -37,20 +37,24 @@ export default async function AdminPanelPage() {
   let negocios: { id: string; nombre: string; subdominio: string; activo: boolean; created_at: string }[] | null;
   let suscripciones: { negocio_id: string; plan: string; estado: string; trial_fin: string }[] | null;
   let eventos: { negocio_id: string; created_at: string }[];
+  let pagos: { negocio_id: string }[];
   if (mock) {
     negocios = MOCK_ADMIN_NEGOCIOS;
     suscripciones = MOCK_ADMIN_SUSCRIPCIONES;
     eventos = MOCK_ADMIN_EVENTOS_USO;
+    pagos = MOCK_ADMIN_PAGOS;
   } else {
     const admin = createAdminClient();
-    const [negociosRes, suscripcionesRes, eventosRes] = await Promise.all([
+    const [negociosRes, suscripcionesRes, eventosRes, pagosRes] = await Promise.all([
       admin.from("negocios").select("id, nombre, subdominio, activo, created_at").order("created_at", { ascending: false }),
       admin.from("suscripciones").select("negocio_id, plan, estado, trial_fin"),
       admin.from("eventos_uso").select("negocio_id, created_at"),
+      admin.from("pagos_saas").select("negocio_id").eq("estado", "exitoso"),
     ]);
     negocios = negociosRes.data;
     suscripciones = suscripcionesRes.data;
     eventos = eventosRes.data ?? [];
+    pagos = pagosRes.data ?? [];
   }
 
   const nombrePorNegocio = new Map((negocios ?? []).map((n) => [n.id, n.nombre]));
@@ -88,6 +92,17 @@ export default async function AdminPanelPage() {
     return dias !== null && dias >= DIAS_SIN_USO_ALERTA;
   }).length;
 
+  /* Conversión trial→pago: de los negocios que alguna vez probaron o están
+     probando un plan pago (plan != 'gratis', ya sea en trial o ya activos),
+     cuántos tienen AL MENOS un cobro exitoso en pagos_saas. No es "conversión
+     de por vida" exacta (un negocio que probó y volvió a Gratis sin pagar
+     sigue contando en el denominador, que es justo el punto: mide cuántos
+     de los que mostraron intención de pago terminaron pagando de verdad). */
+  const negociosConIdConPago = new Set((pagos ?? []).map((p) => p.negocio_id));
+  const probaronPlanPago = (suscripciones ?? []).filter((s) => s.plan !== "gratis");
+  const convirtieron = probaronPlanPago.filter((s) => negociosConIdConPago.has(s.negocio_id));
+  const tasaConversion = probaronPlanPago.length > 0 ? (convirtieron.length / probaronPlanPago.length) * 100 : 0;
+
   return (
     <main>
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Panel del SaaS</h1>
@@ -99,6 +114,10 @@ export default async function AdminPanelPage() {
         <div className="card p-4"><div className="text-2xl font-semibold text-amber-600 dark:text-amber-400">{porVencer.length}</div><div className="text-sm text-slate-500 dark:text-slate-400">Por vencer</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-amber-600 dark:text-amber-400">{sinUso}</div><div className="text-sm text-slate-500 dark:text-slate-400">Sin uso reciente</div></div>
         <div className="card p-4"><div className="text-2xl font-semibold text-accent">S/ {mrr.toFixed(2)}</div><div className="text-sm text-slate-500 dark:text-slate-400">MRR estimado</div></div>
+        <div className="card p-4">
+          <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{tasaConversion.toFixed(0)}%</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Conversión trial→pago</div>
+        </div>
       </div>
       {vencidas > 0 && (
         <p className="badge badge-warning mt-4 px-3 py-1.5">
@@ -118,13 +137,13 @@ export default async function AdminPanelPage() {
             <tbody>
               {porVencer.map((s) => (
                 <tr key={s.negocio_id} className="table-row">
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <Link href={`/admin-panel/negocios/${s.negocio_id}`} className="font-medium text-slate-900 transition-colors hover:text-primary dark:text-slate-100">
                       {nombrePorNegocio.get(s.negocio_id) ?? "—"}
                     </Link>
                   </td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(s.trial_fin)}</td>
-                  <td className="table-cell text-right"><span className="badge badge-warning">Vence en {s.dias}d</span></td>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(s.trial_fin)}</td>
+                  <td className="table-body-cell text-right"><span className="badge badge-warning">Vence en {s.dias}d</span></td>
                 </tr>
               ))}
               {porVencer.length === 0 && (

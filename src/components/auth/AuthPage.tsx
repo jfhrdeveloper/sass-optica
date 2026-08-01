@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2, ShieldCheck, UserCog, User, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode, MOCK_EMAIL, MOCK_PASSWORD, MOCK_COOKIE } from "@/lib/mock/mock-mode";
+import { MOCK_EMPLEADO, MOCK_EMPLEADO_ENCARGADO, MOCK_EMPLEADO_TRABAJADOR } from "@/lib/mock/mock-data";
+import { nombreRol } from "@/lib/roles";
 import { generarSlug, validarFormatoSlug, type FormatoSlug } from "@/lib/slug";
 import { Stepper } from "@/components/ui/Stepper";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -183,6 +185,15 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
     }
   }
 
+  /* Selector rápido de perfil (solo modo mock) — pedido explícito del
+     usuario para probar los 3 roles sin mantener 3 cuentas reales. El valor
+     de la cookie pasa a ser el id del empleado elegido (ver leerCookie en
+     SessionProvider.tsx), no un flag fijo. */
+  function entrarComo(empleadoId: string) {
+    document.cookie = `${MOCK_COOKIE}=${empleadoId}; path=/; max-age=86400`;
+    window.location.href = "/dashboard";
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -190,8 +201,7 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
 
     if (mock) {
       if (email === MOCK_EMAIL && password === MOCK_PASSWORD) {
-        document.cookie = `${MOCK_COOKIE}=1; path=/; max-age=86400`;
-        window.location.href = "/dashboard";
+        entrarComo(MOCK_EMPLEADO.id);
       } else {
         setEnviando(false);
         setError("Email o contraseña incorrectos.");
@@ -240,9 +250,30 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ingresa tus credenciales para entrar a tu panel</p>
 
       {mock && (
-        <p className="badge badge-warning mt-3 px-3 py-1.5">
-          Modo mock activo — usa <strong className="ml-1">{MOCK_EMAIL}</strong> / <strong>{MOCK_PASSWORD}</strong>
-        </p>
+        <>
+          <p className="badge badge-warning mt-3 px-3 py-1.5">
+            Modo mock activo — usa <strong className="ml-1">{MOCK_EMAIL}</strong> / <strong>{MOCK_PASSWORD}</strong>
+          </p>
+
+          {/* Selector rápido de perfil — entra directo sin pasar por el
+              formulario, para probar los 3 roles sin mantener 3 cuentas. */}
+          <div className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Entrar rápido como…
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <button type="button" onClick={() => entrarComo(MOCK_EMPLEADO.id)} className="btn-outline gap-1.5 text-sm">
+                <ShieldCheck size={15} /> {nombreRol("administrador")}
+              </button>
+              <button type="button" onClick={() => entrarComo(MOCK_EMPLEADO_ENCARGADO.id)} className="btn-outline gap-1.5 text-sm">
+                <UserCog size={15} /> {nombreRol("encargado")}
+              </button>
+              <button type="button" onClick={() => entrarComo(MOCK_EMPLEADO_TRABAJADOR.id)} className="btn-outline gap-1.5 text-sm">
+                <User size={15} /> {nombreRol("trabajador")}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {!modoReset && (

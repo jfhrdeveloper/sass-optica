@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useData, type Empleado } from "@/components/providers/DataProvider";
-import { isMockMode, MOCK_COOKIE } from "@/lib/mock/mock-mode";
+import { isMockMode, MOCK_COOKIE, leerCookie } from "@/lib/mock/mock-mode";
 import { MOCK_EMPLEADO } from "@/lib/mock/mock-data";
 
 /* ================= TIPOS ================= */
@@ -26,12 +26,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const mock = isMockMode();
   const supabase = useMemo(() => createClient(), []);
   const d = useData();
+  /* En SSR no hay `document.cookie` — arranca con el admin por defecto
+     (MOCK_EMPLEADO) y, si el cookie elegía otro rol, se corrige apenas monta
+     en el cliente (ver el useEffect de abajo). Evita un mismatch de
+     hidratación: el servidor siempre renderiza el mismo empleado por defecto. */
   const [authId, setAuthId] = useState<string | null>(mock ? MOCK_EMPLEADO.id : null);
   const [ready, setReady]   = useState(mock);
 
   /* ====== Carga sesión + suscripción a auth state ======
      En modo mock (ver mock-mode.ts) no hay auth.getUser() real — el "id
-     autenticado" es directamente el del empleado mock, fijo. */
+     autenticado" es el empleado mock que se eligió en el selector rápido de
+     /login (cookie MOCK_COOKIE), leído recién en el cliente. */
+  useEffect(() => {
+    if (!mock) return;
+    const idElegido = leerCookie(MOCK_COOKIE);
+    if (idElegido && idElegido !== authId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- la cookie solo se puede leer en el cliente
+      setAuthId(idElegido);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- corre una sola vez al montar, no en cada cambio de authId
+  }, [mock]);
   useEffect(() => {
     if (mock) return;
     let active = true;

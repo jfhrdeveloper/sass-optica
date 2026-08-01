@@ -33,7 +33,7 @@ import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
 import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
 import { calcularCuadreCaja, sumaDesglose, efectivoDeDesglose } from "@/lib/caja";
 import {
-  MOCK_NEGOCIO, MOCK_EMPLEADO, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
+  MOCK_NEGOCIO, MOCK_EMPLEADOS, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_EXAMENES_OPTOMETRICOS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_ORDENES_LABORATORIO, MOCK_CAJAS, MOCK_GASTOS,
   MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
 } from "@/lib/mock/mock-data";
@@ -305,7 +305,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const mock = isMockMode();
   const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
-  const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? [MOCK_EMPLEADO] : []);
+  const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? MOCK_EMPLEADOS : []);
   const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
   const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(mock ? MOCK_SUSCRIPCION : null);
   const [sucursales, setSucursales]   = useState<Sucursal[]>(mock ? MOCK_SUCURSALES : []);

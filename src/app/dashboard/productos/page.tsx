@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Package, PackageSearch, Pencil } from "lucide-react";
 import { useData, type Producto } from "@/components/providers/DataProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Stepper } from "@/components/ui/Stepper";
@@ -29,6 +30,12 @@ const VACIO: Partial<Producto> = { categoria: "montura", precioVenta: 0, precioC
 
 export default function ProductosPage() {
   const { productos, proveedores, addProducto, updateProducto, ajustarStock } = useData();
+  const { empleado } = useSession();
+  // El margen (precio de costo) es un dato financiero: el brief dice
+  // explícitamente que el rol "trabajador" ve solo ventas/atención y
+  // consulta de stock, sin reportes financieros. Sin este gate cualquier
+  // vendedor veía el costo real de cada producto en el paso 2 del formulario.
+  const puedeVerCosto = empleado?.rol !== "trabajador";
   const toast = useToast();
   const [form, setForm] = useState<Partial<Producto>>(VACIO);
   const [stockInicial, setStockInicial] = useState(0);
@@ -157,7 +164,7 @@ export default function ProductosPage() {
             <tbody>
               {visibles.map((p) => (
                 <tr key={p.id} className="table-row">
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <div className="flex items-center gap-3">
                       <span className="row-avatar"><Package size={16} /></span>
                       <span>
@@ -168,12 +175,12 @@ export default function ProductosPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="table-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{CATEGORIA_LABEL[p.categoria as (typeof CATEGORIAS)[number]] ?? p.categoria}</td>
-                  <td className="table-cell text-slate-600 dark:text-slate-300">S/ {p.precioVenta.toFixed(2)}</td>
-                  <td className={`table-cell ${p.stockActual <= p.stockMinimo ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}>
+                  <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{CATEGORIA_LABEL[p.categoria as (typeof CATEGORIAS)[number]] ?? p.categoria}</td>
+                  <td className="table-body-cell text-slate-600 dark:text-slate-300">S/ {p.precioVenta.toFixed(2)}</td>
+                  <td className={`table-body-cell ${p.stockActual <= p.stockMinimo ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}>
                     {p.stockActual}
                   </td>
-                  <td className="table-cell">
+                  <td className="table-body-cell">
                     <label className="inline-flex cursor-pointer items-center gap-2">
                       <input
                         type="checkbox" role="switch" checked={p.activo}
@@ -183,7 +190,7 @@ export default function ProductosPage() {
                       <span className="text-sm text-slate-600 dark:text-slate-300">{p.activo ? "Activo" : "Borrador"}</span>
                     </label>
                   </td>
-                  <td className="table-cell text-right">
+                  <td className="table-body-cell text-right">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => abrirAjuste(p)} title="Ajustar stock" aria-label={`Ajustar stock de ${p.nombre}`} className="row-icon-btn">
                         <PackageSearch size={15} />
@@ -265,15 +272,17 @@ export default function ProductosPage() {
           ) : (
             <>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Precios y stock</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className={puedeVerCosto ? "grid grid-cols-2 gap-2" : ""}>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de venta (S/)</label>
                   <input type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de costo (S/)</label>
-                  <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
-                </div>
+                {puedeVerCosto && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de costo (S/)</label>
+                    <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
+                  </div>
+                )}
               </div>
               {form.categoria === "lente_contacto" && (
                 <>

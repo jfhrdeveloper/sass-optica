@@ -323,6 +323,102 @@ create trigger trg_libro_reclamaciones_updated_at
   for each row execute function public.set_updated_at();
 create index if not exists idx_libro_reclamaciones_fecha on public.libro_reclamaciones(created_at desc);
 
+-- notas_soporte (bitácora interna del dueño del SaaS sobre un negocio-tenant) --
+-- Registro de contacto/soporte que un super_admin deja en la ficha de un
+-- negocio (admin.dominio/negocios/[id]) — "llamó por tal motivo", "se le
+-- avisó que vence el trial", etc. Alta EXCLUSIVA vía service_role desde
+-- /api/admin/negocios/notas: mismo criterio deny-all que pagos_saas, ningún
+-- negocio-tenant debe poder leer ni escribir esto sobre sí mismo.
+create table if not exists public.notas_soporte (
+  id         uuid primary key default gen_random_uuid(),
+  negocio_id uuid not null references public.negocios(id) on delete cascade,
+  autor_id   uuid not null references public.super_admins(id),
+  texto      text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_notas_soporte_negocio on public.notas_soporte(negocio_id);
+
+-- mejoras_sugeridas / mejoras_votos (buzón de mejoras + votación) ----------
+-- A diferencia de TODO lo demás en este schema (aislado por negocio_id vía
+-- RLS), esto es DELIBERADAMENTE cross-tenant: todas las ópticas ven y votan
+-- el mismo tablero de mejoras, para que el dueño del SaaS priorice según
+-- demanda real. Solo `administrador` propone (decisión de producto, evita
+-- spam); cualquier rol puede votar, pero el voto es POR NEGOCIO (1 óptica =
+-- 1 voto por mejora, sin importar cuántos empleados tenga — así una óptica
+-- grande no pesa más que una chica). Anónimo entre ópticas (una no ve qué
+-- otra propuso o votó tal cosa) — la vista pública de abajo nunca expone
+-- negocio_id — pero el dueño del SaaS SÍ lo ve completo en admin-panel
+-- (vía service_role, que ignora RLS como en el resto del panel).
+create table if not exists public.mejoras_sugeridas (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  uuid not null references public.negocios(id) on delete cascade,
+  titulo      text not null,
+  descripcion text,
+  estado      text not null default 'pendiente'
+    check (estado in ('pendiente', 'planificado', 'en_progreso', 'completado', 'rechazado')),
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_mejoras_sugeridas_estado on public.mejoras_sugeridas(estado);
+
+create table if not exists public.mejoras_votos (
+  mejora_id  uuid not null references public.mejoras_sugeridas(id) on delete cascade,
+  negocio_id uuid not null references public.negocios(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (mejora_id, negocio_id)
+);
+
+alter table public.mejoras_sugeridas enable row level security;
+drop policy if exists mejoras_sugeridas_select_propia on public.mejoras_sugeridas;
+create policy mejoras_sugeridas_select_propia on public.mejoras_sugeridas for select
+  using (negocio_id = public.current_tenant());
+drop policy if exists mejoras_sugeridas_insert on public.mejoras_sugeridas;
+create policy mejoras_sugeridas_insert on public.mejoras_sugeridas for insert
+  with check (public.is_administrador() and negocio_id = public.current_tenant());
+-- Sin policy de update/delete: cambiar el estado (pendiente→planificado→...)
+-- es exclusivo del dueño del SaaS vía service_role (admin-panel), nunca del
+-- negocio que la propuso.
+
+alter table public.mejoras_votos enable row level security;
+drop policy if exists mejoras_votos_select_propio on public.mejoras_votos;
+create policy mejoras_votos_select_propio on public.mejoras_votos for select
+  using (negocio_id = public.current_tenant());
+drop policy if exists mejoras_votos_insert on public.mejoras_votos;
+create policy mejoras_votos_insert on public.mejoras_votos for insert
+  with check (negocio_id = public.current_tenant());
+drop policy if exists mejoras_votos_delete on public.mejoras_votos;
+create policy mejoras_votos_delete on public.mejoras_votos for delete
+  using (negocio_id = public.current_tenant());
+
+-- Vista pública anonimizada: el único camino de lectura del tablero
+-- compartido. Nunca expone negocio_id de un tercero — `es_mia`/`ya_vote` se
+-- resuelven contra current_tenant() del que consulta, no contra un negocio_id
+-- crudo. Al NO ser `security_invoker` (opción de Postgres 15+, default
+-- false), corre con el rol dueño de la vista y así puede leer TODAS las filas
+-- de mejoras_sugeridas/mejoras_votos cruzando tenants — el filtrado real de
+-- qué se expone lo hace esta vista, ya no la RLS restrictiva de las tablas
+-- base (que sigue ahí para bloquear el acceso directo a esas tablas).
+create or replace view public.mejoras_publicas as
+select
+  m.id,
+  m.titulo,
+  m.descripcion,
+  m.estado,
+  m.created_at,
+  (m.negocio_id = public.current_tenant()) as es_mia,
+  coalesce(v.total_votos, 0)::int as total_votos,
+  exists (
+    select 1 from public.mejoras_votos mv
+    where mv.mejora_id = m.id and mv.negocio_id = public.current_tenant()
+  ) as yo_vote
+from public.mejoras_sugeridas m
+left join (
+  select mejora_id, count(*) as total_votos
+  from public.mejoras_votos
+  group by mejora_id
+) v on v.mejora_id = m.id;
+
+grant select on public.mejoras_publicas to authenticated;
+
 -- ================================================================
 -- TRIGGERS updated_at
 -- ================================================================
@@ -456,6 +552,11 @@ alter table public.libro_reclamaciones enable row level security;
 -- deny-all, igual que pagos_saas. El alta pasa por service_role
 -- (/api/libro-reclamaciones) y la lectura/respuesta por service_role
 -- (admin-panel, membresía en super_admins) — nunca el cliente autenticado.
+
+alter table public.notas_soporte enable row level security;
+-- notas_soporte: sin policies para anon/authenticated a propósito —
+-- deny-all, igual que pagos_saas. Alta y lectura exclusivas de service_role
+-- (admin-panel, membresía en super_admins) — nunca un negocio-tenant.
 
 -- ====== SUPER_ADMINS ======
 -- Cada quien solo confirma SU PROPIA membresía (lo usa el proxy para el

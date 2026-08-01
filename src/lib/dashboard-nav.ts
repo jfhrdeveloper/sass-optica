@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, Users, CalendarDays, Package, ShoppingCart,
   Wallet, UserCog, Settings, Tag, Truck, FileText, BarChart3, Percent, Store, FlaskConical, Banknote,
+  Lightbulb,
 } from "lucide-react";
 
 export type Restriccion = { soloAdmin?: boolean; permiso?: string };
@@ -17,6 +18,7 @@ export const NAV: NavItem[] = [
   { kind: "link", href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { kind: "link", href: "/dashboard/clientes", label: "Clientes", icon: Users },
   { kind: "link", href: "/dashboard/citas", label: "Citas", icon: CalendarDays },
+  { kind: "link", href: "/dashboard/mejoras", label: "Mejoras", icon: Lightbulb },
   {
     kind: "group", key: "comercial", label: "Comercial", icon: ShoppingCart,
     children: [

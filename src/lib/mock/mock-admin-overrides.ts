@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
-import { MOCK_NEGOCIOS_OVERRIDE_COOKIE, MOCK_RECLAMOS_OVERRIDE_COOKIE } from "@/lib/mock/mock-mode";
+import {
+  MOCK_NEGOCIOS_OVERRIDE_COOKIE, MOCK_RECLAMOS_OVERRIDE_COOKIE, MOCK_NOTAS_SOPORTE_COOKIE,
+  MOCK_MEJORAS_ESTADO_COOKIE,
+} from "@/lib/mock/mock-mode";
 
 /* Server-only a propósito (usa next/headers) — nunca importar desde un
    componente "use client" como AdminNav.tsx, por eso vive separado de
@@ -41,3 +44,36 @@ export function aplicarOverridesReclamos<T extends { id: string; estado: string;
 ): T[] {
   return reclamos.map((r) => (r.id in overrides ? { ...r, ...overrides[r.id] } : r));
 }
+
+export type NotaSoporteMock = { id: string; negocio_id: string; autor: string; texto: string; created_at: string };
+
+/* A diferencia de leerOverridesActivo/leerOverridesReclamos (un mapa que
+   REEMPLAZA campos existentes), acá la cookie guarda un array que se
+   acumula: cada nota nueva se agrega vía POST /api/admin/negocios/notas,
+   nunca reemplaza a las anteriores (ver MOCK_NOTAS_SOPORTE_COOKIE). */
+export async function leerNotasSoporteMock(): Promise<NotaSoporteMock[]> {
+  const c = await cookies();
+  const raw = c.get(MOCK_NOTAS_SOPORTE_COOKIE)?.value;
+  if (!raw) return [];
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return [];
+  }
+}
+
+/* ================= BUZÓN DE MEJORAS (mock) ================= */
+
+/** Mapa id→estado — mismo criterio que leerOverridesActivo (reemplaza un
+ *  campo), usado por /api/admin/mejoras/actualizar. */
+export async function leerOverridesMejoras(): Promise<Record<string, string>> {
+  const c = await cookies();
+  const raw = c.get(MOCK_MEJORAS_ESTADO_COOKIE)?.value;
+  if (!raw) return {};
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return {};
+  }
+}
+

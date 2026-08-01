@@ -9,6 +9,7 @@ export interface TabDeAjustes { href: string; label: string; soloAdmin?: boolean
 export const TABS_AJUSTES: TabDeAjustes[] = [
   { href: "/dashboard/ajustes", label: "Perfil del negocio", soloAdmin: true },
   { href: "/dashboard/facturacion", label: "Suscripción y facturación" },
+  { href: "/dashboard/ajustes/auditoria", label: "Auditoría", soloAdmin: true },
 ];
 
 /* Genérico: navegación en pestañas basada en RUTAS reales (no estado de tab

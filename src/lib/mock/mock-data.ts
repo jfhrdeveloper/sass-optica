@@ -30,6 +30,37 @@ export const MOCK_EMPLEADO: Empleado = {
   activo: true,
 };
 
+/* Encargado/Vendedor mock — solo para el selector rápido de perfil de
+   /login (mock mode), no representan un flujo de alta real (ver
+   AuthPage.tsx). Con permisos vacíos: cada rol ve exactamente lo que le
+   corresponde por defecto (RLS/proxy.ts), sin depender de un permiso
+   granular delegado para que el selector sirva tal cual. */
+export const MOCK_EMPLEADO_ENCARGADO: Empleado = {
+  id: "mock-empleado-2",
+  negocioId: MOCK_NEGOCIO.id,
+  nombres: "Carlos",
+  apellidos: "Encargado",
+  rol: "encargado",
+  email: "encargado@optica.pe",
+  permisos: {},
+  comisionPct: 5,
+  activo: true,
+};
+
+export const MOCK_EMPLEADO_TRABAJADOR: Empleado = {
+  id: "mock-empleado-3",
+  negocioId: MOCK_NEGOCIO.id,
+  nombres: "Sofía",
+  apellidos: "Vendedora",
+  rol: "trabajador",
+  email: "vendedor@optica.pe",
+  permisos: {},
+  comisionPct: 5,
+  activo: true,
+};
+
+export const MOCK_EMPLEADOS: Empleado[] = [MOCK_EMPLEADO, MOCK_EMPLEADO_ENCARGADO, MOCK_EMPLEADO_TRABAJADOR];
+
 export const MOCK_SUSCRIPCION: Suscripcion = {
   id: "mock-sub-1",
   negocioId: MOCK_NEGOCIO.id,
@@ -285,4 +316,59 @@ export const MOCK_ADMIN_EVENTOS_USO = [
 
 export const MOCK_COTIZACION_ITEMS: CotizacionItem[] = [
   { id: "coti-1", cotizacionId: "cot-1", productoId: "prod-1", descripcion: "Armazón Ray-Ban RB2140", cantidad: 1, precioUnitario: 350, subtotal: 350 },
+];
+
+/* audit_log simulado (ver supabase-schema.sql: fn_audit()) — solo un negocio
+   en modo mock, así que no hace falta filtrar por negocio_id como en la
+   tabla real. Alimenta /dashboard/ajustes/auditoria (admin-only). */
+export const MOCK_AUDIT_LOG = [
+  { id: 6, ts: new Date(Date.now() - 2 * 3600000).toISOString(), actor_id: MOCK_EMPLEADO.id, accion: "UPDATE", tabla: "productos", fila_id: "prod-1" },
+  { id: 5, ts: new Date(Date.now() - 5 * 3600000).toISOString(), actor_id: MOCK_EMPLEADO_ENCARGADO.id, accion: "INSERT", tabla: "clientes", fila_id: "cli-9" },
+  { id: 4, ts: new Date(Date.now() - 26 * 3600000).toISOString(), actor_id: MOCK_EMPLEADO.id, accion: "UPDATE", tabla: "empleados", fila_id: MOCK_EMPLEADO_TRABAJADOR.id },
+  { id: 3, ts: new Date(Date.now() - 30 * 3600000).toISOString(), actor_id: MOCK_EMPLEADO_ENCARGADO.id, accion: "INSERT", tabla: "gastos", fila_id: "gas-3" },
+  { id: 2, ts: new Date(Date.now() - 3 * 86400000).toISOString(), actor_id: MOCK_EMPLEADO.id, accion: "DELETE", tabla: "proveedores", fila_id: "prov-2" },
+  { id: 1, ts: new Date(Date.now() - 6 * 86400000).toISOString(), actor_id: null, accion: "UPDATE", tabla: "suscripciones", fila_id: MOCK_SUSCRIPCION.id },
+];
+
+/* notas_soporte simuladas (ver docs/supabase-schema.sql) — historial inicial
+   de "Notas internas" en /admin-panel/negocios/[id]; las notas nuevas que se
+   agreguen en modo mock viven en una cookie aparte (ver mock-admin-overrides.ts),
+   nunca mutando este array — mismo criterio que MOCK_ADMIN_NEGOCIOS. */
+export const MOCK_ADMIN_NOTAS_SOPORTE = [
+  { id: "nota-1", negocio_id: "adm-neg-4", autor: "Soporte", texto: "Llamó por WhatsApp preguntando por qué se bloqueó el acceso. Se le explicó que la suscripción venció sin renovar.", created_at: haceMeses(1, 15) },
+  { id: "nota-2", negocio_id: "adm-neg-5", autor: "Soporte", texto: "Se le avisó por correo que el trial vence en 3 días.", created_at: haceMeses(0, 20) },
+];
+
+/* Buzón de mejoras — mock del lado del NEGOCIO (/dashboard/mejoras), ya en
+   forma de tablero anonimizado (mismo shape que la vista mejoras_publicas):
+   nunca expone negocio_id de un tercero, solo `esMia`/`yoVote` relativos al
+   único negocio mock (MOCK_NEGOCIO). "es mía" en 2 de 5 es puramente
+   presentacional (en modo mock real solo existe un negocio; sirve para
+   probar ambos estados de la UI). */
+export const MOCK_MEJORAS = [
+  { id: "mej-1", titulo: "Recordatorio de citas por SMS", descripcion: "Además de WhatsApp, poder mandar el recordatorio por SMS para clientes sin WhatsApp.", estado: "planificado", createdAt: haceMeses(1, 3), esMia: true, totalVotos: 14, yoVote: true },
+  { id: "mej-2", titulo: "Selector de sede en reportes", descripcion: "Filtrar Informes/Reportes por sucursal, no solo el negocio completo.", estado: "en_progreso", createdAt: haceMeses(2, 10), esMia: false, totalVotos: 9, yoVote: false },
+  { id: "mej-3", titulo: "Facturación electrónica SUNAT", descripcion: "Emitir boleta/factura electrónica real desde una venta, no solo el recibo interno.", estado: "pendiente", createdAt: haceMeses(0, 22), esMia: false, totalVotos: 21, yoVote: true },
+  { id: "mej-4", titulo: "Impresión de etiquetas de precio", descripcion: "Imprimir etiquetas con código de barras para monturas nuevas.", estado: "pendiente", createdAt: haceMeses(0, 5), esMia: true, totalVotos: 3, yoVote: false },
+  { id: "mej-5", titulo: "Recordatorio de revisión anual", descripcion: "Aviso automático a los 12 meses de la última cita del cliente.", estado: "completado", createdAt: haceMeses(4, 1), esMia: false, totalVotos: 17, yoVote: true },
+];
+
+/* Buzón de mejoras — mock del lado del ADMIN-PANEL (/admin-panel/mejoras):
+   datos CRUDOS cross-tenant (con negocio_id real), porque acá el dueño del
+   SaaS sí ve qué óptica propuso y quién votó cada cosa — sin la
+   anonimización de la vista mejoras_publicas. */
+export const MOCK_ADMIN_MEJORAS = [
+  { id: "mej-1", negocio_id: "adm-neg-2", titulo: "Recordatorio de citas por SMS", descripcion: "Además de WhatsApp, poder mandar el recordatorio por SMS para clientes sin WhatsApp.", estado: "planificado", created_at: haceMeses(1, 3) },
+  { id: "mej-2", negocio_id: "adm-neg-3", titulo: "Selector de sede en reportes", descripcion: "Filtrar Informes/Reportes por sucursal, no solo el negocio completo.", estado: "en_progreso", created_at: haceMeses(2, 10) },
+  { id: "mej-3", negocio_id: "adm-neg-1", titulo: "Facturación electrónica SUNAT", descripcion: "Emitir boleta/factura electrónica real desde una venta, no solo el recibo interno.", estado: "pendiente", created_at: haceMeses(0, 22) },
+  { id: "mej-4", negocio_id: "adm-neg-5", titulo: "Impresión de etiquetas de precio", descripcion: "Imprimir etiquetas con código de barras para monturas nuevas.", estado: "pendiente", created_at: haceMeses(0, 5) },
+  { id: "mej-5", negocio_id: "adm-neg-2", titulo: "Recordatorio de revisión anual", descripcion: "Aviso automático a los 12 meses de la última cita del cliente.", estado: "completado", created_at: haceMeses(4, 1) },
+];
+
+export const MOCK_ADMIN_MEJORAS_VOTOS = [
+  { mejora_id: "mej-1", negocio_id: "adm-neg-1" }, { mejora_id: "mej-1", negocio_id: "adm-neg-2" }, { mejora_id: "mej-1", negocio_id: "adm-neg-3" },
+  { mejora_id: "mej-2", negocio_id: "adm-neg-3" }, { mejora_id: "mej-2", negocio_id: "adm-neg-4" },
+  { mejora_id: "mej-3", negocio_id: "adm-neg-1" }, { mejora_id: "mej-3", negocio_id: "adm-neg-2" }, { mejora_id: "mej-3", negocio_id: "adm-neg-5" }, { mejora_id: "mej-3", negocio_id: "adm-neg-6" },
+  { mejora_id: "mej-4", negocio_id: "adm-neg-4" },
+  { mejora_id: "mej-5", negocio_id: "adm-neg-1" }, { mejora_id: "mej-5", negocio_id: "adm-neg-3" },
 ];

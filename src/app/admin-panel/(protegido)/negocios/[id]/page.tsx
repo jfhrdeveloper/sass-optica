@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Users, CreditCard, Activity } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMockMode } from "@/lib/mock/mock-mode";
-import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EMPLEADOS, MOCK_ADMIN_PAGOS, MOCK_ADMIN_EVENTOS_USO } from "@/lib/mock/mock-data";
-import { leerOverridesActivo, aplicarOverridesActivo } from "@/lib/mock/mock-admin-overrides";
+import { MOCK_ADMIN_NEGOCIOS, MOCK_ADMIN_SUSCRIPCIONES, MOCK_ADMIN_EMPLEADOS, MOCK_ADMIN_PAGOS, MOCK_ADMIN_EVENTOS_USO, MOCK_ADMIN_NOTAS_SOPORTE } from "@/lib/mock/mock-data";
+import { leerOverridesActivo, aplicarOverridesActivo, leerNotasSoporteMock } from "@/lib/mock/mock-admin-overrides";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { SuspenderNegocioButton } from "@/components/admin/SuspenderNegocioButton";
+import { NotasSoporte } from "@/components/admin/NotasSoporte";
 import { ActividadBarChart } from "@/components/admin/ActividadBarChart";
 import { ActividadHeatmap } from "@/components/admin/ActividadHeatmap";
 import {
@@ -33,6 +34,7 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
   let empleados: { id: string; nombres: string; apellidos: string; rol: string; email: string | null; activo: boolean }[];
   let pagos: { id: string; monto: number; moneda: string; metodo_pago: string | null; estado: string; created_at: string }[];
   let eventos: { ruta: string; created_at: string }[];
+  let notas: { id: string; autor: string; texto: string; created_at: string }[];
 
   if (mock) {
     const negociosConOverride = aplicarOverridesActivo(MOCK_ADMIN_NEGOCIOS, await leerOverridesActivo());
@@ -42,20 +44,25 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
     empleados = MOCK_ADMIN_EMPLEADOS.filter((e) => e.negocio_id === id);
     pagos = MOCK_ADMIN_PAGOS.filter((p) => p.negocio_id === id).sort((a, b) => b.created_at.localeCompare(a.created_at));
     eventos = MOCK_ADMIN_EVENTOS_USO.filter((e) => e.negocio_id === id);
+    notas = [...MOCK_ADMIN_NOTAS_SOPORTE, ...await leerNotasSoporteMock()]
+      .filter((n) => n.negocio_id === id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
   } else {
     const admin = createAdminClient();
-    const [negocioRes, suscripcionRes, empleadosRes, pagosRes, eventosRes] = await Promise.all([
+    const [negocioRes, suscripcionRes, empleadosRes, pagosRes, eventosRes, notasRes] = await Promise.all([
       admin.from("negocios").select("id, nombre, subdominio, ruc, telefono, direccion, activo, created_at").eq("id", id).maybeSingle(),
       admin.from("suscripciones").select("plan, estado, trial_fin, fecha_pago_ultimo").eq("negocio_id", id).maybeSingle(),
       admin.from("empleados").select("id, nombres, apellidos, rol, email, activo").eq("negocio_id", id),
       admin.from("pagos_saas").select("id, monto, moneda, metodo_pago, estado, created_at").eq("negocio_id", id).order("created_at", { ascending: false }),
       admin.from("eventos_uso").select("ruta, created_at").eq("negocio_id", id),
+      admin.from("notas_soporte").select("id, autor_id, texto, created_at").eq("negocio_id", id).order("created_at", { ascending: false }),
     ]);
     negocio = negocioRes.data;
     suscripcion = suscripcionRes.data;
     empleados = empleadosRes.data ?? [];
     pagos = pagosRes.data ?? [];
     eventos = eventosRes.data ?? [];
+    notas = (notasRes.data ?? []).map((n) => ({ id: n.id, autor: "Soporte", texto: n.texto, created_at: n.created_at }));
   }
 
   if (!negocio) notFound();
@@ -182,9 +189,9 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
               <tbody>
                 {empleados.map((e) => (
                   <tr key={e.id} className="table-row">
-                    <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{e.nombres} {e.apellidos}{!e.activo && " (inactivo)"}</td>
-                    <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{e.rol}</td>
-                    <td className="table-cell text-slate-600 dark:text-slate-300">{e.email ?? "—"}</td>
+                    <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{e.nombres} {e.apellidos}{!e.activo && " (inactivo)"}</td>
+                    <td className="table-body-cell capitalize text-slate-600 dark:text-slate-300">{e.rol}</td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">{e.email ?? "—"}</td>
                   </tr>
                 ))}
                 {empleados.length === 0 && (
@@ -209,10 +216,10 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
               <tbody>
                 {pagos.map((p) => (
                   <tr key={p.id} className="table-row">
-                    <td className="table-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(p.created_at)}</td>
-                    <td className="table-cell font-medium text-slate-900 dark:text-slate-100">{p.moneda} {p.monto.toFixed(2)}</td>
-                    <td className="table-cell capitalize text-slate-600 dark:text-slate-300">{p.metodo_pago ?? "—"}</td>
-                    <td className="table-cell"><span className="badge badge-success">{p.estado}</span></td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">{formatearFechaPE(p.created_at)}</td>
+                    <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{p.moneda} {p.monto.toFixed(2)}</td>
+                    <td className="table-body-cell capitalize text-slate-600 dark:text-slate-300">{p.metodo_pago ?? "—"}</td>
+                    <td className="table-body-cell"><span className="badge badge-success">{p.estado}</span></td>
                   </tr>
                 ))}
                 {pagos.length === 0 && (
@@ -222,6 +229,13 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
             </table>
           </div>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <NotasSoporte
+          negocioId={negocio.id}
+          notas={notas.map((n) => ({ id: n.id, autor: n.autor, texto: n.texto, createdAt: n.created_at }))}
+        />
       </div>
     </main>
   );
