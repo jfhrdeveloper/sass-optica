@@ -53,6 +53,14 @@ export default function AdminLoginPage() {
     }
   }
 
+  /* Mismo criterio que `entrarComo` en AuthPage.tsx: setea la cookie que ya
+     revisa el layout protegido y salta directo, sin pasar por el formulario
+     ni validar credenciales (solo existe en modo mock). */
+  function entrarRapido() {
+    document.cookie = `${MOCK_ADMIN_COOKIE}=1; path=/; max-age=86400`;
+    window.location.href = "/admin-panel";
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -160,9 +168,24 @@ export default function AdminLoginPage() {
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Solo para el equipo del SaaS.</p>
 
           {mock && (
-            <p className="badge badge-warning mt-3 px-3 py-1.5">
-              Modo mock activo — usa <strong className="ml-1">{MOCK_ADMIN_EMAIL}</strong> / <strong>{MOCK_ADMIN_PASSWORD}</strong>
-            </p>
+            <>
+              <p className="badge badge-warning mt-3 px-3 py-1.5">
+                Modo mock activo — usa <strong className="ml-1">{MOCK_ADMIN_EMAIL}</strong> / <strong>{MOCK_ADMIN_PASSWORD}</strong>
+              </p>
+
+              {/* Selector rápido — mismo patrón que AuthPage.tsx (login de
+                  negocios): entra directo sin pasar por el formulario. Acá
+                  solo hay UNA identidad posible (el equipo del SaaS no tiene
+                  roles), así que es un solo botón en vez de un selector. */}
+              <div className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  Entrar rápido
+                </p>
+                <button type="button" onClick={entrarRapido} className="btn-outline mt-2 w-full gap-1.5 text-sm">
+                  <ShieldCheck size={15} /> Entrar como equipo del SaaS
+                </button>
+              </div>
+            </>
           )}
 
           <button type="button" onClick={conGoogle} disabled={enviandoGoogle} className="btn-outline mt-6 w-full gap-2">
