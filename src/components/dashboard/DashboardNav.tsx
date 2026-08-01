@@ -9,6 +9,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { coincideBusqueda } from "@/lib/formato/texto";
 import { nombrePlanSuscripcion, nombreEstadoSuscripcion } from "@/lib/precios";
 import { NAV, type Hijo, type Restriccion } from "@/lib/dashboard-nav";
+import { puedeLeerModulo } from "@/lib/permisos";
 
 const MAX_RESULTADOS_BUSQUEDA = 5;
 
@@ -157,7 +158,7 @@ const ESTADO_BADGE: Record<string, string> = {
 export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const { empleado } = useSession();
-  const { negocio, suscripcion, citas, productos } = useData();
+  const { negocio, suscripcion, citas, productos, rolesPersonalizados } = useData();
   const esAdmin = empleado?.rol === "administrador";
 
   /* Badges "en vivo" — el sidebar deja de ser solo navegación y muestra el
@@ -173,7 +174,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
   const contadorDe = (href: string) => (href === "/dashboard/citas" && citasHoy > 0 ? citasHoy : null);
   const alertaDe = (href: string) => href === "/dashboard/productos" && stockBajo > 0;
   const grupoTieneAlerta = (key: string) => key === "comercial" && stockBajo > 0;
-  const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
+  const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
   const puedeVer = (i: Restriccion) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso);
   /* El link "Ajustes" apunta a /dashboard/ajustes si sos administrador; el
      resto de roles no puede entrar ahí (proxy.ts los rebota), así que

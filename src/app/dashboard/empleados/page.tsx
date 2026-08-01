@@ -14,14 +14,18 @@ import { nombreRol } from "@/lib/roles";
    Supabase directo desde aquí — siempre vía /api/empleados/* con
    service_role (ver invariante en docs/architecture.md).
 
-   Qué módulos ve cada rol/plantilla ya NO se edita acá — se mudó entero a
-   /dashboard/roles (a pedido del usuario: esta página es alta/baja/datos de
-   la PERSONA, no la definición de qué ve cada preset). Acá solo queda
-   elegir CUÁL plantilla tiene asignada cada empleado (updateEmpleado →
-   RLS empleados_admin_update, ya exige is_administrador()). Sin plantilla
-   asignada, el empleado sigue con el acceso base de su rol (puede_gestionar()
-   para encargado, mínimo para trabajador) — mismo comportamiento que
-   siempre tuvo.
+   Qué módulos ve cada rol personalizado ya NO se edita acá — se mudó
+   entero a /dashboard/roles (a pedido del usuario: esta página es
+   alta/baja/datos de la PERSONA, no la definición de qué ve cada rol
+   personalizado). Acá solo queda elegir CUÁL rol personalizado tiene
+   asignado cada empleado (updateEmpleado → RLS empleados_admin_update, ya
+   exige is_administrador()). Sin rol personalizado asignado, el empleado
+   sigue con el acceso base de su rol principal (puede_gestionar() para
+   encargado, mínimo para trabajador) — mismo comportamiento que siempre
+   tuvo. Cualquier rol personalizado aplica igual a un encargado que a un
+   trabajador (sin distinción de "para quién fue pensado"), así que cambiar
+   el rol principal de alguien nunca invalida el rol personalizado que ya
+   tenía asignado.
 
    Ascender/degradar entre Encargado ↔ Vendedor SÍ se edita acá (RLS ya lo
    permitía — empleados_admin_update no restringe columnas, el trigger
@@ -32,7 +36,7 @@ import { nombreRol } from "@/lib/roles";
    administrador) que merece su propio flujo con más resguardos, no un
    <select> más en esta tabla. */
 export default function EmpleadosPage() {
-  const { empleados, plantillasRol, updateEmpleado } = useData();
+  const { empleados, rolesPersonalizados, updateEmpleado } = useData();
   const { empleado: yo } = useSession();
   const toast = useToast();
   const { pagina, setPagina, totalPaginas, visibles } = usePaginado(empleados);
@@ -75,12 +79,8 @@ export default function EmpleadosPage() {
     toast(`Invitación enviada a ${email}.`);
   }
 
-  /* Si la plantilla que ya tenía asignada no aplica al nuevo rol (ver el
-     filtro rolBase de abajo), se limpia sola en vez de dejarla "colgada"
-     — el selector de plantilla no la mostraría como opción igual. */
   async function cambiarRol(emp: Empleado, nuevoRol: "encargado" | "trabajador") {
-    const plantillaSigueValida = plantillasRol.some((p) => p.id === emp.plantillaRolId && p.rolBase === nuevoRol);
-    await updateEmpleado(emp.id, { rol: nuevoRol, plantillaRolId: plantillaSigueValida ? emp.plantillaRolId : undefined });
+    await updateEmpleado(emp.id, { rol: nuevoRol });
     toast(`${emp.nombres} ahora es ${nombreRol(nuevoRol)}.`);
   }
 
@@ -106,8 +106,8 @@ export default function EmpleadosPage() {
     <main>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Empleados</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Qué módulos ve cada uno se define como plantilla en{" "}
-        <a href="/dashboard/roles" className="link">Roles</a> — acá solo elegís cuál le corresponde a cada persona.
+        Qué módulos ve cada uno se define en{" "}
+        <a href="/dashboard/roles" className="link">Roles</a> — acá solo elegís cuál rol personalizado le corresponde a cada persona.
       </p>
 
       <div className="table-card mt-4">
@@ -123,13 +123,12 @@ export default function EmpleadosPage() {
               <tr>
                 <th className="table-head-cell">Nombre</th>
                 <th className="table-head-cell">Rol</th>
-                <th className="table-head-cell">Plantilla de permisos</th>
+                <th className="table-head-cell">Rol personalizado</th>
                 <th className="table-head-cell text-right">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {visibles.map((e) => {
-                const plantillasDelRol = plantillasRol.filter((p) => p.rolBase === e.rol);
                 return (
                   <Fragment key={e.id}>
                     <tr className="table-row">
@@ -161,13 +160,13 @@ export default function EmpleadosPage() {
                           <span className="text-slate-400 dark:text-slate-500">No aplica</span>
                         ) : (
                           <select
-                            value={e.plantillaRolId ?? ""}
-                            onChange={(ev) => updateEmpleado(e.id, { plantillaRolId: ev.target.value || undefined })}
+                            value={e.rolPersonalizadoId ?? ""}
+                            onChange={(ev) => updateEmpleado(e.id, { rolPersonalizadoId: ev.target.value || undefined })}
                             className="select text-sm"
                           >
-                            <option value="">Sin plantilla (acceso base)</option>
-                            {plantillasDelRol.map((p) => (
-                              <option key={p.id} value={p.id}>{p.nombre}</option>
+                            <option value="">Sin rol personalizado (acceso base)</option>
+                            {rolesPersonalizados.map((r) => (
+                              <option key={r.id} value={r.id}>{r.nombre}</option>
                             ))}
                           </select>
                         )}

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, CalendarDays, ShoppingCart, Menu, X } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
+import { useData } from "@/components/providers/DataProvider";
 import { NAV } from "@/lib/dashboard-nav";
+import { puedeLeerModulo } from "@/lib/permisos";
 
 /* Los 4 destinos de más uso a diario en una óptica quedan siempre a un toque;
    el resto (Stock, Proveedores, Cotizaciones, Descuentos, Administración
@@ -26,8 +28,9 @@ const TABS = [
 export function BottomTabBar() {
   const pathname = usePathname();
   const { empleado } = useSession();
+  const { rolesPersonalizados } = useData();
   const esAdmin = empleado?.rol === "administrador";
-  const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
+  const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
   const puedeVer = (i: { soloAdmin?: boolean; permiso?: string }) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso);
   const [masAbierto, setMasAbierto] = useState(false);
 

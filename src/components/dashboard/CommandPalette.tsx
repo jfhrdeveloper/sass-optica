@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
+import { useData } from "@/components/providers/DataProvider";
 import { NAV, aplanarNav } from "@/lib/dashboard-nav";
 import { coincideBusqueda } from "@/lib/formato/texto";
+import { puedeLeerModulo } from "@/lib/permisos";
 
 /* Navegación rápida (Ctrl+K / ⌘K) entre las 13+ secciones del dashboard —
    con el sidebar + tab bar mobile ya cubriendo la navegación por clic, esto
@@ -17,13 +19,14 @@ import { coincideBusqueda } from "@/lib/formato/texto";
 export function CommandPalette() {
   const router = useRouter();
   const { empleado } = useSession();
+  const { rolesPersonalizados } = useData();
   const [abierto, setAbierto] = useState(false);
   const [q, setQ] = useState("");
   const [activo, setActivo] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const esAdmin = empleado?.rol === "administrador";
-  const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
+  const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
 
   const todos = useMemo(() => aplanarNav(NAV), []);
   const filtrados = useMemo(() => {

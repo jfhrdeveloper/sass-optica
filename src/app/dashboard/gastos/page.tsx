@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import { Receipt, Trash2 } from "lucide-react";
 import { useData, type Gasto } from "@/components/providers/DataProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 import { DatePicker } from "@/components/calendario/DatePicker";
+import { puedeEscribirModulo } from "@/lib/permisos";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
 const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };
@@ -21,10 +23,15 @@ function capitalizar(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/* Ruta protegida a nivel de proxy (src/proxy.ts: rutasSoloAdministrador) y de
-   RLS (gastos_admin_all) — solo el administrador llega hasta aquí con datos. */
+/* Ruta con permiso granular delegable (src/proxy.ts: rutasConPermiso,
+   clave 'gastos') — entra con solo lectura, igual que administrador o
+   alguien con escritura delegada (ver gastos_read/gastos_write en la RLS).
+   El formulario de alta y "Eliminar" se ocultan si solo tiene lectura —
+   mismo patrón que Caja/Laboratorio. */
 export default function GastosPage() {
-  const { gastos, proveedores, addGasto, deleteGasto } = useData();
+  const { gastos, proveedores, rolesPersonalizados, addGasto, deleteGasto } = useData();
+  const { empleado } = useSession();
+  const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "gastos");
   const toast = useToast();
   const [form, setForm] = useState<Partial<Gasto>>(VACIO);
   const [guardando, setGuardando] = useState(false);
@@ -64,21 +71,23 @@ export default function GastosPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Gastos</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Total este mes: S/ {totalMes.toFixed(2)}</p>
 
-      <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-        <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
-          {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
-        </select>
-        <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
-        <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select text-sm">
-          <option value="">Sin proveedor</option>
-          {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-        </select>
-        <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input text-sm" />
-        <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
-        <button type="submit" disabled={guardando} className="btn-primary col-span-full">
-          Registrar gasto
-        </button>
-      </form>
+      {puedeEditar && (
+        <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+          <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
+            {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
+          </select>
+          <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
+          <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select text-sm">
+            <option value="">Sin proveedor</option>
+            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select>
+          <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input text-sm" />
+          <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
+          <button type="submit" disabled={guardando} className="btn-primary col-span-full">
+            Registrar gasto
+          </button>
+        </form>
+      )}
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
@@ -97,7 +106,7 @@ export default function GastosPage() {
                 <th className="table-head-cell">Categoría</th>
                 <th className="table-head-cell hidden md:table-cell">Descripción</th>
                 <th className="table-head-cell">Monto</th>
-                <th className="table-head-cell text-right">Acciones</th>
+                {puedeEditar && <th className="table-head-cell text-right">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -112,16 +121,18 @@ export default function GastosPage() {
                   </td>
                   <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{g.descripcion ?? "—"}</td>
                   <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">S/ {g.monto.toFixed(2)}</td>
-                  <td className="table-body-cell text-right">
-                    <button onClick={() => eliminar(g)} title="Eliminar" aria-label={`Eliminar gasto${g.descripcion ? `: ${g.descripcion}` : ""}`} className="row-icon-btn row-icon-btn-danger">
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
+                  {puedeEditar && (
+                    <td className="table-body-cell text-right">
+                      <button onClick={() => eliminar(g)} title="Eliminar" aria-label={`Eliminar gasto${g.descripcion ? `: ${g.descripcion}` : ""}`} className="row-icon-btn row-icon-btn-danger">
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {ordenados.length === 0 && (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={puedeEditar ? 5 : 4}>
                     <div className="table-empty">
                       <Receipt size={28} className="text-slate-300 dark:text-slate-600" />
                       Sin gastos registrados.

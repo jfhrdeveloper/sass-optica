@@ -125,29 +125,40 @@ create trigger trg_sucursales_solo_premium
   before insert on public.sucursales
   for each row execute function public.bloquear_sucursal_sin_premium();
 
--- plantillas_rol (permisos delegables reutilizables, aplicables a varios
--- empleados a la vez) --------------------------------------------------------
--- Capa OPCIONAL por encima del rol fijo (administrador/encargado/trabajador)
--- y de empleados.permisos — nunca los reemplaza. El administrador arma un
--- preset con nombre propio ("Cajero", "Recepción") marcando qué módulos ve,
--- y lo aplica a varios empleados con un clic (empleados.plantilla_rol_id) en
--- vez de tildar los mismos checkboxes uno por uno. Un empleado SIN plantilla
--- asignada sigue funcionando exactamente como antes de esto: sus permisos
--- delegables salen directo de su propia columna `permisos`. Ver
--- tiene_permiso() más abajo, que resuelve cuál de las dos fuentes usar.
-create table if not exists public.plantillas_rol (
+-- roles_personalizados (permisos delegables reutilizables, aplicables a
+-- varios empleados a la vez) --------------------------------------------------
+-- Capa OPCIONAL por encima del rol PRINCIPAL fijo (administrador/encargado/
+-- trabajador, columna `rol` de empleados — ese no se toca ni se renombra: la
+-- RLS y el proxy dependen de ese enum exacto). El administrador arma un rol
+-- personalizado con nombre propio ("Cajero", "Recepción") y decide, módulo
+-- por módulo, si ese rol tiene 'ninguno' | 'lectura' | 'escritura' — y lo
+-- aplica a varios empleados con un clic (empleados.rol_personalizado_id) en
+-- vez de repetir la configuración persona por persona.
+--
+-- A diferencia de un permiso suelto (siempre aditivo): un empleado CON rol
+-- personalizado asignado queda gobernado ENTERAMENTE por lo que ese rol
+-- tenga configurado — para un encargado esto SÍ puede restarle acceso que
+-- tendría por defecto (ver puede_gestionar()/sin_rol_personalizado() más
+-- abajo). Un empleado SIN rol personalizado sigue funcionando exactamente
+-- como siempre: encargado con su piso amplio de siempre, trabajador con
+-- lectura abierta y escritura nula salvo lo que tenga en su propia columna
+-- `empleados.permisos` (legado, ver esa columna).
+--
+-- Sin distinción de a qué rol principal aplica: el mismo rol personalizado
+-- sirve igual para un encargado que para un trabajador — la diferencia de
+-- fondo entre ambos (el piso de acceso por defecto SIN rol personalizado)
+-- sigue existiendo, pero deja de importar en cuanto se asigna uno.
+create table if not exists public.roles_personalizados (
   id         uuid primary key default gen_random_uuid(),
   negocio_id uuid not null references public.negocios(id) on delete cascade,
   nombre     text not null,
-  -- Nunca 'administrador': ese rol ya pasa cualquier chequeo por sí mismo
-  -- (is_administrador()/puede_gestionar()), no tiene sentido restringirlo
-  -- con una plantilla de permisos delegables.
-  rol_base   rol_empleado not null check (rol_base <> 'administrador'),
+  -- Un valor por módulo delegable (ver src/lib/permisos.ts): 'ninguno'
+  -- (default si la clave ni aparece) | 'lectura' | 'escritura'.
   permisos   jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index if not exists idx_plantillas_rol_negocio on public.plantillas_rol(negocio_id);
+create index if not exists idx_roles_personalizados_negocio on public.roles_personalizados(negocio_id);
 
 -- empleados (1:1 con auth.users — "usuarios" del brief) ---------------------
 create table if not exists public.empleados (
@@ -159,17 +170,23 @@ create table if not exists public.empleados (
   email         text,
   telefono      text,
   avatar_base64 text,
-  -- Permisos granulares ADITIVOS por empleado, capa por encima del rol fijo
-  -- (administrador/encargado/trabajador) — no lo reemplazan. Se IGNORA si
-  -- `plantilla_rol_id` está asignado (ver esa columna y tiene_permiso() más
-  -- abajo) — sigue existiendo para el caso sin plantilla. Default '{}' =
-  -- ningún extra; solo el administrador puede seguir gestionando
-  -- empleados/ajustes, eso NUNCA se delega por este campo.
+  -- Permisos LEGADO por empleado (valor por módulo: 'lectura'/'escritura',
+  -- ausente = ninguno) — capa por encima del rol PRINCIPAL fijo
+  -- (administrador/encargado/trabajador). Se IGNORA por completo si
+  -- `rol_personalizado_id` está asignado (ver esa columna y
+  -- tiene_permiso_lectura()/tiene_permiso_escritura() más abajo) — sigue
+  -- existiendo solo para el caso sin rol personalizado, hoy nada en la UI
+  -- escribe acá directo (el flujo real es siempre vía un rol personalizado).
+  -- Default '{}' = ningún extra; solo el administrador puede seguir
+  -- gestionando empleados/ajustes, eso NUNCA se delega por este campo.
   permisos      jsonb not null default '{}'::jsonb,
-  -- Plantilla de permisos opcional (ver public.plantillas_rol) — si está
-  -- asignada, tiene_permiso() resuelve los permisos delegables desde ahí en
-  -- vez de la columna `permisos` de arriba.
-  plantilla_rol_id uuid references public.plantillas_rol(id) on delete set null,
+  -- Rol personalizado opcional (ver public.roles_personalizados) — si está
+  -- asignado, tiene_permiso_lectura()/tiene_permiso_escritura() resuelven
+  -- los permisos delegables desde ahí en vez de la columna `permisos` de
+  -- arriba, Y deja de aplicar el piso de acceso por defecto del rol
+  -- principal (ver puede_gestionar()/sin_rol_personalizado()) — el rol
+  -- personalizado pasa a ser la única fuente de verdad para ese empleado.
+  rol_personalizado_id uuid references public.roles_personalizados(id) on delete set null,
   -- % de comisión sobre sus propias ventas (estado='pagada'), ver
   -- lib/comisiones.ts. Editable solo por administrador (misma policy
   -- empleados_admin_update de abajo) — gratis, sin RLS nueva.
@@ -205,12 +222,12 @@ create trigger trg_empleados_lock_tenant
   for each row execute function public.bloquear_cambio_tenant_empleado();
 
 -- Un self-update (policy empleados_self_update más abajo, `using (id =
--- auth.uid())`) nunca puede tocar rol/permisos/plantilla_rol_id — esa policy
--- solo filtra POR FILA, no por columna, así que sin este trigger cualquier
--- trabajador o encargado podría auto-ascenderse a administrador (o auto-
--- asignarse una plantilla más permisiva) con un UPDATE directo (vía
--- supabase-js) sobre su propia fila, sin pasar por ninguna pantalla.
--- Un administrador gestionando a OTRO empleado entra por
+-- auth.uid())`) nunca puede tocar rol/permisos/rol_personalizado_id — esa
+-- policy solo filtra POR FILA, no por columna, así que sin este trigger
+-- cualquier trabajador o encargado podría auto-ascenderse a administrador
+-- (o auto-asignarse un rol personalizado más permisivo) con un UPDATE
+-- directo (vía supabase-js) sobre su propia fila, sin pasar por ninguna
+-- pantalla. Un administrador gestionando a OTRO empleado entra por
 -- empleados_admin_update (auth.uid() distinto de la fila objetivo) y no
 -- pasa por acá. service_role (altas/invitaciones, admin.ts) queda exento
 -- explícitamente — BYPASSRLS salta las policies pero NO los triggers.
@@ -220,7 +237,7 @@ set search_path = public as $$
 begin
   if (new.rol is distinct from old.rol
       or new.permisos is distinct from old.permisos
-      or new.plantilla_rol_id is distinct from old.plantilla_rol_id)
+      or new.rol_personalizado_id is distinct from old.rol_personalizado_id)
      and auth.uid() = old.id
      and coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'No puedes modificar tu propio rol o permisos.';
@@ -518,32 +535,71 @@ create or replace function public.is_administrador()
 returns boolean language sql stable security definer
 set search_path = public as $$ select coalesce(public.current_rol() = 'administrador', false); $$;
 
--- "Gestión operativa" = administrador o encargado (stock/ventas/clientes/
--- citas, sin reportes financieros completos — ver brief §5).
-create or replace function public.puede_gestionar()
-returns boolean language sql stable security definer
-set search_path = public as $$ select coalesce(public.current_rol() in ('administrador','encargado'), false); $$;
-
--- Permiso granular aditivo — ver comentario en empleados.permisos y en
--- public.plantillas_rol. Un administrador SIEMPRE pasa (is_administrador()
--- ya lo cubre en cada policy con `or`), esta función solo resuelve el caso
--- "no soy admin pero se me delegó este módulo puntual" — desde la plantilla
--- asignada si hay una, si no desde los permisos propios del empleado.
-create or replace function public.tiene_permiso(clave text)
+-- ¿Este empleado NO tiene un rol personalizado asignado? (ver
+-- public.roles_personalizados). Cuando es true, aplica el piso de acceso
+-- por defecto de su rol PRINCIPAL (puede_gestionar() + las policies de
+-- lectura abiertas de abajo) — el comportamiento de siempre. Cuando es
+-- false, su acceso a los módulos delegables lo define ENTERAMENTE el rol
+-- personalizado (tiene_permiso_lectura()/tiene_permiso_escritura()), sin
+-- excepción ni para encargado — es lo que permite RESTRINGIR a un encargado
+-- por debajo de su piso normal, no solo sumarle cosas.
+create or replace function public.sin_rol_personalizado()
 returns boolean language sql stable security definer
 set search_path = public as $$
   select coalesce(
-    (
-      select case
-        when e.plantilla_rol_id is not null then (pr.permisos ->> clave)::boolean
-        else (e.permisos ->> clave)::boolean
-      end
-      from public.empleados e
-      left join public.plantillas_rol pr on pr.id = e.plantilla_rol_id
-      where e.id = auth.uid()
-    ),
+    (select rol_personalizado_id is null from public.empleados where id = auth.uid()),
     false
   );
+$$;
+
+-- "Gestión operativa" = administrador, o encargado SIN rol personalizado
+-- asignado (stock/ventas/clientes/citas, sin reportes financieros completos
+-- — ver brief §5). Un encargado CON rol personalizado deja de pasar acá
+-- automáticamente en cuanto se le asigna uno — desde ahí su acceso lo
+-- decide exclusivamente tiene_permiso_escritura(), igual que un trabajador.
+create or replace function public.puede_gestionar()
+returns boolean language sql stable security definer
+set search_path = public as $$
+  select coalesce(
+    public.current_rol() = 'administrador'
+    or (public.current_rol() = 'encargado' and public.sin_rol_personalizado()),
+    false
+  );
+$$;
+
+-- Valor crudo del permiso para un módulo — 'ninguno' (o NULL si la clave ni
+-- aparece) | 'lectura' | 'escritura'. Resuelve desde el rol personalizado
+-- asignado si hay uno; si no, desde los permisos propios (legado) del
+-- empleado — ver el comentario de esa columna. Nunca se combinan las dos
+-- fuentes: si hay rol personalizado, la columna `permisos` del empleado se
+-- ignora por completo.
+create or replace function public.nivel_permiso(clave text)
+returns text language sql stable security definer
+set search_path = public as $$
+  select
+    case
+      when e.rol_personalizado_id is not null then rp.permisos ->> clave
+      else e.permisos ->> clave
+    end
+  from public.empleados e
+  left join public.roles_personalizados rp on rp.id = e.rol_personalizado_id
+  where e.id = auth.uid();
+$$;
+
+-- Un administrador SIEMPRE pasa cualquier chequeo (is_administrador() ya lo
+-- cubre en cada policy con `or`) — estas dos funciones solo resuelven el
+-- caso "no soy admin, ¿qué nivel tengo en este módulo puntual?".
+-- 'escritura' implica lectura (no hay forma de dar escritura sin lectura).
+create or replace function public.tiene_permiso_lectura(clave text)
+returns boolean language sql stable security definer
+set search_path = public as $$
+  select coalesce(public.nivel_permiso(clave) in ('lectura', 'escritura'), false);
+$$;
+
+create or replace function public.tiene_permiso_escritura(clave text)
+returns boolean language sql stable security definer
+set search_path = public as $$
+  select coalesce(public.nivel_permiso(clave) = 'escritura', false);
 $$;
 
 -- Dueño/equipo del SaaS (panel admin.dominio, Fase 5) — no confundir con
@@ -636,13 +692,14 @@ create policy empleados_admin_update on public.empleados for update
   using (public.is_administrador() and negocio_id = public.current_tenant())
   with check (public.is_administrador() and negocio_id = public.current_tenant());
 
--- ====== PLANTILLAS_ROL ======
--- Exclusivo del administrador — encargado/trabajador nunca necesitan LEER la
--- plantilla en sí (sus permisos efectivos se resuelven server-side vía
--- tiene_permiso(), no consultando esta tabla desde el cliente).
-alter table public.plantillas_rol enable row level security;
-drop policy if exists plantillas_rol_admin on public.plantillas_rol;
-create policy plantillas_rol_admin on public.plantillas_rol for all
+-- ====== ROLES_PERSONALIZADOS ======
+-- Exclusivo del administrador — encargado/trabajador nunca necesitan LEER el
+-- rol personalizado en sí (sus permisos efectivos se resuelven server-side
+-- vía tiene_permiso_lectura()/tiene_permiso_escritura(), no consultando
+-- esta tabla desde el cliente).
+alter table public.roles_personalizados enable row level security;
+drop policy if exists roles_personalizados_admin on public.roles_personalizados;
+create policy roles_personalizados_admin on public.roles_personalizados for all
   using (public.is_administrador() and negocio_id = public.current_tenant())
   with check (public.is_administrador() and negocio_id = public.current_tenant());
 
@@ -1174,15 +1231,15 @@ create policy sucursales_write on public.sucursales for all
   with check (public.is_administrador() and negocio_id = public.current_tenant());
 
 -- clientes / recetas / examenes_optometricos / productos / proveedores /
--- cotizaciones: mismo patrón de RLS (lectura para todo el negocio,
--- escritura para quien "puede_gestionar" — administrador o encargado — O
--- tenga el permiso delegable del módulo, ver tiene_permiso()/plantillas_rol
--- más arriba: así un `trabajador` puntual puede escribir en un módulo
--- específico sin ascenderlo de rol). recetas/examenes_optometricos comparten
--- la clave 'clientes' — son parte de la misma ficha del paciente en la UI,
--- no un módulo delegable aparte. citas/ventas quedan FUERA de este loop a
--- propósito: llevan además el filtro de sede (ver policies dedicadas más
--- abajo).
+-- cotizaciones: lectura abierta SOLO sin rol personalizado asignado (el
+-- piso de siempre — ver sin_rol_personalizado()); con uno asignado, la
+-- lectura pasa a exigir tiene_permiso_lectura(). Escritura: puede_gestionar()
+-- (administrador, o encargado SIN rol personalizado) O
+-- tiene_permiso_escritura() del módulo. recetas/examenes_optometricos
+-- comparten la clave 'clientes' — son parte de la misma ficha del paciente
+-- en la UI, no un módulo delegable aparte. citas/ventas quedan FUERA de
+-- este loop a propósito: llevan además el filtro de sede (ver policies
+-- dedicadas más abajo).
 do $$
 declare t text; clave text;
 begin
@@ -1192,23 +1249,23 @@ begin
     execute format('drop policy if exists %1$s_write on public.%1$s;', t);
     execute format(
       'create policy %1$s_read on public.%1$s for select
-         using (negocio_id = public.current_tenant());', t);
+         using ((public.sin_rol_personalizado() or public.tiene_permiso_lectura(%2$L)) and negocio_id = public.current_tenant());', t, clave);
     execute format(
       'create policy %1$s_write on public.%1$s for all
-         using ((public.puede_gestionar() or public.tiene_permiso(%2$L)) and negocio_id = public.current_tenant())
-         with check ((public.puede_gestionar() or public.tiene_permiso(%2$L)) and negocio_id = public.current_tenant());', t, clave);
+         using ((public.puede_gestionar() or public.tiene_permiso_escritura(%2$L)) and negocio_id = public.current_tenant())
+         with check ((public.puede_gestionar() or public.tiene_permiso_escritura(%2$L)) and negocio_id = public.current_tenant());', t, clave);
   end loop;
 end $$;
 
--- citas / ventas: mismo patrón que el loop genérico (incluido el permiso
--- delegable, clave = nombre de tabla) + un filtro de sede adicional.
--- `current_sucursal() is null` cubre el caso común (negocio sin multisedes,
--- o empleado con acceso a todas las sedes) — la fila también pasa si SU
--- PROPIA sucursal_id es null (dato histórico o sin sede asignada) o si
--- coincide exactamente con la sede del empleado. Si esta condición se
--- escribe sin el primer `is null`, un negocio de una sola sede (el caso más
--- común) queda sin poder ver ni escribir ninguna cita/venta — probar contra
--- Postgres real antes de dar por buena cualquier cambio acá.
+-- citas / ventas: mismo patrón que el loop genérico (clave = nombre de
+-- tabla) + un filtro de sede adicional. `current_sucursal() is null` cubre
+-- el caso común (negocio sin multisedes, o empleado con acceso a todas las
+-- sedes) — la fila también pasa si SU PROPIA sucursal_id es null (dato
+-- histórico o sin sede asignada) o si coincide exactamente con la sede del
+-- empleado. Si esta condición se escribe sin el primer `is null`, un
+-- negocio de una sola sede (el caso más común) queda sin poder ver ni
+-- escribir ninguna cita/venta — probar contra Postgres real antes de dar
+-- por buena cualquier cambio acá.
 do $$
 declare t text;
 begin
@@ -1218,47 +1275,52 @@ begin
     execute format(
       'create policy %1$s_read on public.%1$s for select
          using (
-           negocio_id = public.current_tenant()
+           (public.sin_rol_personalizado() or public.tiene_permiso_lectura(%1$L)) and negocio_id = public.current_tenant()
            and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
          );', t);
     execute format(
       'create policy %1$s_write on public.%1$s for all
          using (
-           (public.puede_gestionar() or public.tiene_permiso(%1$L)) and negocio_id = public.current_tenant()
+           (public.puede_gestionar() or public.tiene_permiso_escritura(%1$L)) and negocio_id = public.current_tenant()
            and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
          )
          with check (
-           (public.puede_gestionar() or public.tiene_permiso(%1$L)) and negocio_id = public.current_tenant()
+           (public.puede_gestionar() or public.tiene_permiso_escritura(%1$L)) and negocio_id = public.current_tenant()
            and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
          );', t);
   end loop;
 end $$;
 
--- ordenes_laboratorio: OPERATIVO (como citas/ventas), no admin-gated como
--- gastos/descuentos. Lectura abierta a cualquier rol del negocio (cualquier
--- empleado debe poder consultar el estado si un cliente llama preguntando);
--- la escritura (cambiar el estado) exige puede_gestionar() (administrador o
--- encargado) O el permiso granular 'laboratorio' — pensado para extender el
--- acceso a un trabajador puntual (ej. recepción) sin ascenderlo de rol.
+-- ordenes_laboratorio: OPERATIVO (como citas/ventas). Lectura abierta solo
+-- sin rol personalizado (cualquier empleado debe poder consultar el estado
+-- si un cliente llama preguntando — eso sigue así por defecto); con un rol
+-- personalizado asignado, pasa a exigir tiene_permiso_lectura('laboratorio').
+-- Escritura (cambiar el estado): puede_gestionar() O
+-- tiene_permiso_escritura('laboratorio') — pensado para extender el acceso
+-- a un trabajador puntual (ej. recepción) sin ascenderlo de rol.
 drop policy if exists ordenes_lab_read  on public.ordenes_laboratorio;
 drop policy if exists ordenes_lab_write on public.ordenes_laboratorio;
 create policy ordenes_lab_read on public.ordenes_laboratorio for select
-  using (negocio_id = public.current_tenant());
+  using ((public.sin_rol_personalizado() or public.tiene_permiso_lectura('laboratorio')) and negocio_id = public.current_tenant());
 create policy ordenes_lab_write on public.ordenes_laboratorio for all
-  using ((public.puede_gestionar() or public.tiene_permiso('laboratorio')) and negocio_id = public.current_tenant())
-  with check ((public.puede_gestionar() or public.tiene_permiso('laboratorio')) and negocio_id = public.current_tenant());
+  using ((public.puede_gestionar() or public.tiene_permiso_escritura('laboratorio')) and negocio_id = public.current_tenant())
+  with check ((public.puede_gestionar() or public.tiene_permiso_escritura('laboratorio')) and negocio_id = public.current_tenant());
 
--- cajas: mismo criterio OPERATIVO que ordenes_laboratorio — lectura abierta
--- a todo el negocio, escritura (abrir/cerrar) con puede_gestionar() o el
--- permiso granular 'gastos' ya existente (empleados/page.tsx ya lo rotula
--- "Gastos y caja", no hace falta una clave nueva).
+-- cajas: mismo criterio OPERATIVO que ordenes_laboratorio — clave propia
+-- 'caja', separada de 'gastos'. Antes compartían clave (ambas se
+-- delegaban con el mismo checkbox "Gastos y caja"), pero el PISO por
+-- defecto de cada una es distinto: cajas es operativo (puede_gestionar(),
+-- un encargado sin rol personalizado ya puede abrir/cerrar caja) mientras
+-- que la tabla gastos NUNCA tuvo ese piso ni para encargado (ver más abajo)
+-- — compartir clave habría hecho que activar "Gastos" para un encargado
+-- con rol personalizado tocara sin querer el acceso a Caja, o viceversa.
 drop policy if exists cajas_read  on public.cajas;
 drop policy if exists cajas_write on public.cajas;
 create policy cajas_read on public.cajas for select
-  using (negocio_id = public.current_tenant());
+  using ((public.sin_rol_personalizado() or public.tiene_permiso_lectura('caja')) and negocio_id = public.current_tenant());
 create policy cajas_write on public.cajas for all
-  using ((public.puede_gestionar() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant())
-  with check ((public.puede_gestionar() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant());
+  using ((public.puede_gestionar() or public.tiene_permiso_escritura('caja')) and negocio_id = public.current_tenant())
+  with check ((public.puede_gestionar() or public.tiene_permiso_escritura('caja')) and negocio_id = public.current_tenant());
 
 -- inventario (hereda tenant vía productos.negocio_id) — mismo permiso
 -- delegable 'productos' que la tabla productos: ajustar stock es parte de
@@ -1266,11 +1328,12 @@ create policy cajas_write on public.cajas for all
 drop policy if exists inventario_read  on public.inventario;
 drop policy if exists inventario_write on public.inventario;
 create policy inventario_read  on public.inventario for select using (
-  exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('productos'))
+  and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
 create policy inventario_write on public.inventario for all using (
-  (public.puede_gestionar() or public.tiene_permiso('productos')) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant())
+  (public.puede_gestionar() or public.tiene_permiso_escritura('productos')) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant())
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso('productos')) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+  (public.puede_gestionar() or public.tiene_permiso_escritura('productos')) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
 
 -- stock_sucursal (Multisedes Fase B) — hereda tenant vía productos.negocio_id,
 -- + el mismo filtro de sede que citas/ventas + el permiso delegable 'productos'.
@@ -1278,15 +1341,16 @@ alter table public.stock_sucursal enable row level security;
 drop policy if exists stock_sucursal_read  on public.stock_sucursal;
 drop policy if exists stock_sucursal_write on public.stock_sucursal;
 create policy stock_sucursal_read on public.stock_sucursal for select using (
-  exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
+  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('productos'))
+  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
   and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
 );
 create policy stock_sucursal_write on public.stock_sucursal for all using (
-  (public.puede_gestionar() or public.tiene_permiso('productos'))
+  (public.puede_gestionar() or public.tiene_permiso_escritura('productos'))
   and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
   and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso('productos'))
+  (public.puede_gestionar() or public.tiene_permiso_escritura('productos'))
   and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
   and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
 );
@@ -1295,58 +1359,76 @@ create policy stock_sucursal_write on public.stock_sucursal for all using (
 -- — mismo permiso delegable 'productos' que inventario/stock_sucursal.
 drop policy if exists movstock_read  on public.movimientos_stock;
 drop policy if exists movstock_write on public.movimientos_stock;
-create policy movstock_read  on public.movimientos_stock for select using (negocio_id = public.current_tenant());
+create policy movstock_read  on public.movimientos_stock for select using (
+  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('productos')) and negocio_id = public.current_tenant());
 create policy movstock_write on public.movimientos_stock for insert
-  with check ((public.puede_gestionar() or public.tiene_permiso('productos')) and negocio_id = public.current_tenant());
+  with check ((public.puede_gestionar() or public.tiene_permiso_escritura('productos')) and negocio_id = public.current_tenant());
 
 -- venta_items (hereda tenant vía ventas.negocio_id) — mismo permiso
 -- delegable 'ventas' que la tabla ventas: sin esto, un trabajador con
--- 'ventas' delegado podría crear la venta pero no cargarle productos.
+-- 'ventas' en escritura podría crear la venta pero no cargarle productos.
 drop policy if exists venta_items_read  on public.venta_items;
 drop policy if exists venta_items_write on public.venta_items;
 create policy venta_items_read  on public.venta_items for select using (
-  exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
+  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('ventas'))
+  and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
 create policy venta_items_write on public.venta_items for all using (
-  (public.puede_gestionar() or public.tiene_permiso('ventas')) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant())
+  (public.puede_gestionar() or public.tiene_permiso_escritura('ventas')) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant())
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso('ventas')) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
+  (public.puede_gestionar() or public.tiene_permiso_escritura('ventas')) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
 
 -- cotizacion_items (hereda tenant vía cotizaciones.negocio_id) — mismo
 -- permiso delegable 'cotizaciones' que la tabla cotizaciones.
 drop policy if exists cotizacion_items_read  on public.cotizacion_items;
 drop policy if exists cotizacion_items_write on public.cotizacion_items;
 create policy cotizacion_items_read  on public.cotizacion_items for select using (
-  exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
+  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('cotizaciones'))
+  and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
 create policy cotizacion_items_write on public.cotizacion_items for all using (
-  (public.puede_gestionar() or public.tiene_permiso('cotizaciones')) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant())
+  (public.puede_gestionar() or public.tiene_permiso_escritura('cotizaciones')) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant())
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso('cotizaciones')) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
+  (public.puede_gestionar() or public.tiene_permiso_escritura('cotizaciones')) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
 
--- gastos (administrador, o empleado con permiso granular 'gastos' delegado)
+-- gastos: SIN piso por defecto para nadie salvo administrador (ni siquiera
+-- un encargado sin rol personalizado lee esto gratis — a diferencia de
+-- todo lo de arriba, esta tabla nunca tuvo lectura universal, ver brief §5:
+-- "sin reportes financieros" para encargado/trabajador). Separado en
+-- read/write (antes era una sola policy "for all") para poder dar lectura
+-- sin escritura — ej. un encargado que solo debe PODER VER el historial de
+-- gastos, sin poder cargar uno nuevo.
 drop policy if exists gastos_admin_all on public.gastos;
-create policy gastos_admin_all on public.gastos for all
-  using ((public.is_administrador() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant())
-  with check ((public.is_administrador() or public.tiene_permiso('gastos')) and negocio_id = public.current_tenant());
+drop policy if exists gastos_read  on public.gastos;
+drop policy if exists gastos_write on public.gastos;
+create policy gastos_read on public.gastos for select
+  using ((public.is_administrador() or public.tiene_permiso_lectura('gastos')) and negocio_id = public.current_tenant());
+create policy gastos_write on public.gastos for all
+  using ((public.is_administrador() or public.tiene_permiso_escritura('gastos')) and negocio_id = public.current_tenant())
+  with check ((public.is_administrador() or public.tiene_permiso_escritura('gastos')) and negocio_id = public.current_tenant());
 
 -- comprobantes (lectura para todo el negocio; escritura solo service_role)
 drop policy if exists comprobantes_read on public.comprobantes;
 create policy comprobantes_read on public.comprobantes for select using (negocio_id = public.current_tenant());
 
--- descuentos (administrador, o empleado con permiso granular 'descuentos')
+-- descuentos: mismo criterio que gastos (sin piso por defecto salvo admin).
 drop policy if exists descuentos_read  on public.descuentos;
 drop policy if exists descuentos_write on public.descuentos;
-create policy descuentos_read on public.descuentos for select using (negocio_id = public.current_tenant());
+create policy descuentos_read on public.descuentos for select
+  using ((public.is_administrador() or public.tiene_permiso_lectura('descuentos')) and negocio_id = public.current_tenant());
 create policy descuentos_write on public.descuentos for all
-  using ((public.is_administrador() or public.tiene_permiso('descuentos')) and negocio_id = public.current_tenant())
-  with check ((public.is_administrador() or public.tiene_permiso('descuentos')) and negocio_id = public.current_tenant());
+  using ((public.is_administrador() or public.tiene_permiso_escritura('descuentos')) and negocio_id = public.current_tenant())
+  with check ((public.is_administrador() or public.tiene_permiso_escritura('descuentos')) and negocio_id = public.current_tenant());
 
--- campanias_email (administrador, o empleado con permiso granular 'marketing')
+-- campanias_email: mismo criterio que gastos/descuentos. Sin UI propia
+-- todavía (/dashboard/marketing no existe en el proyecto), se deja
+-- consistente con el resto igual — no hace falta que exista la pantalla
+-- para que la RLS esté bien.
 drop policy if exists campanias_read  on public.campanias_email;
 drop policy if exists campanias_write on public.campanias_email;
-create policy campanias_read on public.campanias_email for select using (negocio_id = public.current_tenant());
+create policy campanias_read on public.campanias_email for select
+  using ((public.is_administrador() or public.tiene_permiso_lectura('marketing')) and negocio_id = public.current_tenant());
 create policy campanias_write on public.campanias_email for all
-  using ((public.is_administrador() or public.tiene_permiso('marketing')) and negocio_id = public.current_tenant())
-  with check ((public.is_administrador() or public.tiene_permiso('marketing')) and negocio_id = public.current_tenant());
+  using ((public.is_administrador() or public.tiene_permiso_escritura('marketing')) and negocio_id = public.current_tenant())
+  with check ((public.is_administrador() or public.tiene_permiso_escritura('marketing')) and negocio_id = public.current_tenant());
 
 -- ================================================================
 -- AUDIT LOG: registro por triggers de TODAS las escrituras de gestión

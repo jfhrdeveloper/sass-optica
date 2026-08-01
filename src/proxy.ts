@@ -200,22 +200,24 @@ export async function proxy(request: NextRequest) {
 
   const { data: empleado } = await supabase
     .from("empleados")
-    .select("negocio_id, rol, activo, permisos, plantillas_rol(permisos)")
+    .select("negocio_id, rol, activo, permisos, roles_personalizados(permisos)")
     .eq("id", user.id).maybeSingle();
   if (!empleado || !empleado.activo || empleado.negocio_id !== negocio.id) {
     return irALogin();
   }
 
   const rolReal = empleado.rol as string;
-  /* Si hay una plantilla de rol asignada (ver src/lib/permisos.ts y
-     public.plantillas_rol en el schema), sus permisos reemplazan a los
-     propios del empleado — misma resolución que tiene_permiso() del lado de
-     la DB, replicada acá porque el proxy no puede llamar RPC de Postgres
-     sin una consulta adicional. `plantillas_rol` llega como objeto o array
-     de un elemento según la versión del cliente — se cubren ambos casos. */
-  const plantilla = Array.isArray(empleado.plantillas_rol) ? empleado.plantillas_rol[0] : empleado.plantillas_rol;
-  const permisosReal = (plantilla?.permisos as Record<string, boolean> | null)
-    ?? (empleado.permisos as Record<string, boolean> | null)
+  /* Si hay un rol personalizado asignado (ver src/lib/permisos.ts y
+     public.roles_personalizados en el schema), sus permisos reemplazan a
+     los propios del empleado — misma resolución que nivel_permiso() del
+     lado de la DB, replicada acá porque el proxy no puede llamar RPC de
+     Postgres sin una consulta adicional. `roles_personalizados` llega como
+     objeto o array de un elemento según la versión del cliente — se cubren
+     ambos casos. Cada valor es 'lectura' | 'escritura' (ausente = ninguno),
+     ya no boolean. */
+  const rolPersonalizado = Array.isArray(empleado.roles_personalizados) ? empleado.roles_personalizados[0] : empleado.roles_personalizados;
+  const permisosReal = (rolPersonalizado?.permisos as Record<string, string> | null)
+    ?? (empleado.permisos as Record<string, string> | null)
     ?? {};
 
   /* ====== "Ver como" (simulación de UI, ver src/lib/simulacion-rol.ts) ======
@@ -240,11 +242,14 @@ export async function proxy(request: NextRequest) {
     return redirigir(new URL("/dashboard", request.url));
   }
 
-  /* ====== Rutas con permiso granular delegable (empleados.permisos) ======
-     Administrador siempre pasa; encargado/trabajador solo si el admin les
-     activó la clave correspondiente — ver tiene_permiso() en el schema
-     (misma regla, replicada aquí porque el proxy no puede llamar RPC de
-     Postgres sin una consulta adicional). */
+  /* ====== Rutas con permiso granular delegable ======
+     Administrador siempre pasa; encargado/trabajador solo si al menos
+     pueden LEER ese módulo (lectura o escritura) — ver
+     tiene_permiso_lectura() en el schema (misma regla, replicada acá porque
+     el proxy no puede llamar RPC de Postgres sin una consulta adicional).
+     Entrar con solo lectura sí está permitido: la página se encarga de
+     ocultar los controles de escritura si corresponde (mismo patrón que
+     Caja/Laboratorio, ver src/lib/permisos.ts). */
   const rutasConPermiso: Record<string, string> = {
     "/dashboard/gastos": "gastos",
     "/dashboard/informes": "gastos",
@@ -252,7 +257,7 @@ export async function proxy(request: NextRequest) {
     "/dashboard/descuentos": "descuentos",
   };
   for (const [ruta, clave] of Object.entries(rutasConPermiso)) {
-    if (pathname.startsWith(ruta) && rol !== "administrador" && permisos[clave] !== true) {
+    if (pathname.startsWith(ruta) && rol !== "administrador" && !["lectura", "escritura"].includes(permisos[clave])) {
       return redirigir(new URL("/dashboard", request.url));
     }
   }

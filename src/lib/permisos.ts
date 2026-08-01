@@ -1,43 +1,107 @@
 /* Fuente única de los módulos delegables por permiso granular — mismas
-   claves que `tiene_permiso(clave)` en supabase-schema.sql. Un `trabajador`
-   no tiene acceso de escritura a ninguno de estos por defecto (un
-   `encargado` sí, vía puede_gestionar(), salvo 'gastos'/'descuentos' que
-   exigen delegación incluso para encargado) — delegar uno de estos módulos
-   se lo habilita puntualmente, sin ascenderlo de rol.
+   claves que `nivel_permiso(clave)` en supabase-schema.sql.
 
-   Usado tanto por el editor de plantillas (/dashboard/roles) como por el
-   selector "sin plantilla" que queda en Empleados para el caso puntual.
-   Sucursales y Empleados NUNCA aparecen acá — son estructurales, exclusivas
-   de `administrador` sin excepción (ver el comentario en supabase-schema.sql
-   junto a `sucursales_write`). */
+   Sin rol personalizado asignado, el comportamiento de siempre no cambia:
+   - Módulos OPERATIVOS (`operativo: true`): lectura abierta a cualquier rol
+     (incluido trabajador — sin_rol_personalizado() en el schema), escritura
+     abierta solo a encargado/administrador (puede_gestionar()).
+   - Módulos SENSIBLES (`operativo: false`, hoy Gastos y Descuentos): SIN
+     piso para nadie salvo administrador — ni lectura ni escritura gratis,
+     ni para encargado (brief §5: "sin reportes financieros").
+
+   Un rol personalizado asignado REEMPLAZA por completo ese piso — para el
+   módulo que sea 'ninguno', ni lectura tiene, aunque por rol le tocara
+   gratis (esto es lo que permite RESTRINGIR a un encargado, no solo
+   sumarle cosas a un trabajador).
+
+   Usado por el editor de roles personalizados (/dashboard/roles), por el
+   selector de Empleados, por el filtro de qué módulos aparecen en el
+   sidebar (DashboardNav/BottomTabBar/CommandPalette), y por cualquier
+   página que necesite un gate de escritura (Caja, Laboratorio, Gastos,
+   Descuentos...). Sucursales y Empleados NUNCA aparecen acá — son
+   estructurales, exclusivas de `administrador` sin excepción (ver el
+   comentario en supabase-schema.sql junto a `sucursales_write`). */
 export const MODULOS_DELEGABLES = [
-  { clave: "ventas", label: "Ventas" },
-  { clave: "citas", label: "Citas" },
-  { clave: "clientes", label: "Clientes (fichas, recetas, exámenes)" },
-  { clave: "cotizaciones", label: "Cotizaciones" },
-  { clave: "laboratorio", label: "Órdenes de laboratorio" },
-  { clave: "productos", label: "Stock (productos e inventario)" },
-  { clave: "proveedores", label: "Proveedores" },
-  { clave: "gastos", label: "Gastos, caja, informes y comisiones" },
-  { clave: "descuentos", label: "Descuentos y cupones" },
+  { clave: "ventas", label: "Ventas", operativo: true },
+  { clave: "citas", label: "Citas", operativo: true },
+  { clave: "clientes", label: "Clientes (fichas, recetas, exámenes)", operativo: true },
+  { clave: "cotizaciones", label: "Cotizaciones", operativo: true },
+  { clave: "laboratorio", label: "Órdenes de laboratorio", operativo: true },
+  { clave: "productos", label: "Stock (productos e inventario)", operativo: true },
+  { clave: "proveedores", label: "Proveedores", operativo: true },
+  { clave: "caja", label: "Caja (abrir/cerrar)", operativo: true },
+  { clave: "gastos", label: "Gastos, informes y comisiones", operativo: false },
+  { clave: "descuentos", label: "Descuentos y cupones", operativo: false },
 ] as const;
 
 export type ClaveModuloDelegable = (typeof MODULOS_DELEGABLES)[number]["clave"];
 
-/* Resuelve los permisos EFECTIVOS de un empleado del lado del cliente —
-   misma regla que tiene_permiso() en supabase-schema.sql: si tiene una
-   plantilla asignada, sus permisos reemplazan a los propios (nunca se
-   combinan); si no, se usan los del propio empleado. Cualquier gate de UI
-   que hoy lea `empleado.permisos` directo (en vez de esto) rompe en cuanto
-   ese empleado tenga una plantilla asignada — la escritura en la DB
-   funciona igual (RLS ya resuelve bien), pero el botón se queda oculto. */
+/** 'ninguno' nunca se persiste como valor — es la ausencia de la clave en
+ *  el jsonb `permisos` (ver nivel_permiso() en el schema). Se usa igual acá
+ *  como estado explícito de UI (el tercer botón del selector de 3 vías). */
+export type NivelPermiso = "ninguno" | "lectura" | "escritura";
+
+type EmpleadoParaPermisos = { rol: string; permisos: Record<string, string>; rolPersonalizadoId?: string };
+type RolConPermisos = { id: string; permisos: Record<string, string> };
+
+function esOperativo(clave: string): boolean {
+  return MODULOS_DELEGABLES.find((m) => m.clave === clave)?.operativo ?? false;
+}
+
+/* Resuelve los permisos CRUDOS de un empleado (o de un rol personalizado
+   puntual) del lado del cliente — misma regla que nivel_permiso() en
+   supabase-schema.sql: si tiene un rol personalizado asignado, sus permisos
+   reemplazan a los propios (nunca se combinan); si no, se usan los del
+   propio empleado. Es un bloque de construcción de bajo nivel — para gatear
+   una pantalla usá puedeLeerModulo()/puedeEscribirModulo() más abajo, que sí
+   replican el piso por defecto (sin_rol_personalizado()/puede_gestionar()). */
 export function permisosEfectivos(
-  empleado: { permisos: Record<string, boolean>; plantillaRolId?: string } | null | undefined,
-  plantillasRol: { id: string; permisos: Record<string, boolean> }[],
-): Record<string, boolean> {
+  empleado: { permisos: Record<string, string>; rolPersonalizadoId?: string } | null | undefined,
+  rolesPersonalizados: RolConPermisos[],
+): Record<string, string> {
   if (!empleado) return {};
-  if (empleado.plantillaRolId) {
-    return plantillasRol.find((p) => p.id === empleado.plantillaRolId)?.permisos ?? {};
+  if (empleado.rolPersonalizadoId) {
+    return rolesPersonalizados.find((r) => r.id === empleado.rolPersonalizadoId)?.permisos ?? {};
   }
   return empleado.permisos ?? {};
+}
+
+export function nivelDe(permisos: Record<string, string>, clave: string): NivelPermiso {
+  const v = permisos[clave];
+  return v === "lectura" || v === "escritura" ? v : "ninguno";
+}
+
+export function puedeLeer(permisos: Record<string, string>, clave: string): boolean {
+  return nivelDe(permisos, clave) !== "ninguno";
+}
+
+export function puedeEscribir(permisos: Record<string, string>, clave: string): boolean {
+  return nivelDe(permisos, clave) === "escritura";
+}
+
+/* ================= Gates de pantalla (equivalentes a la RLS) =================
+   Estas dos son las que hay que usar para mostrar/ocultar un link de nav o
+   un botón de escritura — replican exactamente sin_rol_personalizado()/
+   puede_gestionar()/tiene_permiso_lectura()/tiene_permiso_escritura() del
+   schema, piso por defecto incluido. */
+export function puedeLeerModulo(
+  empleado: EmpleadoParaPermisos | null | undefined,
+  rolesPersonalizados: RolConPermisos[],
+  clave: string,
+): boolean {
+  if (!empleado) return false;
+  if (empleado.rol === "administrador") return true;
+  if (!empleado.rolPersonalizadoId) return esOperativo(clave);
+  return puedeLeer(permisosEfectivos(empleado, rolesPersonalizados), clave);
+}
+
+export function puedeEscribirModulo(
+  empleado: EmpleadoParaPermisos | null | undefined,
+  rolesPersonalizados: RolConPermisos[],
+  clave: string,
+): boolean {
+  if (!empleado) return false;
+  if (empleado.rol === "administrador") return true;
+  if (!empleado.rolPersonalizadoId) return esOperativo(clave) && empleado.rol === "encargado";
+  return puedeEscribir(permisosEfectivos(empleado, rolesPersonalizados), clave);
 }

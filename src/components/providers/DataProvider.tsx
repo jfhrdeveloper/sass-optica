@@ -17,7 +17,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
-  rowToEmpleado, empleadoToRow, rowToPlantillaRol, plantillaRolToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
+  rowToEmpleado, empleadoToRow, rowToRolPersonalizado, rolPersonalizadoToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
   rowToSucursal, sucursalToRow,
   rowToCliente, clienteToRow, rowToCita, citaToRow, rowToReceta, recetaToRow,
   rowToExamenOptometrico, examenOptometricoToRow,
@@ -33,7 +33,7 @@ import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
 import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
 import { calcularCuadreCaja, sumaDesglose, efectivoDeDesglose } from "@/lib/caja";
 import {
-  MOCK_NEGOCIO, MOCK_EMPLEADOS, MOCK_PLANTILLAS_ROL, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
+  MOCK_NEGOCIO, MOCK_EMPLEADOS, MOCK_ROLES_PERSONALIZADOS, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_EXAMENES_OPTOMETRICOS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_ORDENES_LABORATORIO, MOCK_CAJAS, MOCK_GASTOS,
   MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
 } from "@/lib/mock/mock-data";
@@ -50,16 +50,18 @@ export interface Empleado {
   email?:        string;
   telefono?:     string;
   avatarBase64?: string;
-  /* Permisos granulares aditivos por encima del rol fijo — ver columna
-     `permisos` en supabase-schema.sql y src/lib/permisos.ts (MODULOS_DELEGABLES).
-     Se IGNORA si `plantillaRolId` está asignado (ver ese campo). Nunca
-     incluye gestión de empleados/ajustes, eso queda siempre exclusivo de
+  /* Permisos LEGADO por encima del rol principal fijo — ver columna
+     `permisos` en supabase-schema.sql y src/lib/permisos.ts (MODULOS_DELEGABLES,
+     valores 'lectura' | 'escritura'). Se IGNORA por completo si
+     `rolPersonalizadoId` está asignado (ver ese campo). Nunca incluye
+     gestión de empleados/ajustes, eso queda siempre exclusivo de
      `administrador`. */
-  permisos:      Record<string, boolean>;
-  /* Plantilla de permisos opcional (ver interface PlantillaRol más abajo) —
-     si está asignada, sus permisos reemplazan a `permisos` de arriba (nunca
-     se combinan) tanto acá como en tiene_permiso() del lado de la DB. */
-  plantillaRolId?: string;
+  permisos:      Record<string, string>;
+  /* Rol personalizado opcional (ver interface RolPersonalizado más abajo) —
+     si está asignado, sus permisos reemplazan a `permisos` de arriba (nunca
+     se combinan), Y reemplaza también el piso de acceso por defecto del rol
+     principal — ver puede_gestionar()/sin_rol_personalizado() en el schema. */
+  rolPersonalizadoId?: string;
   // % de comisión sobre sus propias ventas (estado "pagada") — ver lib/comisiones.ts.
   comisionPct:   number;
   // NULL = ve/gestiona todas las sedes del negocio (caso común). Ver current_sucursal() en el schema.
@@ -68,14 +70,18 @@ export interface Empleado {
 }
 
 /* Preset de permisos delegables reutilizable, aplicable a varios empleados
-   de una vez — ver public.plantillas_rol en supabase-schema.sql. `rolBase`
-   nunca es "administrador": ese rol no se restringe con plantillas. */
-export interface PlantillaRol {
+   de una vez — ver public.roles_personalizados en supabase-schema.sql. Sin
+   distinción de a qué rol principal aplica: el mismo rol personalizado
+   sirve igual para un encargado que para un trabajador (nunca se asigna a
+   un administrador — eso se resuelve en la UI, /dashboard/empleados no
+   muestra el selector para esa fila). */
+export interface RolPersonalizado {
   id:         string;
   negocioId:  string;
   nombre:     string;
-  rolBase:    "encargado" | "trabajador";
-  permisos:   Record<string, boolean>;
+  /** Un valor por módulo delegable (ver MODULOS_DELEGABLES en permisos.ts):
+   *  'lectura' | 'escritura'. Ausente = ninguno. */
+  permisos:   Record<string, string>;
 }
 
 export interface Negocio {
@@ -249,7 +255,7 @@ export interface Descuento {
 
 interface DataCtx {
   empleados:        Empleado[];
-  plantillasRol:    PlantillaRol[];
+  rolesPersonalizados: RolPersonalizado[];
   negocio:          Negocio | null;
   suscripcion:      Suscripcion | null;
   sucursales:       Sucursal[];
@@ -271,9 +277,9 @@ interface DataCtx {
   ready:            boolean;
   /* CRUD (la mutación va a Supabase; Realtime re-fetchea). */
   updateEmpleado: (id: string, patch: Partial<Empleado>) => Promise<void>;
-  addPlantillaRol:    (p: Partial<PlantillaRol>) => Promise<void>;
-  updatePlantillaRol: (id: string, patch: Partial<PlantillaRol>) => Promise<void>;
-  deletePlantillaRol: (id: string) => Promise<void>;
+  addRolPersonalizado:    (p: Partial<RolPersonalizado>) => Promise<void>;
+  updateRolPersonalizado: (id: string, patch: Partial<RolPersonalizado>) => Promise<void>;
+  deleteRolPersonalizado: (id: string) => Promise<void>;
   updateNegocio:  (patch: Partial<Negocio>) => Promise<void>;
   addSucursal:    (s: Partial<Sucursal>) => Promise<void>;
   updateSucursal: (id: string, patch: Partial<Sucursal>) => Promise<void>;
@@ -316,7 +322,7 @@ const Ctx = createContext<DataCtx | null>(null);
 const TABLAS_DOMINIO = [
   "sucursales", "clientes", "citas", "recetas", "examenes_optometricos", "productos", "inventario", "stock_sucursal",
   "movimientos_stock", "ventas", "venta_items", "ordenes_laboratorio", "cajas", "gastos",
-  "descuentos", "plantillas_rol",
+  "descuentos", "roles_personalizados",
   "proveedores", "cotizaciones", "cotizacion_items",
 ] as const;
 
@@ -326,7 +332,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
   const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? MOCK_EMPLEADOS : []);
-  const [plantillasRol, setPlantillasRol] = useState<PlantillaRol[]>(mock ? MOCK_PLANTILLAS_ROL : []);
+  const [rolesPersonalizados, setRolesPersonalizados] = useState<RolPersonalizado[]>(mock ? MOCK_ROLES_PERSONALIZADOS : []);
   const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
   const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(mock ? MOCK_SUSCRIPCION : null);
   const [sucursales, setSucursales]   = useState<Sucursal[]>(mock ? MOCK_SUCURSALES : []);
@@ -365,9 +371,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let activo = true;
 
     async function cargar() {
-      const [e, plr, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi] = await Promise.all([
+      const [e, rp, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi] = await Promise.all([
         supabase.from("empleados").select("*"),
-        supabase.from("plantillas_rol").select("*"),
+        supabase.from("roles_personalizados").select("*"),
         supabase.from("negocios").select("*"),
         supabase.from("suscripciones").select("*"),
         supabase.from("sucursales").select("*"),
@@ -425,7 +431,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
 
       setEmpleados((e.data ?? []).map(rowToEmpleado));
-      setPlantillasRol((plr.data ?? []).map(rowToPlantillaRol));
+      setRolesPersonalizados((rp.data ?? []).map(rowToRolPersonalizado));
       setNegocio((n.data ?? []).map(rowToNegocio)[0] ?? null);
       setSuscripcion((s.data ?? []).map(rowToSuscripcion)[0] ?? null);
       setSucursales((su.data ?? []).map(rowToSucursal));
@@ -825,21 +831,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabase.from("descuentos").delete().eq("id", id);
   }, [supabase, mock]);
 
-  const addPlantillaRol = useCallback(async (p: Partial<PlantillaRol>) => {
+  const addRolPersonalizado = useCallback(async (p: Partial<RolPersonalizado>) => {
     if (!negocio) return;
     if (mock) {
-      setPlantillasRol((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", rolBase: "trabajador", permisos: {}, ...p }]);
+      setRolesPersonalizados((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", permisos: {}, ...p }]);
       return;
     }
-    await supabase.from("plantillas_rol").insert({ ...plantillaRolToRow(p), negocio_id: negocio.id });
+    await supabase.from("roles_personalizados").insert({ ...rolPersonalizadoToRow(p), negocio_id: negocio.id });
   }, [supabase, negocio, mock]);
-  const updatePlantillaRol = useCallback(async (id: string, patch: Partial<PlantillaRol>) => {
-    if (mock) { setPlantillasRol((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))); return; }
-    await supabase.from("plantillas_rol").update(plantillaRolToRow(patch)).eq("id", id);
+  const updateRolPersonalizado = useCallback(async (id: string, patch: Partial<RolPersonalizado>) => {
+    if (mock) { setRolesPersonalizados((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))); return; }
+    await supabase.from("roles_personalizados").update(rolPersonalizadoToRow(patch)).eq("id", id);
   }, [supabase, mock]);
-  const deletePlantillaRol = useCallback(async (id: string) => {
-    if (mock) { setPlantillasRol((prev) => prev.filter((p) => p.id !== id)); return; }
-    await supabase.from("plantillas_rol").delete().eq("id", id);
+  const deleteRolPersonalizado = useCallback(async (id: string) => {
+    if (mock) { setRolesPersonalizados((prev) => prev.filter((p) => p.id !== id)); return; }
+    await supabase.from("roles_personalizados").delete().eq("id", id);
   }, [supabase, mock]);
 
   const addProveedor = useCallback(async (p: Partial<Proveedor>) => {
@@ -912,10 +918,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [cotizaciones, cotizacionItems, addVenta, updateCotizacion]);
 
   const value: DataCtx = {
-    empleados, plantillasRol, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
+    empleados, rolesPersonalizados, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
     movimientosStock, ventas, ventaItems, ordenesLaboratorio, cajas, gastos, descuentos,
     proveedores, cotizaciones, cotizacionItems, ready,
-    updateEmpleado, addPlantillaRol, updatePlantillaRol, deletePlantillaRol, updateNegocio, addSucursal, updateSucursal,
+    updateEmpleado, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado, updateNegocio, addSucursal, updateSucursal,
     addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
     addReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,

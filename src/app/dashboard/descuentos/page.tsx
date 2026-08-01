@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { Plus, Tag, Trash2 } from "lucide-react";
 import { useData, type Descuento } from "@/components/providers/DataProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/formato/date";
+import { puedeEscribirModulo } from "@/lib/permisos";
 
 const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, aplicaA: "ambos", activo: true };
 const APLICA_A_LABEL: Record<Descuento["aplicaA"], string> = {
@@ -18,10 +20,13 @@ const APLICA_A_LABEL: Record<Descuento["aplicaA"], string> = {
 };
 
 /* Cupones/descuentos (idea de UX #8 del research de competencia). Ruta con
-   permiso granular delegable ('descuentos') además de administrador — ver
-   proxy.ts y la RLS descuentos_write en supabase-schema.sql. */
+   permiso granular delegable ('descuentos') además de administrador — entra
+   con solo lectura, el formulario/toggle/eliminar se ocultan sin escritura
+   (ver proxy.ts y descuentos_read/descuentos_write en supabase-schema.sql). */
 export default function DescuentosPage() {
-  const { descuentos, addDescuento, updateDescuento, deleteDescuento } = useData();
+  const { descuentos, rolesPersonalizados, addDescuento, updateDescuento, deleteDescuento } = useData();
+  const { empleado } = useSession();
+  const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "descuentos");
   const toast = useToast();
   const [form, setForm] = useState<Partial<Descuento>>(VACIO);
   const [abierto, setAbierto] = useState(false);
@@ -54,11 +59,13 @@ export default function DescuentosPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Descuentos y cupones</h1>
 
       <div className="table-card mt-4">
-        <div className="table-filter-bar justify-end">
-          <button onClick={nuevo} className="btn-primary gap-1.5">
-            <Plus size={16} /> Nuevo cupón
-          </button>
-        </div>
+        {puedeEditar && (
+          <div className="table-filter-bar justify-end">
+            <button onClick={nuevo} className="btn-primary gap-1.5">
+              <Plus size={16} /> Nuevo cupón
+            </button>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -70,7 +77,7 @@ export default function DescuentosPage() {
                 <th className="table-head-cell hidden lg:table-cell">Vigencia</th>
                 <th className="table-head-cell hidden md:table-cell">Usos</th>
                 <th className="table-head-cell">Estado</th>
-                <th className="table-head-cell text-right">Acciones</th>
+                {puedeEditar && <th className="table-head-cell text-right">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -93,25 +100,27 @@ export default function DescuentosPage() {
                   </td>
                   <td className="table-body-cell hidden md:table-cell text-slate-600 dark:text-slate-300">{d.usos}{d.limiteUsos ? ` / ${d.limiteUsos}` : ""}</td>
                   <td className="table-body-cell">
-                    <label className="inline-flex cursor-pointer items-center gap-2">
+                    <label className={`inline-flex items-center gap-2 ${puedeEditar ? "cursor-pointer" : ""}`}>
                       <input
-                        type="checkbox" role="switch" checked={d.activo}
+                        type="checkbox" role="switch" checked={d.activo} disabled={!puedeEditar}
                         onChange={() => updateDescuento(d.id, { activo: !d.activo })}
                         className="switch"
                       />
                       <span className="text-sm text-slate-600 dark:text-slate-300">{d.activo ? "Activo" : "Inactivo"}</span>
                     </label>
                   </td>
-                  <td className="table-body-cell text-right">
-                    <button onClick={() => eliminar(d)} title="Eliminar" aria-label={`Eliminar cupón ${d.codigo}`} className="row-icon-btn row-icon-btn-danger">
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
+                  {puedeEditar && (
+                    <td className="table-body-cell text-right">
+                      <button onClick={() => eliminar(d)} title="Eliminar" aria-label={`Eliminar cupón ${d.codigo}`} className="row-icon-btn row-icon-btn-danger">
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {descuentos.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={puedeEditar ? 7 : 6}>
                     <div className="table-empty">
                       <Tag size={28} className="text-slate-300 dark:text-slate-600" />
                       Sin cupones todavía.

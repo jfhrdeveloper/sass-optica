@@ -13,6 +13,7 @@ import { NAV, aplanarNav } from "@/lib/dashboard-nav";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { nombrePlanSuscripcion } from "@/lib/precios";
 import { nombreRol } from "@/lib/roles";
+import { puedeLeerModulo } from "@/lib/permisos";
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -49,9 +50,9 @@ function useAccesosRapidos(negocioId?: string): [string[], (hrefs: string[]) => 
    dominio funcionan de punta a punta, con accesos rápidos a cada módulo. */
 export default function DashboardPage() {
   const { empleado } = useSession();
-  const { negocio, suscripcion, clientes, citas, productos, ventas } = useData();
+  const { negocio, suscripcion, clientes, citas, productos, ventas, rolesPersonalizados } = useData();
   const esAdmin = empleado?.rol === "administrador";
-  const tienePermiso = (clave?: string) => esAdmin || !clave || empleado?.permisos?.[clave] === true;
+  const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
 
   /* Catálogo completo de secciones elegibles como acceso rápido: toda la
      navegación del dashboard (misma fuente que el sidebar y el command

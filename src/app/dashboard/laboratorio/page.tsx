@@ -13,23 +13,23 @@ import {
   ESTADOS_ORDEN_LABORATORIO, ESTADO_ORDEN_LABORATORIO_LABEL, ESTADO_ORDEN_LABORATORIO_BADGE,
   TRANSICIONES_VALIDAS,
 } from "@/lib/laboratorio";
-import { permisosEfectivos } from "@/lib/permisos";
+import { puedeEscribirModulo } from "@/lib/permisos";
 
 const VACIO: Partial<OrdenLaboratorio> = {};
 
-/* Lectura abierta a cualquier rol (RLS: ordenes_lab_read sin filtro de
-   permiso) — cualquier empleado debe poder consultar el estado si un
-   cliente llama preguntando. La escritura (cambiar estado) SÍ está limitada
-   por RLS a puede_gestionar() o al permiso granular 'laboratorio'; acá solo
-   se oculta/deshabilita el control como ergonomía de UI, igual que el resto
+/* Lectura abierta por defecto (sin rol personalizado) a cualquier rol —
+   cualquier empleado debe poder consultar el estado si un cliente llama
+   preguntando. La escritura (cambiar estado) SÍ está limitada por RLS a
+   puede_gestionar() o al permiso granular 'laboratorio'; acá solo se
+   oculta/deshabilita el control como ergonomía de UI, igual que el resto
    del proyecto — la protección real vive en la base. Sin Kanban a
    propósito: no hay ningún patrón drag-and-drop en el proyecto, un <select>
    de estado (como estado_cotizacion) alcanza para el MVP. */
 export default function LaboratorioPage() {
-  const { ordenesLaboratorio, clientes, ventas, plantillasRol, addOrdenLaboratorio, updateOrdenLaboratorio } = useData();
+  const { ordenesLaboratorio, clientes, ventas, rolesPersonalizados, addOrdenLaboratorio, updateOrdenLaboratorio } = useData();
   const { empleado } = useSession();
   const toast = useToast();
-  const puedeEditar = empleado?.rol === "administrador" || empleado?.rol === "encargado" || permisosEfectivos(empleado, plantillasRol).laboratorio === true;
+  const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "laboratorio");
 
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoOrdenLaboratorio>("todos");
   const [form, setForm] = useState<Partial<OrdenLaboratorio>>(VACIO);

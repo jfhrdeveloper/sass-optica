@@ -13,20 +13,21 @@ import { construirHtmlConstanciaCierre, construirHtmlListadoCaja } from "@/lib/c
 import { generarExcelHistorialCaja } from "@/lib/caja-excel";
 import { descargarBlob } from "@/lib/archivo";
 import { descargarCSV } from "@/lib/csv";
-import { permisosEfectivos } from "@/lib/permisos";
+import { puedeEscribirModulo } from "@/lib/permisos";
 
 const METODOS_APERTURA_SUGERIDOS = ["Efectivo", "Tarjeta", "Yape", "Plin", "Transferencia"];
 const ITEM_APERTURA_VACIO: ItemAperturaCaja = { metodo: "Efectivo", monto: 0 };
 
 /* Operativo (como ventas/citas): puede_gestionar() o el permiso granular
-   'gastos' ya existente (empleados/page.tsx ya lo rotula "Gastos y caja").
-   La ruta de nav queda abierta (sin `permiso`), el control real vive acá +
-   en la RLS de `cajas` — mismo criterio que /dashboard/laboratorio. */
+   'caja' (clave propia, separada de 'gastos' — ver el comentario en
+   supabase-schema.sql). La ruta de nav queda abierta (sin `permiso`), el
+   control real vive acá + en la RLS de `cajas` — mismo criterio que
+   /dashboard/laboratorio. */
 export default function CajaPage() {
-  const { cajas, ventas, negocio, empleados, plantillasRol, abrirCaja, cerrarCaja } = useData();
+  const { cajas, ventas, negocio, empleados, rolesPersonalizados, abrirCaja, cerrarCaja } = useData();
   const { empleado } = useSession();
   const toast = useToast();
-  const puedeEditar = empleado?.rol === "administrador" || empleado?.rol === "encargado" || permisosEfectivos(empleado, plantillasRol).gastos === true;
+  const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "caja");
 
   const cajaAbierta = cajas.find((c) => c.estado === "abierta");
   const historial = [...cajas].filter((c) => c.estado === "cerrada").sort((a, b) => (b.fechaCierre ?? "").localeCompare(a.fechaCierre ?? ""));
