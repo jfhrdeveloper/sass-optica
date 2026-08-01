@@ -15,6 +15,8 @@ export const VISTA_ROL_COOKIE = "vista_rol_simulado";
 
 export type RolSimulable = "encargado" | "trabajador";
 
+export const ROLES_SIMULABLES: RolSimulable[] = ["encargado", "trabajador"];
+
 export function esRolSimulable(valor: string | null | undefined): valor is RolSimulable {
   return valor === "encargado" || valor === "trabajador";
 }

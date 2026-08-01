@@ -7,7 +7,7 @@
    insert que para update parcial sin pisar columnas no enviadas. */
 
 import type {
-  Empleado, Negocio, Rol, Suscripcion, Sucursal,
+  Empleado, PlantillaRol, Negocio, Rol, Suscripcion, Sucursal,
   Cliente, Cita, Receta, ExamenOptometrico, Producto, MovimientoStock, Venta, VentaItem, Gasto,
   Descuento, Proveedor, Cotizacion, CotizacionItem, OrdenLaboratorio, EstadoOrdenLaboratorio,
   Caja, EstadoCaja, ItemAperturaCaja,
@@ -44,6 +44,7 @@ export function rowToEmpleado(r: Record<string, unknown>): Empleado {
     telefono:      r.telefono ? String(r.telefono) : undefined,
     avatarBase64:  r.avatar_base64 ? String(r.avatar_base64) : undefined,
     permisos:      (r.permisos as Record<string, boolean>) ?? {},
+    plantillaRolId: r.plantilla_rol_id ? String(r.plantilla_rol_id) : undefined,
     comisionPct:   Number(r.comision_pct ?? 0),
     sucursalId:    r.sucursal_id ? String(r.sucursal_id) : undefined,
     activo:        Boolean(r.activo ?? true),
@@ -58,9 +59,28 @@ export function empleadoToRow(e: Partial<Empleado>): Record<string, unknown> {
   if (e.telefono       !== undefined) out.telefono        = e.telefono;
   if (e.avatarBase64  !== undefined) out.avatar_base64   = e.avatarBase64;
   if (e.permisos       !== undefined) out.permisos         = e.permisos;
+  if (e.plantillaRolId !== undefined) out.plantilla_rol_id = e.plantillaRolId || null;
   if (e.comisionPct    !== undefined) out.comision_pct     = e.comisionPct;
   if (e.sucursalId     !== undefined) out.sucursal_id      = e.sucursalId || null;
   if (e.activo         !== undefined) out.activo          = e.activo;
+  return out;
+}
+
+/* ====== Plantillas de rol ====== */
+export function rowToPlantillaRol(r: Record<string, unknown>): PlantillaRol {
+  return {
+    id:        String(r.id),
+    negocioId: String(r.negocio_id),
+    nombre:    String(r.nombre ?? ""),
+    rolBase:   (r.rol_base as PlantillaRol["rolBase"]) ?? "trabajador",
+    permisos:  (r.permisos as Record<string, boolean>) ?? {},
+  };
+}
+export function plantillaRolToRow(p: Partial<PlantillaRol>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.nombre  !== undefined) out.nombre   = p.nombre;
+  if (p.rolBase !== undefined) out.rol_base = p.rolBase;
+  if (p.permisos !== undefined) out.permisos = p.permisos;
   return out;
 }
 

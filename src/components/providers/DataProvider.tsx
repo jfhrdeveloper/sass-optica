@@ -17,7 +17,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
-  rowToEmpleado, empleadoToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
+  rowToEmpleado, empleadoToRow, rowToPlantillaRol, plantillaRolToRow, rowToNegocio, negocioToRow, rowToSuscripcion,
   rowToSucursal, sucursalToRow,
   rowToCliente, clienteToRow, rowToCita, citaToRow, rowToReceta, recetaToRow,
   rowToExamenOptometrico, examenOptometricoToRow,
@@ -33,7 +33,7 @@ import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
 import { LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
 import { calcularCuadreCaja, sumaDesglose, efectivoDeDesglose } from "@/lib/caja";
 import {
-  MOCK_NEGOCIO, MOCK_EMPLEADOS, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
+  MOCK_NEGOCIO, MOCK_EMPLEADOS, MOCK_PLANTILLAS_ROL, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_EXAMENES_OPTOMETRICOS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_ORDENES_LABORATORIO, MOCK_CAJAS, MOCK_GASTOS,
   MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
 } from "@/lib/mock/mock-data";
@@ -51,15 +51,31 @@ export interface Empleado {
   telefono?:     string;
   avatarBase64?: string;
   /* Permisos granulares aditivos por encima del rol fijo — ver columna
-     `permisos` en supabase-schema.sql. Claves: 'gastos' | 'descuentos' | 'laboratorio'.
-     Nunca incluye gestión de empleados/ajustes, eso queda siempre
-     exclusivo de `administrador`. */
+     `permisos` en supabase-schema.sql y src/lib/permisos.ts (MODULOS_DELEGABLES).
+     Se IGNORA si `plantillaRolId` está asignado (ver ese campo). Nunca
+     incluye gestión de empleados/ajustes, eso queda siempre exclusivo de
+     `administrador`. */
   permisos:      Record<string, boolean>;
+  /* Plantilla de permisos opcional (ver interface PlantillaRol más abajo) —
+     si está asignada, sus permisos reemplazan a `permisos` de arriba (nunca
+     se combinan) tanto acá como en tiene_permiso() del lado de la DB. */
+  plantillaRolId?: string;
   // % de comisión sobre sus propias ventas (estado "pagada") — ver lib/comisiones.ts.
   comisionPct:   number;
   // NULL = ve/gestiona todas las sedes del negocio (caso común). Ver current_sucursal() en el schema.
   sucursalId?:   string;
   activo:        boolean;
+}
+
+/* Preset de permisos delegables reutilizable, aplicable a varios empleados
+   de una vez — ver public.plantillas_rol en supabase-schema.sql. `rolBase`
+   nunca es "administrador": ese rol no se restringe con plantillas. */
+export interface PlantillaRol {
+  id:         string;
+  negocioId:  string;
+  nombre:     string;
+  rolBase:    "encargado" | "trabajador";
+  permisos:   Record<string, boolean>;
 }
 
 export interface Negocio {
@@ -233,6 +249,7 @@ export interface Descuento {
 
 interface DataCtx {
   empleados:        Empleado[];
+  plantillasRol:    PlantillaRol[];
   negocio:          Negocio | null;
   suscripcion:      Suscripcion | null;
   sucursales:       Sucursal[];
@@ -254,6 +271,9 @@ interface DataCtx {
   ready:            boolean;
   /* CRUD (la mutación va a Supabase; Realtime re-fetchea). */
   updateEmpleado: (id: string, patch: Partial<Empleado>) => Promise<void>;
+  addPlantillaRol:    (p: Partial<PlantillaRol>) => Promise<void>;
+  updatePlantillaRol: (id: string, patch: Partial<PlantillaRol>) => Promise<void>;
+  deletePlantillaRol: (id: string) => Promise<void>;
   updateNegocio:  (patch: Partial<Negocio>) => Promise<void>;
   addSucursal:    (s: Partial<Sucursal>) => Promise<void>;
   updateSucursal: (id: string, patch: Partial<Sucursal>) => Promise<void>;
@@ -296,7 +316,7 @@ const Ctx = createContext<DataCtx | null>(null);
 const TABLAS_DOMINIO = [
   "sucursales", "clientes", "citas", "recetas", "examenes_optometricos", "productos", "inventario", "stock_sucursal",
   "movimientos_stock", "ventas", "venta_items", "ordenes_laboratorio", "cajas", "gastos",
-  "descuentos",
+  "descuentos", "plantillas_rol",
   "proveedores", "cotizaciones", "cotizacion_items",
 ] as const;
 
@@ -306,6 +326,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
   const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? MOCK_EMPLEADOS : []);
+  const [plantillasRol, setPlantillasRol] = useState<PlantillaRol[]>(mock ? MOCK_PLANTILLAS_ROL : []);
   const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
   const [suscripcion, setSuscripcion] = useState<Suscripcion | null>(mock ? MOCK_SUSCRIPCION : null);
   const [sucursales, setSucursales]   = useState<Sucursal[]>(mock ? MOCK_SUCURSALES : []);
@@ -344,8 +365,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let activo = true;
 
     async function cargar() {
-      const [e, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi] = await Promise.all([
+      const [e, plr, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi] = await Promise.all([
         supabase.from("empleados").select("*"),
+        supabase.from("plantillas_rol").select("*"),
         supabase.from("negocios").select("*"),
         supabase.from("suscripciones").select("*"),
         supabase.from("sucursales").select("*"),
@@ -403,6 +425,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
 
       setEmpleados((e.data ?? []).map(rowToEmpleado));
+      setPlantillasRol((plr.data ?? []).map(rowToPlantillaRol));
       setNegocio((n.data ?? []).map(rowToNegocio)[0] ?? null);
       setSuscripcion((s.data ?? []).map(rowToSuscripcion)[0] ?? null);
       setSucursales((su.data ?? []).map(rowToSucursal));
@@ -802,6 +825,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabase.from("descuentos").delete().eq("id", id);
   }, [supabase, mock]);
 
+  const addPlantillaRol = useCallback(async (p: Partial<PlantillaRol>) => {
+    if (!negocio) return;
+    if (mock) {
+      setPlantillasRol((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", rolBase: "trabajador", permisos: {}, ...p }]);
+      return;
+    }
+    await supabase.from("plantillas_rol").insert({ ...plantillaRolToRow(p), negocio_id: negocio.id });
+  }, [supabase, negocio, mock]);
+  const updatePlantillaRol = useCallback(async (id: string, patch: Partial<PlantillaRol>) => {
+    if (mock) { setPlantillasRol((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))); return; }
+    await supabase.from("plantillas_rol").update(plantillaRolToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+  const deletePlantillaRol = useCallback(async (id: string) => {
+    if (mock) { setPlantillasRol((prev) => prev.filter((p) => p.id !== id)); return; }
+    await supabase.from("plantillas_rol").delete().eq("id", id);
+  }, [supabase, mock]);
+
   const addProveedor = useCallback(async (p: Partial<Proveedor>) => {
     if (!negocio) return;
     if (mock) {
@@ -872,10 +912,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [cotizaciones, cotizacionItems, addVenta, updateCotizacion]);
 
   const value: DataCtx = {
-    empleados, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
+    empleados, plantillasRol, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
     movimientosStock, ventas, ventaItems, ordenesLaboratorio, cajas, gastos, descuentos,
     proveedores, cotizaciones, cotizacionItems, ready,
-    updateEmpleado, updateNegocio, addSucursal, updateSucursal,
+    updateEmpleado, addPlantillaRol, updatePlantillaRol, deletePlantillaRol, updateNegocio, addSucursal, updateSucursal,
     addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
     addReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,

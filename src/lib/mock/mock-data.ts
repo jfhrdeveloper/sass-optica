@@ -1,5 +1,5 @@
 import type {
-  Empleado, Negocio, Suscripcion, Sucursal, Cliente, Cita, Receta, ExamenOptometrico,
+  Empleado, PlantillaRol, Negocio, Suscripcion, Sucursal, Cliente, Cita, Receta, ExamenOptometrico,
   Producto, MovimientoStock, Venta, VentaItem, OrdenLaboratorio, Caja, Gasto, Descuento,
   Proveedor, Cotizacion, CotizacionItem,
 } from "@/components/providers/DataProvider";
@@ -60,6 +60,15 @@ export const MOCK_EMPLEADO_TRABAJADOR: Empleado = {
 };
 
 export const MOCK_EMPLEADOS: Empleado[] = [MOCK_EMPLEADO, MOCK_EMPLEADO_ENCARGADO, MOCK_EMPLEADO_TRABAJADOR];
+
+/* Plantillas de rol de ejemplo (ver /dashboard/roles) — ninguna está
+   asignada a MOCK_EMPLEADO_TRABAJADOR por defecto (su `permisos: {}` de
+   arriba sigue siendo el camino "sin plantilla"), para que el selector de
+   plantilla en Empleados arranque en ese estado y se pueda probar el cambio. */
+export const MOCK_PLANTILLAS_ROL: PlantillaRol[] = [
+  { id: "plantilla-1", negocioId: MOCK_NEGOCIO.id, nombre: "Cajero", rolBase: "trabajador", permisos: { ventas: true, gastos: true } },
+  { id: "plantilla-2", negocioId: MOCK_NEGOCIO.id, nombre: "Recepción", rolBase: "trabajador", permisos: { citas: true, clientes: true } },
+];
 
 export const MOCK_SUSCRIPCION: Suscripcion = {
   id: "mock-sub-1",

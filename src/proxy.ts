@@ -199,13 +199,24 @@ export async function proxy(request: NextRequest) {
   }
 
   const { data: empleado } = await supabase
-    .from("empleados").select("negocio_id, rol, activo, permisos").eq("id", user.id).maybeSingle();
+    .from("empleados")
+    .select("negocio_id, rol, activo, permisos, plantillas_rol(permisos)")
+    .eq("id", user.id).maybeSingle();
   if (!empleado || !empleado.activo || empleado.negocio_id !== negocio.id) {
     return irALogin();
   }
 
   const rolReal = empleado.rol as string;
-  const permisosReal = (empleado.permisos as Record<string, boolean> | null) ?? {};
+  /* Si hay una plantilla de rol asignada (ver src/lib/permisos.ts y
+     public.plantillas_rol en el schema), sus permisos reemplazan a los
+     propios del empleado — misma resolución que tiene_permiso() del lado de
+     la DB, replicada acá porque el proxy no puede llamar RPC de Postgres
+     sin una consulta adicional. `plantillas_rol` llega como objeto o array
+     de un elemento según la versión del cliente — se cubren ambos casos. */
+  const plantilla = Array.isArray(empleado.plantillas_rol) ? empleado.plantillas_rol[0] : empleado.plantillas_rol;
+  const permisosReal = (plantilla?.permisos as Record<string, boolean> | null)
+    ?? (empleado.permisos as Record<string, boolean> | null)
+    ?? {};
 
   /* ====== "Ver como" (simulación de UI, ver src/lib/simulacion-rol.ts) ======
      Solo se aplica si el rol REAL (recién leído arriba de la tabla
@@ -224,7 +235,7 @@ export async function proxy(request: NextRequest) {
      poder verla (para saber que hay que renovar), aunque solo el
      administrador vea el botón de pago — esa distinción se hace dentro de
      la página, no en el proxy. */
-  const rutasSoloAdministrador = ["/dashboard/empleados", "/dashboard/ajustes", "/dashboard/config"];
+  const rutasSoloAdministrador = ["/dashboard/empleados", "/dashboard/roles", "/dashboard/ajustes", "/dashboard/config"];
   if (rol !== "administrador" && rutasSoloAdministrador.some((r) => pathname.startsWith(r))) {
     return redirigir(new URL("/dashboard", request.url));
   }
