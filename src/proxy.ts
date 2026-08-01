@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { sharedCookieDomain } from "@/lib/supabase/cookie-domain";
+import { VISTA_ROL_COOKIE, esRolSimulable } from "@/lib/simulacion-rol";
 
 /* ================= MIDDLEWARE — LANDING / DASHBOARD / ADMIN =================
    Backend único: Supabase. Lee el hostname de cada request y decide a qué
@@ -203,8 +204,20 @@ export async function proxy(request: NextRequest) {
     return irALogin();
   }
 
-  const rol = empleado.rol as string;
-  const permisos = (empleado.permisos as Record<string, boolean> | null) ?? {};
+  const rolReal = empleado.rol as string;
+  const permisosReal = (empleado.permisos as Record<string, boolean> | null) ?? {};
+
+  /* ====== "Ver como" (simulación de UI, ver src/lib/simulacion-rol.ts) ======
+     Solo se aplica si el rol REAL (recién leído arriba de la tabla
+     empleados, no de esta cookie) es administrador — así una cookie forzada
+     a mano por un encargado/trabajador nunca surte efecto. Nunca escala,
+     solo puede degradar admin → encargado/trabajador. `permisos` se resetea
+     a {} al simular: se está probando el rol base, no una delegación
+     puntual que ese administrador ya le haya dado a alguien. */
+  const rolSimulado = request.cookies.get(VISTA_ROL_COOKIE)?.value ?? null;
+  const simulando = rolReal === "administrador" && esRolSimulable(rolSimulado);
+  const rol = simulando ? rolSimulado! : rolReal;
+  const permisos = simulando ? {} : permisosReal;
 
   /* ====== Rutas exclusivas de `administrador` (nunca delegables) ======
      /dashboard/facturacion NO está aquí a propósito: todos los roles deben

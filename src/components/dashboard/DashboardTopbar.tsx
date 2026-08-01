@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LogOut, Search, Store, UserRound } from "lucide-react";
+import { ChevronDown, Eye, LogOut, Search, Store, UserRound } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { nombreRol } from "@/lib/roles";
+import type { RolSimulable } from "@/lib/simulacion-rol";
+
+const ROLES_SIMULABLES: RolSimulable[] = ["encargado", "trabajador"];
 
 function iniciales(nombres?: string, apellidos?: string): string {
   return `${nombres?.[0] ?? ""}${apellidos?.[0] ?? ""}`.toUpperCase() || "?";
@@ -44,7 +48,7 @@ function useSucursalFiltro(): [string | null, (id: string | null) => void] {
    izquierda se quitó a pedido del usuario. */
 export function DashboardTopbar() {
   const { negocio, sucursales } = useData();
-  const { empleado, signOut } = useSession();
+  const { empleado, empleadoReal, rolSimulado, iniciarSimulacion, salirSimulacion, signOut } = useSession();
   const [abierto, setAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [sucursalFiltro, setSucursalFiltro] = useSucursalFiltro();
@@ -143,6 +147,38 @@ export function DashboardTopbar() {
               >
                 <UserRound size={15} /> Mi perfil
               </Link>
+
+              {/* "Ver como" (simulación de UI, ver simulacion-rol.ts) — solo
+                  visible para el administrador real, nunca mientras ya se
+                  está simulando otro rol (no tendría sentido simular desde
+                  una vista que ya es simulada). */}
+              {empleadoReal?.rol === "administrador" && !rolSimulado && (
+                <div className="border-t border-slate-100 py-1 dark:border-slate-800">
+                  <p className="px-3 pb-1 pt-1.5 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Ver como…
+                  </p>
+                  {ROLES_SIMULABLES.map((rol) => (
+                    <button
+                      key={rol}
+                      type="button"
+                      onClick={() => iniciarSimulacion(rol)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      <Eye size={15} /> {nombreRol(rol)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {rolSimulado && (
+                <button
+                  type="button"
+                  onClick={salirSimulacion}
+                  className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-sm text-amber-600 transition-colors hover:bg-amber-50 dark:border-slate-800 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                >
+                  <Eye size={15} /> Volver a mi vista
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={signOut}

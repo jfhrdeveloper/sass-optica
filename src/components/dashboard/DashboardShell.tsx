@@ -6,6 +6,7 @@ import { DashboardTopbar } from "@/components/dashboard/DashboardTopbar";
 import { BottomTabBar } from "@/components/dashboard/BottomTabBar";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { WelcomePlanModal } from "@/components/dashboard/WelcomePlanModal";
+import { VistaSimuladaBanner } from "@/components/dashboard/VistaSimuladaBanner";
 
 const CLAVE_COLAPSADO = "sidebar-colapsado";
 
@@ -36,6 +37,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <DashboardNav colapsado={colapsado} onToggle={alternar} />
       <div className={`min-h-screen transition-[margin-left] duration-200 ${colapsado ? "md:ml-16" : "md:ml-60"}`}>
+        <VistaSimuladaBanner />
         <DashboardTopbar />
         {/* `.page-enter` acá y no en cada page.tsx: un solo punto de
             aplicación, igual que antes. `pb-24` en mobile: el tab bar fijo
