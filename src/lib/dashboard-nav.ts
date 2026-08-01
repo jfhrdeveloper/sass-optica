@@ -18,7 +18,6 @@ export const NAV: NavItem[] = [
   { kind: "link", href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { kind: "link", href: "/dashboard/clientes", label: "Clientes", icon: Users },
   { kind: "link", href: "/dashboard/citas", label: "Citas", icon: CalendarDays },
-  { kind: "link", href: "/dashboard/mejoras", label: "Mejoras", icon: Lightbulb },
   {
     kind: "group", key: "comercial", label: "Comercial", icon: ShoppingCart,
     children: [
@@ -43,6 +42,13 @@ export const NAV: NavItem[] = [
       { href: "/dashboard/ajustes", label: "Ajustes", icon: Settings },
     ],
   },
+  /* Suelto al final a propósito, no dentro de un grupo: no es una
+     herramienta operativa del día a día (no gestiona nada del negocio en
+     sí, es el buzón de sugerencias/votación cross-tenant) — antes vivía
+     arriba, junto a Clientes/Citas, y competía por atención con lo que sí
+     se usa todos los días. Sigue visible para cualquier rol (no es
+     soloAdmin), solo se despriorizó por posición. */
+  { kind: "link", href: "/dashboard/mejoras", label: "Mejoras", icon: Lightbulb },
 ];
 
 export type ItemNavPlano = Restriccion & { href: string; label: string; icon: typeof LayoutDashboard; grupo?: string };

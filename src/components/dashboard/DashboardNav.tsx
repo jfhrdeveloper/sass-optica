@@ -482,18 +482,35 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
          fondo de Inicio (`dashboard/page.tsx`), suelta y sin diseño real.
          Se mudó acá porque es información constante del negocio, no de una
          página puntual — el sidebar está presente en todo el dashboard.
-         Oculto en colapsado: no entra ni el nombre del negocio ni el badge
-         en 64px, y ya queda accesible expandiendo. */}
+         Ahora es un link (mismo destino que "Ajustes" del nav — resolverHref
+         ya manda a Facturación si no sos administrador) con el logo/iniciales
+         del negocio, mismo círculo que ya usa DashboardTopbar.tsx — antes era
+         solo texto, sin ninguna acción ni identidad visual real. Oculto en
+         colapsado: no entra ni el nombre del negocio ni el badge en 64px, y
+         ya queda accesible expandiendo. */}
       {!colapsado && negocio && (
-        <div className="border-t border-slate-100 px-3 py-3 dark:border-slate-800">
-          <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{negocio.nombre}</p>
-          <p className="truncate text-xs text-slate-400 dark:text-slate-500">{negocio.subdominio}</p>
-          {suscripcion && (
-            <span className={`badge mt-2 ${ESTADO_BADGE[suscripcion.estado] ?? "badge-neutral"}`}>
-              {nombrePlanSuscripcion(suscripcion.plan)} · {nombreEstadoSuscripcion(suscripcion.estado)}
-            </span>
+        <Link
+          href={resolverHref("/dashboard/ajustes")}
+          className="flex items-center gap-2.5 border-t border-slate-100 px-3 py-3 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
+        >
+          {negocio.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={negocio.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-light text-xs font-semibold text-primary">
+              {negocio.nombre?.[0]?.toUpperCase() ?? "O"}
+            </div>
           )}
-        </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{negocio.nombre}</p>
+            <p className="truncate text-xs text-slate-400 dark:text-slate-500">{negocio.subdominio}</p>
+            {suscripcion && (
+              <span className={`badge mt-1 ${ESTADO_BADGE[suscripcion.estado] ?? "badge-neutral"}`}>
+                {nombrePlanSuscripcion(suscripcion.plan)} · {nombreEstadoSuscripcion(suscripcion.estado)}
+              </span>
+            )}
+          </div>
+        </Link>
       )}
     </aside>
   );
