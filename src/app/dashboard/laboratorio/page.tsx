@@ -13,6 +13,7 @@ import {
   ESTADOS_ORDEN_LABORATORIO, ESTADO_ORDEN_LABORATORIO_LABEL, ESTADO_ORDEN_LABORATORIO_BADGE,
   TRANSICIONES_VALIDAS,
 } from "@/lib/laboratorio";
+import { permisosEfectivos } from "@/lib/permisos";
 
 const VACIO: Partial<OrdenLaboratorio> = {};
 
@@ -25,10 +26,10 @@ const VACIO: Partial<OrdenLaboratorio> = {};
    propósito: no hay ningún patrón drag-and-drop en el proyecto, un <select>
    de estado (como estado_cotizacion) alcanza para el MVP. */
 export default function LaboratorioPage() {
-  const { ordenesLaboratorio, clientes, ventas, addOrdenLaboratorio, updateOrdenLaboratorio } = useData();
+  const { ordenesLaboratorio, clientes, ventas, plantillasRol, addOrdenLaboratorio, updateOrdenLaboratorio } = useData();
   const { empleado } = useSession();
   const toast = useToast();
-  const puedeEditar = empleado?.rol === "administrador" || empleado?.rol === "encargado" || empleado?.permisos?.laboratorio === true;
+  const puedeEditar = empleado?.rol === "administrador" || empleado?.rol === "encargado" || permisosEfectivos(empleado, plantillasRol).laboratorio === true;
 
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoOrdenLaboratorio>("todos");
   const [form, setForm] = useState<Partial<OrdenLaboratorio>>(VACIO);

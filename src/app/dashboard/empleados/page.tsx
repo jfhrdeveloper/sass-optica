@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { Plus, Trash2, UserRound } from "lucide-react";
-import { useData } from "@/components/providers/DataProvider";
+import { useData, type Empleado } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
@@ -21,7 +21,16 @@ import { nombreRol } from "@/lib/roles";
    RLS empleados_admin_update, ya exige is_administrador()). Sin plantilla
    asignada, el empleado sigue con el acceso base de su rol (puede_gestionar()
    para encargado, mínimo para trabajador) — mismo comportamiento que
-   siempre tuvo. */
+   siempre tuvo.
+
+   Ascender/degradar entre Encargado ↔ Vendedor SÍ se edita acá (RLS ya lo
+   permitía — empleados_admin_update no restringe columnas, el trigger
+   bloquear_autoescalada_empleado solo bloquea auto-edición — solo faltaba
+   el control). Deliberadamente NO se puede tocar `administrador` desde este
+   selector: ni ascender a alguien a administrador ni degradarlo — es una
+   operación de mayor riesgo (podría dejar el negocio sin ningún
+   administrador) que merece su propio flujo con más resguardos, no un
+   <select> más en esta tabla. */
 export default function EmpleadosPage() {
   const { empleados, plantillasRol, updateEmpleado } = useData();
   const { empleado: yo } = useSession();
@@ -64,6 +73,15 @@ export default function EmpleadosPage() {
     setEmail(""); setNombres(""); setApellidos("");
     setAbierto(false);
     toast(`Invitación enviada a ${email}.`);
+  }
+
+  /* Si la plantilla que ya tenía asignada no aplica al nuevo rol (ver el
+     filtro rolBase de abajo), se limpia sola en vez de dejarla "colgada"
+     — el selector de plantilla no la mostraría como opción igual. */
+  async function cambiarRol(emp: Empleado, nuevoRol: "encargado" | "trabajador") {
+    const plantillaSigueValida = plantillasRol.some((p) => p.id === emp.plantillaRolId && p.rolBase === nuevoRol);
+    await updateEmpleado(emp.id, { rol: nuevoRol, plantillaRolId: plantillaSigueValida ? emp.plantillaRolId : undefined });
+    toast(`${emp.nombres} ahora es ${nombreRol(nuevoRol)}.`);
   }
 
   async function eliminar(id: string) {
@@ -124,7 +142,20 @@ export default function EmpleadosPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="table-body-cell text-slate-600 dark:text-slate-300">{nombreRol(e.rol)}</td>
+                      <td className="table-body-cell text-slate-600 dark:text-slate-300">
+                        {e.rol === "administrador" ? (
+                          nombreRol(e.rol)
+                        ) : (
+                          <select
+                            value={e.rol}
+                            onChange={(ev) => cambiarRol(e, ev.target.value as "encargado" | "trabajador")}
+                            className="select text-sm"
+                          >
+                            <option value="trabajador">{nombreRol("trabajador")}</option>
+                            <option value="encargado">{nombreRol("encargado")}</option>
+                          </select>
+                        )}
+                      </td>
                       <td className="table-body-cell">
                         {e.rol === "administrador" ? (
                           <span className="text-slate-400 dark:text-slate-500">No aplica</span>

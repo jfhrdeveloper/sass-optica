@@ -23,3 +23,21 @@ export const MODULOS_DELEGABLES = [
 ] as const;
 
 export type ClaveModuloDelegable = (typeof MODULOS_DELEGABLES)[number]["clave"];
+
+/* Resuelve los permisos EFECTIVOS de un empleado del lado del cliente —
+   misma regla que tiene_permiso() en supabase-schema.sql: si tiene una
+   plantilla asignada, sus permisos reemplazan a los propios (nunca se
+   combinan); si no, se usan los del propio empleado. Cualquier gate de UI
+   que hoy lea `empleado.permisos` directo (en vez de esto) rompe en cuanto
+   ese empleado tenga una plantilla asignada — la escritura en la DB
+   funciona igual (RLS ya resuelve bien), pero el botón se queda oculto. */
+export function permisosEfectivos(
+  empleado: { permisos: Record<string, boolean>; plantillaRolId?: string } | null | undefined,
+  plantillasRol: { id: string; permisos: Record<string, boolean> }[],
+): Record<string, boolean> {
+  if (!empleado) return {};
+  if (empleado.plantillaRolId) {
+    return plantillasRol.find((p) => p.id === empleado.plantillaRolId)?.permisos ?? {};
+  }
+  return empleado.permisos ?? {};
+}
