@@ -13,8 +13,11 @@ const VACIO: Partial<Sucursal> = { nombre: "", activo: true };
 /* Estructural (soloAdmin, como Empleados) — no operativo. Sin delete a
    propósito: una sede con citas/ventas históricas ligadas no debería poder
    desaparecer del todo; "Activo" alcanza para dejar de usarla hacia
-   adelante sin perder esa trazabilidad. Crear la primera sucursal acá NO
-   mueve stock ni reasigna nada retroactivamente — ver Fase B.
+   adelante sin perder esa trazabilidad. Crear la PRIMERA sucursal de un
+   negocio con stock ya cargado dispara un segundo paso (SlideOver de
+   reparto) para asignarlo explícitamente — ver repartirStockInicial en
+   DataProvider.tsx. Sin ese paso el stock quedaría sin ninguna fila en
+   `stock_sucursal` y "desaparecería" de los reportes por sede.
 
    Multisedes es exclusivo del plan Premium — mismo "candado visible" (idea
    de UX #10) que ya usa /dashboard/facturacion para SUNAT: el módulo se
@@ -22,13 +25,21 @@ const VACIO: Partial<Sucursal> = { nombre: "", activo: true };
    sigue ahí, visible), solo con los controles de escritura deshabilitados
    si el plan actual no es Premium. */
 export default function SucursalesPage() {
-  const { sucursales, suscripcion, addSucursal, updateSucursal } = useData();
+  const { sucursales, productos, suscripcion, addSucursal, updateSucursal, repartirStockInicial } = useData();
   const toast = useToast();
   const esPremium = suscripcion?.plan === "premium";
   const [form, setForm] = useState<Partial<Sucursal>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  /* Paso 2, solo aparece al crear la PRIMERA sucursal de un negocio que ya
+     tenía stock cargado (ver comentario de repartirStockInicial en
+     DataProvider.tsx) — nunca se dispara al editar ni al crear una segunda
+     sucursal en adelante. */
+  const [repartoPara, setRepartoPara] = useState<{ id: string; nombre: string } | null>(null);
+  const [cantidades, setCantidades] = useState<Record<string, number>>({});
+  const [repartiendo, setRepartiendo] = useState(false);
+  const productosConStock = productos.filter((p) => p.stockActual > 0);
 
   function nuevo() {
     setEditandoId(null);
@@ -53,12 +64,34 @@ export default function SucursalesPage() {
     if (editandoId) {
       await updateSucursal(editandoId, form);
       toast("Cambios guardados.");
-    } else {
-      await addSucursal(form);
-      toast("Sucursal creada.");
+      setGuardando(false);
+      cerrar();
+      return;
     }
+    const esPrimera = sucursales.length === 0;
+    const nombre = form.nombre;
+    const id = await addSucursal(form);
     setGuardando(false);
+    toast("Sucursal creada.");
     cerrar();
+    if (esPrimera && id && productosConStock.length > 0) {
+      setCantidades(Object.fromEntries(productosConStock.map((p) => [p.id, p.stockActual])));
+      setRepartoPara({ id, nombre });
+    }
+  }
+
+  function cerrarReparto() {
+    setRepartoPara(null);
+    setCantidades({});
+  }
+
+  async function guardarReparto() {
+    if (!repartoPara) return;
+    setRepartiendo(true);
+    await repartirStockInicial(repartoPara.id, cantidades);
+    setRepartiendo(false);
+    toast(`Stock repartido a ${repartoPara.nombre}.`);
+    cerrarReparto();
   }
 
   return (
@@ -159,6 +192,38 @@ export default function SucursalesPage() {
             {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear sucursal"}
           </button>
         </form>
+      </SlideOver>
+
+      <SlideOver abierto={!!repartoPara} onClose={cerrarReparto} titulo={`Repartir stock a ${repartoPara?.nombre ?? ""}`}>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Tu negocio ya tenía estos productos con stock antes de crear sedes. Elegí cuánto le corresponde a{" "}
+          <strong>{repartoPara?.nombre}</strong> — lo que dejes en 0 queda sin asignar a ninguna sede (podés
+          repartirlo después ajustando el stock de cada producto).
+        </p>
+        <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto">
+          {productosConStock.map((p) => (
+            <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate text-slate-700 dark:text-slate-200">{p.nombre}</span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                <input
+                  type="number" min={0} max={p.stockActual}
+                  value={cantidades[p.id] ?? 0}
+                  onChange={(e) => setCantidades({ ...cantidades, [p.id]: Math.max(0, Math.min(p.stockActual, Number(e.target.value))) })}
+                  className="input w-20 text-sm"
+                />
+                <span className="text-xs text-slate-400 dark:text-slate-500">/ {p.stockActual}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={cerrarReparto} className="btn-outline flex-1">
+            Omitir por ahora
+          </button>
+          <button type="button" onClick={guardarReparto} disabled={repartiendo} className="btn-primary flex-1">
+            {repartiendo ? "Guardando…" : "Guardar reparto"}
+          </button>
+        </div>
       </SlideOver>
     </main>
   );

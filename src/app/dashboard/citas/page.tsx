@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, User, FileText, Pencil, Trash2 } from "lucide-react";
 import { useData, type Cita } from "@/components/providers/DataProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { CalendarioMes } from "@/components/calendario/CalendarioMes";
@@ -56,7 +57,8 @@ type Vista = "dia" | "3dias" | "5dias" | "semana" | "mes" | "lista";
 const DIAS_POR_VISTA: Record<string, number> = { dia: 1, "3dias": 3, "5dias": 5, semana: 7 };
 
 export default function CitasPage() {
-  const { citas, clientes, recetas, negocio, addCita, updateCita, deleteCita, addReceta } = useData();
+  const { citas, clientes, recetas, negocio, sucursales, sucursalFiltro, addCita, updateCita, deleteCita, addReceta } = useData();
+  const { empleado } = useSession();
   const toast = useToast();
   const [form, setForm] = useState<Partial<Cita>>(VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -140,7 +142,10 @@ export default function CitasPage() {
      cita" de la cabecera llama a nueva() sin argumento y arranca vacío. */
   function nueva(fechaHora?: string, duracionMin?: number) {
     setEditandoId(null);
-    setForm(fechaHora ? { ...VACIO, fechaHora, duracionMin } : VACIO);
+    // Un empleado con sede fija siempre agenda en la suya; uno que ve todas
+    // las sedes hereda la que tenga elegida en el selector del topbar.
+    const sucursalId = empleado?.sucursalId ?? sucursalFiltro ?? undefined;
+    setForm(fechaHora ? { ...VACIO, sucursalId, fechaHora, duracionMin } : { ...VACIO, sucursalId });
     const hInicio = fechaHora ? fechaHora.slice(11, 16) : "";
     setFechaCita(fechaHora ? fechaHora.slice(0, 10) : "");
     setHoraCita(hInicio);
@@ -224,7 +229,13 @@ export default function CitasPage() {
       .sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
   }
 
-  const filtradas = citas
+  // Sin sede asignada = cita creada antes de tener multisedes (o negocio de
+  // una sola sede): se sigue mostrando bajo cualquier filtro, nunca
+  // "desaparece" — mismo criterio que el reparto de stock (ver Sucursales).
+  const citasVisibles = sucursalFiltro
+    ? citas.filter((c) => !c.sucursalId || c.sucursalId === sucursalFiltro)
+    : citas;
+  const filtradas = citasVisibles
     .filter((c) => filtroEstado === "todos" || c.estado === filtroEstado)
     .filter((c) => !desde || c.fechaHora.slice(0, 10) >= desde)
     .filter((c) => !hasta || c.fechaHora.slice(0, 10) <= hasta)
@@ -301,7 +312,7 @@ export default function CitasPage() {
             mesActual={fecha}
             onCambiarMes={(delta) => setFecha((f) => new Date(f.getFullYear(), f.getMonth() + delta, 1))}
             onIrAHoy={() => setFecha(new Date())}
-            citas={citas}
+            citas={citasVisibles}
             nombreCliente={nombreCliente}
             onClickDia={(dia) => { const d = new Date(dia); d.setHours(9, 0, 0, 0); nueva(aInputLocal(d)); }}
             onClickCita={(cita) => editar(cita)}
@@ -314,7 +325,7 @@ export default function CitasPage() {
             dias={DIAS_POR_VISTA[vista]}
             onNavegar={(delta) => setFecha((f) => sumarDias(f, delta))}
             onIrAHoy={() => setFecha(new Date())}
-            citas={citas}
+            citas={citasVisibles}
             nombreCliente={nombreCliente}
             onClickSlot={(hora, duracionMin) => nueva(aInputLocal(hora), duracionMin)}
             onClickCita={(cita) => editar(cita)}
@@ -432,6 +443,18 @@ export default function CitasPage() {
           <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="select w-full text-sm">
             {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
           </select>
+          {sucursales.length > 0 && (
+            <select
+              value={form.sucursalId ?? ""}
+              onChange={(e) => setForm({ ...form, sucursalId: e.target.value || undefined })}
+              disabled={!!empleado?.sucursalId}
+              aria-label="Sede"
+              className="select w-full text-sm"
+            >
+              <option value="">Sin sede asignada</option>
+              {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
+          )}
           <button
             type="submit"
             disabled={guardando || !form.clienteId || !fechaCita || !horaCita || !horaFinCita || diferenciaMinutos(horaCita, horaFinCita) <= 0}

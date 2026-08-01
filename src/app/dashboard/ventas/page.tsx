@@ -39,10 +39,13 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function VentasPage() {
-  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, addVenta, addCliente, anularVenta, updateDescuento } = useData();
+  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, sucursales, sucursalFiltro, addVenta, addCliente, anularVenta, updateDescuento } = useData();
   const cajaAbierta = cajas.some((c) => c.estado === "abierta");
   const { empleado } = useSession();
   const toast = useToast();
+  // Un empleado con sede fija siempre vende para la suya; uno que ve todas
+  // las sedes hereda la que tenga elegida en el selector del topbar.
+  const [sucursalVentaId, setSucursalVentaId] = useState(() => empleado?.sucursalId ?? sucursalFiltro ?? "");
 
   /* Límite de 30 ventas/mes del plan Gratis (freemium) — este chequeo del
      lado del cliente es solo UX inmediata (evita que el usuario arme todo
@@ -204,7 +207,10 @@ export default function VentasPage() {
       ? `Incluye recargo por tarjeta (${(RECARGO_TARJETA_PCT * 100).toFixed(0)}%): S/ ${montoRecargoTarjeta.toFixed(2)}`
       : undefined;
     const { id, error } = await addVenta(
-      { clienteId: clienteIdFinal || undefined, empleadoId: empleado?.id, subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total, notas: notasRecargo },
+      {
+        clienteId: clienteIdFinal || undefined, empleadoId: empleado?.id, sucursalId: sucursalVentaId || undefined,
+        subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total, notas: notasRecargo,
+      },
       items,
     );
     setGuardando(false);
@@ -249,7 +255,11 @@ export default function VentasPage() {
     ventana.print();
   }
 
+  // Sin sede asignada = venta creada antes de tener multisedes (o negocio de
+  // una sola sede): se sigue mostrando bajo cualquier filtro, nunca
+  // "desaparece" — mismo criterio que el reparto de stock (ver Sucursales).
   const ordenadas = [...ventas]
+    .filter((v) => !sucursalFiltro || !v.sucursalId || v.sucursalId === sucursalFiltro)
     .filter((v) => filtroMetodo === "todos" || v.metodoPago === filtroMetodo)
     .filter((v) => !desde || v.fecha.slice(0, 10) >= desde)
     .filter((v) => !hasta || v.fecha.slice(0, 10) <= hasta)
@@ -395,6 +405,19 @@ export default function VentasPage() {
               <option value="transferencia">Transferencia</option>
             </select>
           </Campo>
+          {sucursales.length > 0 && (
+            <Campo label="Sede">
+              <select
+                value={sucursalVentaId}
+                onChange={(e) => setSucursalVentaId(e.target.value)}
+                disabled={!!empleado?.sucursalId}
+                className="select text-sm"
+              >
+                <option value="">Sin sede asignada</option>
+                {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            </Campo>
+          )}
           {metodoPago === "tarjeta" && (
             <label className="mb-1.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
               <input type="checkbox" checked={recargoTarjeta} onChange={(e) => setRecargoTarjeta(e.target.checked)} className="checkbox" />

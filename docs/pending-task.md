@@ -99,18 +99,30 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       nueva (`current_sucursal() is null or sucursal_id is null or sucursal_id = current_sucursal()`)
       que, si está mal escrita, rompe el acceso de TODOS los negocios de una sola sede — probar
       contra Postgres real antes de dar por buena esa migración es el primer test de RLS a correr.
-- [ ] **Multisedes — falta la UI de reparto de stock** al crear la primera sucursal de un negocio
-      que YA tiene stock cargado en `inventario` (Fase B, bitácora 2026-07-31): hoy `ajustarStock`
-      soporta un `sucursalId` opcional a nivel de datos, pero ningún formulario del dashboard
-      todavía deja elegir sede al ajustar stock — sin ese flujo explícito, el stock de un producto
-      existente "desaparecería" de los reportes por sede en vez de asignarse a la sede correcta.
-      No construir un default silencioso (ver el propio comentario en `supabase-schema.sql` junto
-      a `stock_sucursal`).
-- [ ] Selector de sede del topbar (`DashboardTopbar.tsx`) es hoy solo un filtro de UI guardado en
-      localStorage — ninguna página (`citas`, `ventas`) todavía FILTRA sus listas por la sede
-      elegida ahí. La infraestructura (RLS, `sucursal_id` en las tablas) está lista; conectar el
-      filtro a cada página es trabajo de UI pendiente, no bloqueante mientras casi ningún negocio
-      use multisedes.
+- [x] **Multisedes — UI de reparto de stock** al crear la primera sucursal de un negocio que YA
+      tiene stock cargado: `SucursalesPage` ahora, tras crear la PRIMERA sucursal (y solo esa vez),
+      abre un segundo `SlideOver` con cada producto con stock y un input para repartirlo a la sede
+      nueva (por defecto, el stock completo; editable a un reparto parcial; "Omitir por ahora" para
+      no asignar nada). Usa la función nueva `repartirStockInicial` en `DataProvider.tsx`, que
+      escribe valores ABSOLUTOS por producto en `stock_sucursal` (no un delta como `ajustarStock`,
+      que hubiera duplicado el stock — ver comentario junto a la función). Lo que se deja en 0 queda
+      sin asignar a ninguna sede a propósito, nunca un default silencioso.
+- [x] Selector de sede del topbar (`DashboardTopbar.tsx`) — se elevó `sucursalFiltro`/
+      `setSucursalFiltro` de un hook local a `DataProvider`/`useData()` para que cualquier página
+      pueda leerlo. `citas` y `ventas` ahora FILTRAN sus listas por la sede elegida ahí (una cita o
+      venta sin `sucursalId` sigue mostrándose bajo cualquier filtro — nunca desaparece, mismo
+      criterio que el reparto de stock). Ambos formularios (agendar cita / nueva venta) ahora tienen
+      un campo "Sede" (oculto si el negocio no tiene sucursales), con default = la sede fija del
+      empleado si la tiene, si no la que esté elegida en el topbar.
+- [ ] **Descubierto al conectar el filtro de sede (2026-08-01)**: `addVenta`/`anularVenta` en
+      `DataProvider.tsx` llaman a `ajustarStock(...)` para descontar/devolver stock SIN pasarle
+      `sucursalId` (aunque la venta en sí ya quede etiquetada con la sede elegida en el formulario).
+      Mientras el negocio no tenga sucursales esto es exactamente el comportamiento de siempre (cero
+      impacto). Pero en cuanto tiene al menos una, cada venta sigue descontando del `inventario`
+      global en vez de la fila de `stock_sucursal` de la sede donde se vendió — el stock por sede
+      queda congelado en lo que se repartió inicialmente y deja de reflejar las ventas reales de esa
+      sede. Falta decidir de qué sede descontar (¿la de la venta? ¿la del empleado?) y pasarla a esos
+      dos `ajustarStock(...)`.
 
 ## Ideas de UX de research de competencia (OkVet / Finegym) — ✅ LAS 13 IMPLEMENTADAS
 Research hecho en vivo contra las apps reales (landing + señal de cuenta creada + dashboard
@@ -164,6 +176,30 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-08-01 (22) — 4 features de research de competencia + los 2 cabos sueltos de Multisedes
+- **Qué cambió:** de una lista de 14 ideas de research (tendencias de software para ópticas +
+  tendencias generales de SaaS), a pedido explícito, se implementaron 4: seguimiento de clientes
+  (reposición de lentes de contacto + garantía, unificando los ítems #2 y #10 de la lista porque
+  comparten el mismo mecanismo), escaneo de código de barras (`BarcodeDetector` nativo, sin
+  dependencia npm), import/export de productos vía Excel (`exceljs`, ya presente en el proyecto) y
+  venta cruzada por co-ocurrencia. Se explicaron sin implementar los ítems #1 (recall automático),
+  #11 (WhatsApp Business API real) y #12 (resumen de historia clínica con IA) — el usuario preguntó
+  "¿cómo sería?", no pidió construirlos.
+- Aparte, se resolvieron los 2 cabos sueltos que quedaban anotados en "Pendientes activos" desde la
+  sesión de Multisedes (2026-07-31 (20)): el selector de sede del topbar ahora FILTRA `citas` y
+  `ventas` (se elevó `sucursalFiltro` de un hook local de `DashboardTopbar.tsx` a `DataProvider`), y
+  crear la primera sucursal de un negocio con stock ya cargado dispara un paso de reparto explícito
+  (`repartirStockInicial`) en vez de dejar que el stock "desaparezca" de `stock_sucursal`. Ver el
+  detalle de ambos, y el gap nuevo que se descubrió de paso (`ajustarStock` en `addVenta`/
+  `anularVenta` no recibe `sucursalId` todavía), en "Pendientes activos" arriba.
+- **Por qué:** pedido explícito del usuario en un solo mensaje: implementar 5 ítems de la lista de
+  research (`2, 3, 9, 10, 13`), explicar 3 (`1, 11, 12`), descartar el resto, y además "revisar el
+  proyecto y ver si hay algo que falta conectar" — de ahí salieron los 2 cabos sueltos, que el
+  usuario pidió resolver en el mismo hilo apenas se los reporté.
+- **Pendiente:** el gap de `ajustarStock` sin `sucursalId` en `addVenta`/`anularVenta`, recién
+  anotado arriba — no se tocó en esta sesión (fuera del alcance de "los 2 cabos sueltos", que eran
+  específicamente el selector del topbar y el reparto inicial).
 
 ### 2026-07-31 (21) — Lista de 20 pedidos de UX/negocio sobre Clientes, Citas, Comercial y Administración
 - **Qué cambió:** el usuario pegó una lista larga de pedidos puntuales (feedback de uso real) sobre

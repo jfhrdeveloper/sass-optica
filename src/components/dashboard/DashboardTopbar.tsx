@@ -11,43 +11,16 @@ function iniciales(nombres?: string, apellidos?: string): string {
   return `${nombres?.[0] ?? ""}${apellidos?.[0] ?? ""}`.toUpperCase() || "?";
 }
 
-const SUCURSAL_STORAGE_KEY = "sucursal_filtro";
-
-/* Selector de sede — solo un filtro de CONVENIENCIA en el cliente sobre
-   datos que RLS ya aprobó (nunca reemplaza ese chequeo, que vive 100% en
-   `current_sucursal()` del lado de la base). Solo tiene sentido para un
-   empleado cuyo `sucursalId` ya es null (puede ver todas) y quiere mirar
-   una sede a la vez — un empleado con sede fija asignada ya está limitado
-   por RLS, no necesita ni ve este selector. Persistido en localStorage,
-   mismo patrón que CoachTooltip.tsx; lo consume cada página que liste
-   citas/ventas filtrando por `sucursalId` (fuera del alcance de esta
-   sesión — acá solo queda la infraestructura: el selector y dónde guarda
-   su valor). */
-function useSucursalFiltro(): [string | null, (id: string | null) => void] {
-  const [valor, setValor] = useState<string | null>(null);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en SSR
-    setValor(window.localStorage.getItem(SUCURSAL_STORAGE_KEY));
-  }, []);
-  function cambiar(id: string | null) {
-    if (id) window.localStorage.setItem(SUCURSAL_STORAGE_KEY, id);
-    else window.localStorage.removeItem(SUCURSAL_STORAGE_KEY);
-    setValor(id);
-  }
-  return [valor, cambiar];
-}
-
 /* Franja horizontal arriba del contenido (patrón Gmail/Notion/Linear): a la
    derecha identidad del negocio + tema + cuenta. Todo lo que antes vivía en
    el header del sidebar (DashboardNav.tsx) se mudó acá — el sidebar quedó
    solo con navegación. El rastro de navegación (Breadcrumbs) que iba a la
    izquierda se quitó a pedido del usuario. */
 export function DashboardTopbar() {
-  const { negocio, sucursales } = useData();
+  const { negocio, sucursales, sucursalFiltro, setSucursalFiltro } = useData();
   const { empleado, signOut } = useSession();
   const [abierto, setAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [sucursalFiltro, setSucursalFiltro] = useSucursalFiltro();
   const mostrarSelectorSede = sucursales.length > 0 && !empleado?.sucursalId;
 
   useEffect(() => {

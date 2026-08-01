@@ -281,14 +281,30 @@ interface DataCtx {
   cotizaciones:     Cotizacion[];
   cotizacionItems:  CotizacionItem[];
   ready:            boolean;
+  /* Multisedes: sede elegida en el selector del topbar (`DashboardTopbar.tsx`),
+     persistida en localStorage. `null` = todas las sedes. Es SOLO un filtro
+     de conveniencia sobre datos que RLS ya aprobó — las páginas de citas y
+     ventas lo consumen para acotar sus listas cuando el empleado puede ver
+     más de una sede. */
+  sucursalFiltro:    string | null;
+  setSucursalFiltro: (id: string | null) => void;
   /* CRUD (la mutación va a Supabase; Realtime re-fetchea). */
   updateEmpleado: (id: string, patch: Partial<Empleado>) => Promise<void>;
   addRolPersonalizado:    (p: Partial<RolPersonalizado>) => Promise<void>;
   updateRolPersonalizado: (id: string, patch: Partial<RolPersonalizado>) => Promise<void>;
   deleteRolPersonalizado: (id: string) => Promise<void>;
   updateNegocio:  (patch: Partial<Negocio>) => Promise<void>;
-  addSucursal:    (s: Partial<Sucursal>) => Promise<void>;
+  addSucursal:    (s: Partial<Sucursal>) => Promise<string | null>;
   updateSucursal: (id: string, patch: Partial<Sucursal>) => Promise<void>;
+  /* Reparto de stock inicial (Multisedes Fase B): al crear la PRIMERA
+     sucursal de un negocio que ya tenía productos con stock, ese stock
+     vive en `inventario` y `stock_sucursal` todavía no tiene ninguna fila
+     — sin este paso, el stock de esos productos "desaparecería" de los
+     reportes por sede (ver comentario junto a `stock_sucursal` en
+     supabase-schema.sql). `reparto` es SIEMPRE un valor ABSOLUTO por
+     producto (no un delta) — normalmente el stock actual completo, la UI
+     lo deja editar para repartos parciales. */
+  repartirStockInicial: (sucursalId: string, reparto: Record<string, number>) => Promise<void>;
   addCliente:     (c: Partial<Cliente>) => Promise<string | null>;
   updateCliente:  (id: string, patch: Partial<Cliente>) => Promise<void>;
   deleteCliente:  (id: string) => Promise<void>;
@@ -324,6 +340,7 @@ interface DataCtx {
 }
 
 const Ctx = createContext<DataCtx | null>(null);
+const SUCURSAL_FILTRO_STORAGE_KEY = "sucursal_filtro";
 
 const TABLAS_DOMINIO = [
   "sucursales", "clientes", "citas", "recetas", "examenes_optometricos", "productos", "inventario", "stock_sucursal",
@@ -337,6 +354,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const mock = isMockMode();
   const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
+  const [sucursalFiltro, setSucursalFiltroState] = useState<string | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en SSR
+    setSucursalFiltroState(window.localStorage.getItem(SUCURSAL_FILTRO_STORAGE_KEY));
+  }, []);
+  const setSucursalFiltro = useCallback((id: string | null) => {
+    if (id) window.localStorage.setItem(SUCURSAL_FILTRO_STORAGE_KEY, id);
+    else window.localStorage.removeItem(SUCURSAL_FILTRO_STORAGE_KEY);
+    setSucursalFiltroState(id);
+  }, []);
   const [empleados, setEmpleados]     = useState<Empleado[]>(mock ? MOCK_EMPLEADOS : []);
   const [rolesPersonalizados, setRolesPersonalizados] = useState<RolPersonalizado[]>(mock ? MOCK_ROLES_PERSONALIZADOS : []);
   const [negocio, setNegocio]         = useState<Negocio | null>(mock ? MOCK_NEGOCIO : null);
@@ -510,13 +537,47 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, negocio, mock]);
 
   const addSucursal = useCallback(async (s: Partial<Sucursal>) => {
-    if (!negocio) return;
+    if (!negocio) return null;
     if (mock) {
-      setSucursales((prev) => [...prev, { id: crypto.randomUUID(), negocioId: negocio.id, nombre: "", activo: true, ...s }]);
+      const id = crypto.randomUUID();
+      setSucursales((prev) => [...prev, { id, negocioId: negocio.id, nombre: "", activo: true, ...s }]);
+      return id;
+    }
+    const { data } = await supabase.from("sucursales").insert({ ...sucursalToRow(s), negocio_id: negocio.id }).select("id").single();
+    return data ? String(data.id) : null;
+  }, [supabase, negocio, mock]);
+
+  const repartirStockInicial = useCallback(async (sucursalId: string, reparto: Record<string, number>) => {
+    if (!negocio) return;
+    const entradas = Object.entries(reparto).filter(([, cantidad]) => cantidad > 0);
+    if (entradas.length === 0) return;
+    if (mock) {
+      const idsRepartidos = new Set(entradas.map(([productoId]) => productoId));
+      setStockSucursalRaw((prev) => {
+        const resto = prev.filter((r) => !(r.sucursal_id === sucursalId && idsRepartidos.has(r.producto_id)));
+        const nuevas = entradas.map(([productoId, cantidad]) => ({
+          producto_id: productoId, sucursal_id: sucursalId, stock_actual: cantidad,
+          stock_minimo: productos.find((p) => p.id === productoId)?.stockMinimo ?? 0,
+        }));
+        return [...resto, ...nuevas];
+      });
+      setMovimientosStock((prev) => [
+        ...prev,
+        ...entradas.map(([productoId, cantidad]) => ({
+          id: crypto.randomUUID(), negocioId: negocio.id, productoId, sucursalId,
+          tipo: "ajuste", cantidad, motivo: "Reparto inicial multisedes", fecha: new Date().toISOString(),
+        })),
+      ]);
       return;
     }
-    await supabase.from("sucursales").insert({ ...sucursalToRow(s), negocio_id: negocio.id });
-  }, [supabase, negocio, mock]);
+    await supabase.from("stock_sucursal").upsert(entradas.map(([productoId, cantidad]) => ({
+      producto_id: productoId, sucursal_id: sucursalId, stock_actual: cantidad,
+      stock_minimo: productos.find((p) => p.id === productoId)?.stockMinimo ?? 0,
+    })));
+    await supabase.from("movimientos_stock").insert(entradas.map(([productoId, cantidad]) => ({
+      negocio_id: negocio.id, producto_id: productoId, sucursal_id: sucursalId, tipo: "ajuste", cantidad, motivo: "Reparto inicial multisedes",
+    })));
+  }, [supabase, negocio, productos, mock]);
 
   const updateSucursal = useCallback(async (id: string, patch: Partial<Sucursal>) => {
     if (mock) {
@@ -927,7 +988,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     empleados, rolesPersonalizados, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
     movimientosStock, ventas, ventaItems, ordenesLaboratorio, cajas, gastos, descuentos,
     proveedores, cotizaciones, cotizacionItems, ready,
-    updateEmpleado, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado, updateNegocio, addSucursal, updateSucursal,
+    sucursalFiltro, setSucursalFiltro,
+    updateEmpleado, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado, updateNegocio, addSucursal, updateSucursal, repartirStockInicial,
     addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
     addReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,
