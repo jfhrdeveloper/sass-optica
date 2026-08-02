@@ -16,7 +16,15 @@ function iniciales(nombres?: string, apellidos?: string): string {
    el header del sidebar (DashboardNav.tsx) se mudó acá — el sidebar quedó
    solo con navegación. El rastro de navegación (Breadcrumbs) que iba a la
    izquierda se quitó a pedido del usuario. */
-export function DashboardTopbar() {
+/* `sidebarColapsado` viene de DashboardShell.tsx (dueño de ese estado, ver
+   comentario ahí) — decide si el bloque de identidad de acá abajo hace
+   falta. El sidebar (DashboardNav.tsx) ya muestra logo+nombre+subdominio+
+   plan en su widget inferior cuando está expandido, así que mostrarlo
+   TAMBIÉN acá sería puro texto repetido. Solo hace falta como ancla en dos
+   casos: sidebar colapsado a solo íconos (el widget de abajo no entra en
+   64px y se oculta del todo) o el rango angosto sm–md donde el `<aside>`
+   entero desaparece (hidden md:flex) y el sidebar ni siquiera existe. */
+export function DashboardTopbar({ sidebarColapsado }: { sidebarColapsado: boolean }) {
   const { negocio, sucursales, sucursalFiltro, setSucursalFiltro } = useData();
   const { empleado, signOut } = useSession();
   const [abierto, setAbierto] = useState(false);
@@ -47,7 +55,7 @@ export function DashboardTopbar() {
           <kbd className="rounded border border-slate-200 px-1 dark:border-slate-700">Ctrl K</kbd>
         </button>
 
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className={`hidden items-center gap-2 sm:flex ${sidebarColapsado ? "" : "md:hidden"}`}>
           {negocio?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={negocio.logoUrl} alt="" className="h-7 w-7 rounded-md object-cover" />

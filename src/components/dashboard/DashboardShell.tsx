@@ -38,7 +38,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <DashboardNav colapsado={colapsado} onToggle={alternar} />
       <div className={`min-h-screen transition-[margin-left] duration-200 ${colapsado ? "md:ml-16" : "md:ml-60"}`}>
         <VistaSimuladaBanner />
-        <DashboardTopbar />
+        <DashboardTopbar sidebarColapsado={colapsado} />
         {/* `.page-enter` acá y no en cada page.tsx: un solo punto de
             aplicación, igual que antes. `pb-24` en mobile: el tab bar fijo
             de abajo (BottomTabBar.tsx) taparía el final del contenido. */}
