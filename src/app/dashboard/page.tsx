@@ -14,7 +14,11 @@ import { formatearFechaPE } from "@/lib/formato/date";
 import { nombrePlanSuscripcion } from "@/lib/precios";
 import { nombreRol } from "@/lib/roles";
 import { puedeLeerModulo } from "@/lib/permisos";
-import { calcularSeguimientos, seguimientosProximos, estaVencido } from "@/lib/seguimiento-clientes";
+import { calcularSeguimientos, calcularRecallControlAnual, seguimientosProximos, estaVencido, type Seguimiento } from "@/lib/seguimiento-clientes";
+
+const TIPO_SEGUIMIENTO_LABEL: Record<Seguimiento["tipo"], string> = {
+  reposicion: "reposición", garantia: "garantía", control_anual: "control anual",
+};
 
 const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -51,7 +55,7 @@ function useAccesosRapidos(negocioId?: string): [string[], (hrefs: string[]) => 
    dominio funcionan de punta a punta, con accesos rápidos a cada módulo. */
 export default function DashboardPage() {
   const { empleado } = useSession();
-  const { negocio, suscripcion, clientes, citas, productos, ventas, ventaItems, rolesPersonalizados } = useData();
+  const { negocio, suscripcion, clientes, citas, productos, ventas, ventaItems, recetas, examenesOptometricos, rolesPersonalizados } = useData();
   const esAdmin = empleado?.rol === "administrador";
   const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
 
@@ -85,7 +89,10 @@ export default function DashboardPage() {
   const citasHoy = citas.filter((c) => c.fechaHora.slice(0, 10) === new Date().toISOString().slice(0, 10));
   const stockBajo = productos.filter((p) => p.stockActual <= p.stockMinimo);
   const valores = [clientes.length, citasHoy.length, stockBajo.length, ventas.length];
-  const seguimientos = seguimientosProximos(calcularSeguimientos(ventas, ventaItems, productos));
+  const seguimientos = seguimientosProximos([
+    ...calcularSeguimientos(ventas, ventaItems, productos),
+    ...calcularRecallControlAnual(recetas, examenesOptometricos),
+  ]);
   const nombrePorCliente = new Map(clientes.map((c) => [c.id, `${c.nombres} ${c.apellidos}`]));
 
   return (
@@ -123,10 +130,14 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* Reposición de lentes de contacto + garantías por vencer — mismo
-         patrón que el banner de stock bajo: se calcula solo (ver
-         lib/seguimiento-clientes.ts), nadie tiene que acordarse de revisar
-         a mano quién le toca reponer o a quién se le vence una garantía. */}
+      {/* Reposición de lentes de contacto + garantías por vencer + recall de
+         control anual — mismo patrón que el banner de stock bajo: se
+         calcula solo (ver lib/seguimiento-clientes.ts), nadie tiene que
+         acordarse de revisar a mano quién le toca reponer, a quién se le
+         vence una garantía, o a quién le toca su control anual. El envío
+         del recordatorio por WhatsApp sigue siendo manual (un clic desde la
+         ficha del cliente) — automatizarlo del todo necesita la API real de
+         WhatsApp Business, fuera de alcance de este MVP (ver citas). */}
       {seguimientos.length > 0 && (
         <Link
           href="/dashboard/clientes"
@@ -136,7 +147,7 @@ export default function DashboardPage() {
           <span>
             <strong>{seguimientos.length}</strong> {seguimientos.length === 1 ? "seguimiento" : "seguimientos"} de clientes{" "}
             {seguimientos.some((s) => estaVencido(s.fecha)) ? "vencidos o próximos" : "próximos"}:{" "}
-            {seguimientos.slice(0, 3).map((s) => `${nombrePorCliente.get(s.clienteId) ?? "Cliente"} (${s.tipo === "reposicion" ? "reposición" : "garantía"})`).join(", ")}
+            {seguimientos.slice(0, 3).map((s) => `${nombrePorCliente.get(s.clienteId) ?? "Cliente"} (${TIPO_SEGUIMIENTO_LABEL[s.tipo]})`).join(", ")}
             {seguimientos.length > 3 ? ` y ${seguimientos.length - 3} más` : ""}.
           </span>
         </Link>

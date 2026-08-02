@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularSeguimientos, seguimientosProximos, estaVencido } from "@/lib/seguimiento-clientes";
+import { calcularSeguimientos, calcularRecallControlAnual, seguimientosProximos, estaVencido } from "@/lib/seguimiento-clientes";
 
 const PRODUCTOS = [
   { id: "lc-1", nombre: "Acuvue Oasys mensual", duracionReposicionDias: 30 },
@@ -82,5 +82,34 @@ describe("seguimientosProximos / estaVencido", () => {
   it("estaVencido compara contra hoy", () => {
     expect(estaVencido("2026-03-01", hoy)).toBe(true);
     expect(estaVencido("2026-03-20", hoy)).toBe(false);
+  });
+});
+
+describe("calcularRecallControlAnual", () => {
+  it("calcula el recall 12 meses después de la última receta o examen, lo que sea más reciente", () => {
+    const recetas = [{ clienteId: "c1", fecha: "2026-01-15" }];
+    const examenes = [{ clienteId: "c1", fecha: "2026-03-01" }]; // más reciente que la receta
+    const recalls = calcularRecallControlAnual(recetas, examenes);
+    expect(recalls).toHaveLength(1);
+    expect(recalls[0]).toMatchObject({ clienteId: "c1", tipo: "control_anual", fecha: "2027-03-01" });
+  });
+
+  it("con varias visitas del mismo cliente, solo cuenta la más reciente", () => {
+    const recetas = [
+      { clienteId: "c1", fecha: "2025-01-01" },
+      { clienteId: "c1", fecha: "2026-01-01" },
+    ];
+    const recalls = calcularRecallControlAnual(recetas, []);
+    expect(recalls).toHaveLength(1);
+    expect(recalls[0].fecha).toBe("2027-01-01");
+  });
+
+  it("respeta un mesesControl distinto al default", () => {
+    const recalls = calcularRecallControlAnual([{ clienteId: "c1", fecha: "2026-01-01" }], [], 6);
+    expect(recalls[0].fecha).toBe("2026-07-01");
+  });
+
+  it("un cliente sin ninguna receta ni examen no genera recall", () => {
+    expect(calcularRecallControlAnual([], [])).toHaveLength(0);
   });
 });

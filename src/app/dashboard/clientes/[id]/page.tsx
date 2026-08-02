@@ -10,6 +10,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { useClienteForm } from "@/lib/hooks/useClienteForm";
 import { ClienteFormSlideOver } from "@/components/clientes/ClienteFormSlideOver";
 import { BotonWhatsApp } from "@/components/clientes/BotonWhatsApp";
+import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
@@ -17,8 +18,9 @@ import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato/date";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode } from "@/lib/mock/mock-mode";
+import { urlWhatsAppContacto } from "@/lib/contacto";
 import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";
-import { calcularSeguimientos, estaVencido } from "@/lib/seguimiento-clientes";
+import { calcularSeguimientos, calcularRecallControlAnual, estaVencido, type Seguimiento } from "@/lib/seguimiento-clientes";
 
 /* Citas y exámenes de la ficha se paginan más chico que las listas del
    dashboard (usePaginado usa 10 por defecto) — pedido explícito del
@@ -43,7 +45,7 @@ export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { clientes, citas, recetas, examenesOptometricos, addExamenOptometrico, ventas, ventaItems, productos, deleteCliente, updateCliente } = useData();
+  const { negocio, clientes, citas, recetas, examenesOptometricos, addExamenOptometrico, ventas, ventaItems, productos, deleteCliente, updateCliente } = useData();
   const { empleado } = useSession();
   const esAdmin = empleado?.rol === "administrador";
   const formEstado = useClienteForm();
@@ -60,8 +62,24 @@ export default function ClienteDetallePage() {
     ? [...examenesOptometricos].filter((e) => e.clienteId === cliente.id).sort((a, b) => b.fecha.localeCompare(a.fecha))
     : [];
   const seguimientosDelCliente = cliente
-    ? calcularSeguimientos(ventas, ventaItems, productos).filter((s) => s.clienteId === cliente.id)
+    ? [...calcularSeguimientos(ventas, ventaItems, productos), ...calcularRecallControlAnual(recetas, examenesOptometricos)]
+        .filter((s) => s.clienteId === cliente.id)
     : [];
+
+  /* Recordatorio manual por WhatsApp (mismo patrón que urlRecordatorio en
+     citas/page.tsx: el cálculo de CUÁNDO recordar es automático, pero el
+     envío en sí requiere un clic — automatizarlo del todo necesita la API
+     real de WhatsApp Business, fuera de alcance de este MVP). */
+  function mensajeSeguimiento(s: Seguimiento): string {
+    const nombreOptica = negocio?.nombre ?? "nuestra óptica";
+    if (s.tipo === "reposicion") return `Hola ${cliente?.nombres}, ya te toca reponer tus ${s.productoNombre}. ¿Coordinamos tu próxima visita a ${nombreOptica}?`;
+    if (s.tipo === "garantia") return `Hola ${cliente?.nombres}, te recordamos que la garantía de tu ${s.productoNombre} vence el ${formatearFecha(s.fecha)}.`;
+    return `Hola ${cliente?.nombres}, ya te toca tu control anual en ${nombreOptica}. ¿Coordinamos una cita?`;
+  }
+  function urlRecordatorioSeguimiento(s: Seguimiento): string | null {
+    if (!cliente?.telefono) return null;
+    return urlWhatsAppContacto(cliente.telefono, mensajeSeguimiento(s));
+  }
   const { pagina: paginaCitas, setPagina: setPaginaCitas, totalPaginas: totalPaginasCitas, visibles: citasVisibles } =
     usePaginado(citasDelCliente, TAMANO_PAGINA_FICHA);
   const { pagina: paginaExamenes, setPagina: setPaginaExamenes, totalPaginas: totalPaginasExamenes, visibles: examenesVisibles } =
@@ -176,21 +194,38 @@ export default function ClienteDetallePage() {
 
       {seguimientosDelCliente.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {seguimientosDelCliente.map((s) => (
-            <p
-              key={`${s.tipo}-${s.ventaId}`}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                estaVencido(s.fecha)
-                  ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
-                  : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
-              }`}
-            >
-              <Contact size={15} className="shrink-0" />
-              {s.tipo === "reposicion"
-                ? <>Le toca reponer <strong>{s.productoNombre}</strong> el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencido)" : ""}.</>
-                : <>Garantía de <strong>{s.productoNombre}</strong> vence el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencida)" : ""}.</>}
-            </p>
-          ))}
+          {seguimientosDelCliente.map((s) => {
+            const urlRecordatorio = urlRecordatorioSeguimiento(s);
+            return (
+              <p
+                key={`${s.tipo}-${s.ventaId ?? s.clienteId}`}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                  estaVencido(s.fecha)
+                    ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+                    : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
+                }`}
+              >
+                <Contact size={15} className="shrink-0" />
+                <span className="flex-1">
+                  {s.tipo === "reposicion" && <>Le toca reponer <strong>{s.productoNombre}</strong> el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencido)" : ""}.</>}
+                  {s.tipo === "garantia" && <>Garantía de <strong>{s.productoNombre}</strong> vence el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencida)" : ""}.</>}
+                  {s.tipo === "control_anual" && <>Le toca su <strong>control anual</strong> el {formatearFecha(s.fecha)}{estaVencido(s.fecha) ? " (vencido)" : ""}.</>}
+                </span>
+                {urlRecordatorio && (
+                  <a
+                    href={urlRecordatorio}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Recordar por WhatsApp"
+                    aria-label={`Recordar por WhatsApp a ${cliente.nombres}`}
+                    className="shrink-0 text-[#25D366] transition-opacity hover:opacity-75"
+                  >
+                    <WhatsAppIcon size={15} />
+                  </a>
+                )}
+              </p>
+            );
+          })}
         </div>
       )}
 

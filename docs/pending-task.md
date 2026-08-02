@@ -197,6 +197,18 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
   research (`2, 3, 9, 10, 13`), explicar 3 (`1, 11, 12`), descartar el resto, y además "revisar el
   proyecto y ver si hay algo que falta conectar" — de ahí salieron los 2 cabos sueltos, que el
   usuario pidió resolver en el mismo hilo apenas se los reporté.
+- Después, a pedido explícito ("solo haz la primera, recall"), sí se implementó el ítem #1 (recall
+  automático de control anual): `calcularRecallControlAnual` en `lib/seguimiento-clientes.ts` calcula
+  12 meses después de la última receta/examen optométrico del cliente — mismo mecanismo ya usado
+  para reposición/garantía, unificado en la misma lista de `Seguimiento` (tipo `"control_anual"`).
+  Igual que el recordatorio de citas de mañana, el envío es manual: un ícono de WhatsApp junto a cada
+  alerta en la ficha del cliente abre `wa.me` con el mensaje ya armado — automatizar el envío en sí
+  necesita la API real de WhatsApp Business (ítem #11, explicado pero no implementado). De paso se
+  corrigió un bug latente en `sumarMeses` (`lib/seguimiento-clientes.ts`): parseaba la fecha ISO como
+  UTC-medianoche y llamaba `setMonth()` en hora LOCAL — con un huso negativo como el de Perú
+  (UTC-5) eso desfasaba el resultado un día cada vez que el mes de destino tenía distinta cantidad de
+  días que el de origen (afectaba `garantiaMeses` no múltiplos de 12, entre otros). Ahora usa
+  aritmética 100% en UTC.
 - **Pendiente:** el gap de `ajustarStock` sin `sucursalId` en `addVenta`/`anularVenta`, recién
   anotado arriba — no se tocó en esta sesión (fuera del alcance de "los 2 cabos sueltos", que eran
   específicamente el selector del topbar y el reparto inicial).
