@@ -30,6 +30,7 @@ export default function AjustesPage() {
   const [confirmando, setConfirmando] = useState(false);
   const [desactivando, setDesactivando] = useState(false);
   const [subiendoLogo, setSubiendoLogo] = useState(false);
+  const [quitandoLogo, setQuitandoLogo] = useState(false);
 
   async function guardarDatos(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +61,17 @@ export default function AjustesPage() {
     } finally {
       setSubiendoLogo(false);
     }
+  }
+
+  /* `logoUrl: ""` (no `undefined`) — negocioToRow solo incluye un campo en
+     el patch si es distinto de `undefined`, así que un `undefined` acá no
+     borraría nada en la base. `""` sí entra al patch y `rowToNegocio` ya
+     trata cualquier valor falsy de `logo_url` como "sin logo" al releer. */
+  async function quitarLogo() {
+    setQuitandoLogo(true);
+    await updateNegocio({ logoUrl: "" });
+    setQuitandoLogo(false);
+    toast("Logo quitado.");
   }
 
   async function desactivarNegocio() {
@@ -99,10 +111,17 @@ export default function AjustesPage() {
           ) : (
             <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500">Sin logo</div>
           )}
-          <label className={`btn-outline cursor-pointer ${subiendoLogo ? "pointer-events-none opacity-50" : ""}`}>
-            {subiendoLogo ? "Procesando…" : "Subir logo"}
-            <input type="file" accept="image/*" onChange={onLogo} disabled={subiendoLogo} className="hidden" />
-          </label>
+          <div className="flex flex-col items-start gap-1.5">
+            <label className={`btn-outline cursor-pointer ${subiendoLogo ? "pointer-events-none opacity-50" : ""}`}>
+              {subiendoLogo ? "Procesando…" : "Subir logo"}
+              <input type="file" accept="image/*" onChange={onLogo} disabled={subiendoLogo} className="hidden" />
+            </label>
+            {negocio?.logoUrl && (
+              <button type="button" onClick={quitarLogo} disabled={quitandoLogo} className="link-danger text-xs disabled:opacity-50">
+                {quitandoLogo ? "Quitando…" : "Quitar logo"}
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-slate-400 dark:text-slate-500">JPG, PNG o WebP. Máximo 8MB.</p>
 

@@ -27,7 +27,7 @@ import { nombreRol } from "@/lib/roles";
    el rol principal de alguien nunca invalida el rol personalizado que ya
    tenía asignado.
 
-   Ascender/degradar entre Encargado ↔ Vendedor SÍ se edita acá (RLS ya lo
+   Ascender/degradar entre Encargado ↔ Trabajador SÍ se edita acá (RLS ya lo
    permitía — empleados_admin_update no restringe columnas, el trigger
    bloquear_autoescalada_empleado solo bloquea auto-edición — solo faltaba
    el control). Deliberadamente NO se puede tocar `administrador` desde este

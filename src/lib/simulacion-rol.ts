@@ -1,6 +1,6 @@
 /* ================= "VER COMO" — SIMULACIÓN DE ROL (SOLO UI) =================
    Deja que un `administrador` vea su propio dashboard como lo vería un
-   encargado/vendedor, para probar qué gating de rol le está aplicando antes
+   encargado/trabajador, para probar qué gating de rol le está aplicando antes
    de delegarle algo. Es EXCLUSIVAMENTE una simulación de interfaz: la sesión
    real de Supabase sigue siendo la del administrador, así que cualquier
    escritura real (INSERT/UPDATE) sigue autorizada por su rol verdadero — RLS

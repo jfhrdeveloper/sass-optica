@@ -88,7 +88,7 @@ export default function RolesPage() {
     <main>
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Roles</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Previsualizá el dashboard con otro rol y armá roles personalizados reutilizables para tus encargados y vendedores.
+        Previsualizá el dashboard con otro rol y armá roles personalizados reutilizables para tus encargados y trabajadores.
       </p>
 
       {/* "Ver como" (simulación de UI, ver src/lib/simulacion-rol.ts). Solo
@@ -104,7 +104,7 @@ export default function RolesPage() {
             <Eye size={16} /> Vista previa de roles
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Mirá tu dashboard como lo vería un encargado o un vendedor, antes de delegarles algo.
+            Mirá tu dashboard como lo vería un encargado o un trabajador, antes de delegarles algo.
           </p>
           <div className="flex flex-wrap gap-2">
             {ROLES_SIMULABLES.map((rol) => (
