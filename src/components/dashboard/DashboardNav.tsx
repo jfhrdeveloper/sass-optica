@@ -8,7 +8,7 @@ import { useSession } from "@/components/providers/SessionProvider";
 import { useData } from "@/components/providers/DataProvider";
 import { coincideBusqueda } from "@/lib/formato/texto";
 import { nombrePlanSuscripcion, nombreEstadoSuscripcion } from "@/lib/precios";
-import { formatearFechaPE } from "@/lib/formato/date";
+import { formatearFechaPE, diasEntre } from "@/lib/formato/date";
 import { NAV, type Hijo, type Restriccion, type NavItem } from "@/lib/dashboard-nav";
 import { puedeLeerModulo } from "@/lib/permisos";
 
@@ -175,6 +175,18 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
   const contadorDe = (href: string) => (href === "/dashboard/citas" && citasHoy > 0 ? citasHoy : null);
   const alertaDe = (href: string) => href === "/dashboard/productos" && stockBajo > 0;
   const grupoTieneAlerta = (key: string) => key === "comercial" && stockBajo > 0;
+
+  /* Cuenta regresiva de la prueba gratis (widget del pie, más abajo): días
+     TOTALES sale de la duración real de esta prueba (trialInicio→trialFin),
+     nunca un "30" fijo — así no se desincroniza si algún día se ofrece una
+     prueba de otra duración. `trialUrgente` (≤5 días) reusa la semántica ya
+     establecida de `.badge-danger` (mismo rojo que "vencida" en ESTADO_BADGE
+     de abajo) para escalar la urgencia visual, no es un color inventado. */
+  const enPrueba = suscripcion?.estado === "trial";
+  const diasTotalesTrial = enPrueba ? diasEntre(suscripcion.trialInicio, suscripcion.trialFin) : 0;
+  const diasRestantesTrial = enPrueba ? Math.max(0, diasEntre(new Date().toISOString().slice(0, 10), suscripcion.trialFin)) : 0;
+  const porcentajeTrial = diasTotalesTrial > 0 ? Math.max(0, Math.min(100, (diasRestantesTrial / diasTotalesTrial) * 100)) : 0;
+  const trialUrgente = diasRestantesTrial <= 5;
   const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
   const puedeVer = (i: Restriccion) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso);
   // Se saca del nav.map() de abajo para renderizarse aparte, en el pie fijo.
@@ -502,16 +514,36 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
 
         {/* Prueba gratis: mismo criterio que el banner de Inicio
            (`suscripcion?.estado === "trial"`) — pero acá es visible desde
-           CUALQUIER página del dashboard, no solo Inicio. Sin espacio para
-           el texto en 64px colapsado; ahí el aviso se reduce a un punto
-           ámbar sobre el ícono de la identidad, más abajo. */}
-        {!colapsado && suscripcion?.estado === "trial" && (
+           CUALQUIER página del dashboard, no solo Inicio. Cuenta regresiva
+           + barra que se vacía (mismo lenguaje visual que la barra de
+           progreso de OnboardingChecklist.tsx: track plano `h-1`, relleno
+           con `transition-all duration-500`, nada de esquinas redondeadas
+           ni degradados — es la MISMA barra, no una nueva inventada) en vez
+           de solo la fecha límite. Sin espacio para nada de esto en 64px
+           colapsado; ahí el aviso se reduce a un punto sobre el ícono de la
+           identidad, más abajo (rojo si `trialUrgente`, igual que acá). */}
+        {!colapsado && enPrueba && (
           <Link
             href="/dashboard/facturacion"
-            className="mx-2 mb-2 block rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+            className={`mx-2 mb-2 block rounded-lg border px-2.5 py-2 text-xs transition-colors ${
+              trialUrgente
+                ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+            }`}
           >
-            <p className="font-medium">Prueba gratis</p>
-            <p>Hasta el {formatearFechaPE(suscripcion.trialFin)}</p>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-medium">Prueba gratis</span>
+              <span className="shrink-0 font-semibold tabular-nums">
+                {diasRestantesTrial} {diasRestantesTrial === 1 ? "día" : "días"}
+              </span>
+            </div>
+            <div className={`mt-1.5 h-1 w-full ${trialUrgente ? "bg-red-200 dark:bg-red-900/60" : "bg-amber-200 dark:bg-amber-900/60"}`}>
+              <div
+                className={`h-1 transition-all duration-500 ${trialUrgente ? "bg-red-500 dark:bg-red-400" : "bg-amber-500 dark:bg-amber-400"}`}
+                style={{ width: `${porcentajeTrial}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] opacity-80">Hasta el {formatearFechaPE(suscripcion.trialFin)}</p>
           </Link>
         )}
 
@@ -532,10 +564,12 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
                   {negocio.nombre?.[0]?.toUpperCase() ?? "O"}
                 </div>
               )}
-              {colapsado && suscripcion?.estado === "trial" && (
+              {colapsado && enPrueba && (
                 <span
                   aria-hidden="true"
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900"
+                  className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 ${
+                    trialUrgente ? "bg-red-500 dark:bg-red-400" : "bg-amber-500 dark:bg-amber-400"
+                  }`}
                 />
               )}
             </span>

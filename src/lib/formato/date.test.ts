@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatearFechaPE, aFechaLocal, aCadenaISO, ordenarRango } from "@/lib/formato/date";
+import { formatearFechaPE, aFechaLocal, aCadenaISO, ordenarRango, diasEntre } from "@/lib/formato/date";
 
 /* Este helper existe por un bug real (ver bitácora 2026-07-24 (12)): usar
    `new Date("2026-07-24").toLocaleDateString()` interpreta el string como
@@ -111,5 +111,37 @@ describe("ordenarRango", () => {
   it("no toca nada si falta un extremo", () => {
     expect(ordenarRango("2026-07-24", "")).toEqual(["2026-07-24", ""]);
     expect(ordenarRango("", "2026-07-24")).toEqual(["", "2026-07-24"]);
+  });
+});
+
+describe("diasEntre", () => {
+  it("cuenta los días de calendario entre dos fechas", () => {
+    expect(diasEntre("2026-07-01", "2026-07-31")).toBe(30);
+  });
+
+  it("da 0 para la misma fecha", () => {
+    expect(diasEntre("2026-07-24", "2026-07-24")).toBe(0);
+  });
+
+  it("da negativo si `hasta` es anterior a `desde`", () => {
+    expect(diasEntre("2026-07-24", "2026-07-01")).toBe(-23);
+  });
+
+  it("cruza el fin de mes/año sin desfasarse (aritmética UTC)", () => {
+    expect(diasEntre("2025-12-15", "2026-01-15")).toBe(31);
+  });
+
+  it("es independiente de la zona horaria del proceso", () => {
+    const original = process.env.TZ;
+    try {
+      process.env.TZ = "Pacific/Kiritimati"; // UTC+14
+      const adelantado = diasEntre("2026-01-01", "2026-07-01");
+      process.env.TZ = "Pacific/Midway"; // UTC-11
+      const atrasado = diasEntre("2026-01-01", "2026-07-01");
+      expect(adelantado).toBe(181);
+      expect(atrasado).toBe(181);
+    } finally {
+      process.env.TZ = original;
+    }
   });
 });

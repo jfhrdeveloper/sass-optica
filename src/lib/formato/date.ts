@@ -63,3 +63,16 @@ export function ordenarRango(desde: string, hasta: string): [string, string] {
   if (desde && hasta && desde > hasta) return [hasta, desde];
   return [desde, hasta];
 }
+
+/** Días de calendario entre dos fechas civiles "YYYY-MM-DD" (puede dar
+ *  negativo si `hasta` es anterior a `desde`). Aritmética 100% en UTC
+ *  (`Date.UTC` a partir de los componentes, nunca `new Date(iso)` +
+ *  getters/setters locales) — mismo motivo que `sumarMeses` en
+ *  `lib/seguimiento-clientes.ts`: con un huso horario negativo como el de
+ *  Perú, mezclar un parseo UTC con aritmética local desfasa el resultado. */
+export function diasEntre(desde: string, hasta: string): number {
+  const [ay, am, ad] = desde.slice(0, 10).split("-").map(Number);
+  const [by, bm, bd] = hasta.slice(0, 10).split("-").map(Number);
+  const msPorDia = 24 * 60 * 60 * 1000;
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / msPorDia);
+}
