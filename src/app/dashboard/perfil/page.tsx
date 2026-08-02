@@ -8,12 +8,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { prepararImagen, ImagenInvalidaError } from "@/lib/imagen";
-
-const ROL_LABEL: Record<string, string> = {
-  administrador: "Administrador",
-  encargado: "Encargado",
-  trabajador: "Trabajador",
-};
+import { nombreRol } from "@/lib/roles";
 
 /* Perfil PERSONAL del empleado logueado — distinto de "Perfil del negocio"
    (AjustesPage), que es del tenant y solo ve el administrador. Se llega acá
@@ -32,6 +27,7 @@ export default function PerfilPage() {
   const [form, setForm] = useState({ nombres: yo?.nombres ?? "", apellidos: yo?.apellidos ?? "" });
   const [guardando, setGuardando] = useState(false);
   const [subiendoAvatar, setSubiendoAvatar] = useState(false);
+  const [quitandoAvatar, setQuitandoAvatar] = useState(false);
 
   const [nuevaClave, setNuevaClave] = useState("");
   const [confirmarClave, setConfirmarClave] = useState("");
@@ -61,6 +57,17 @@ export default function PerfilPage() {
     } finally {
       setSubiendoAvatar(false);
     }
+  }
+
+  /* `avatarBase64: ""` (no `undefined`) — mismo motivo que quitarLogo() en
+     dashboard/ajustes/page.tsx: empleadoToRow solo incluye el campo en el
+     patch si es distinto de `undefined`. */
+  async function quitarAvatar() {
+    if (!yo) return;
+    setQuitandoAvatar(true);
+    await updateEmpleado(yo.id, { avatarBase64: "" });
+    setQuitandoAvatar(false);
+    toast("Foto quitada.");
   }
 
   async function cambiarClave(e: React.FormEvent) {
@@ -103,10 +110,17 @@ export default function PerfilPage() {
               <UserRound size={22} />
             </div>
           )}
-          <label className={`btn-outline cursor-pointer ${subiendoAvatar ? "pointer-events-none opacity-50" : ""}`}>
-            {subiendoAvatar ? "Procesando…" : "Cambiar foto"}
-            <input type="file" accept="image/*" onChange={onAvatar} disabled={subiendoAvatar} className="hidden" />
-          </label>
+          <div className="flex flex-col items-start gap-1.5">
+            <label className={`btn-outline cursor-pointer ${subiendoAvatar ? "pointer-events-none opacity-50" : ""}`}>
+              {subiendoAvatar ? "Procesando…" : "Cambiar foto"}
+              <input type="file" accept="image/*" onChange={onAvatar} disabled={subiendoAvatar} className="hidden" />
+            </label>
+            {yo?.avatarBase64 && (
+              <button type="button" onClick={quitarAvatar} disabled={quitandoAvatar} className="link-danger text-xs disabled:opacity-50">
+                {quitandoAvatar ? "Quitando…" : "Quitar foto"}
+              </button>
+            )}
+          </div>
         </div>
 
         <form onSubmit={guardarDatos} className="space-y-3">
@@ -140,7 +154,7 @@ export default function PerfilPage() {
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Rol</dt>
-            <dd className="text-slate-700 dark:text-slate-200">{yo ? (ROL_LABEL[yo.rol] ?? yo.rol) : "—"}</dd>
+            <dd className="text-slate-700 dark:text-slate-200">{yo ? nombreRol(yo.rol) : "—"}</dd>
           </div>
         </dl>
       </div>
