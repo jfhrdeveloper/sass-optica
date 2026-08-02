@@ -100,7 +100,7 @@ export function EscanerCodigoBarras({ abierto, onCerrar, onDetectado }: Props) {
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
             <Camera size={16} /> Escanear código de barras
           </h3>
-          <button onClick={onCerrar} aria-label="Cerrar" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 dark:text-slate-500 dark:hover:bg-slate-800">
+          <button onClick={onCerrar} aria-label="Cerrar" className="row-icon-btn">
             <X size={16} />
           </button>
         </div>

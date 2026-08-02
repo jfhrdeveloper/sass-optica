@@ -17,7 +17,7 @@ export function FeatureGateBanner({ mensaje }: { mensaje: string }) {
       </div>
       <Link
         href="/dashboard/facturacion"
-        className="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+        className="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
       >
         Quitar restricción
       </Link>

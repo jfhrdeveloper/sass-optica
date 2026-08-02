@@ -109,7 +109,7 @@ export function CulqiCheckoutButton({ montoCentimos, planId, ciclo, tituloNegoci
       <button
         onClick={() => window.Culqi?.open()}
         disabled={!scriptListo || procesando}
-        className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+        className="btn-primary"
       >
         {procesando ? "Procesando…" : `Pagar S/ ${(montoCentimos / 100).toFixed(2)}`}
       </button>
