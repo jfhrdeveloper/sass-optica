@@ -220,11 +220,13 @@ input[type="number"]::-webkit-inner-spin-button {
      frame. El nav superior NO lo usa: ahí el hover es una píldora de fondo
      (patrón de ferdocs-web, ver LandingHeader.tsx). */
   .link-underline,
-  .link {
+  .link,
+  .link-danger {
     @apply relative;
   }
   .link-underline::after,
-  .link::after {
+  .link::after,
+  .link-danger::after {
     content: "";
     position: absolute;
     left: 0;
@@ -237,7 +239,8 @@ input[type="number"]::-webkit-inner-spin-button {
     transition: transform 0.25s ease;
   }
   .link-underline:hover::after,
-  .link:hover::after {
+  .link:hover::after,
+  .link-danger:hover::after {
     transform: scaleX(1);
   }
 
@@ -289,9 +292,13 @@ input[type="number"]::-webkit-inner-spin-button {
      contraste con el azul base — se cambió al mismo subrayado animado de
      izquierda a derecha que `.link-underline` (comparten el `::after` de
      arriba), en vez del subrayado nativo instantáneo, para quedar
-     consistente con el resto del sitio.
-     `.link-danger`/`.link-muted` sí conservan el cambio de color (rojo/gris
-     tienen suficiente salto de contraste entre sus dos tonos). */
+     consistente con el resto del sitio. `.link-danger` (Eliminar/Quitar)
+     comparte el mismo subrayado — a pedido del usuario, que lo notó
+     ausente en "Quitar foto" — además del cambio de color a rojo.
+     `.link-muted` sí sigue solo con el cambio de color (gris tiene
+     suficiente salto de contraste entre sus dos tonos, y es una acción
+     secundaria/de salida — "No", "cancelar" — que no necesita el mismo
+     peso visual que una acción destructiva). */
   .link {
     @apply text-primary;
   }
