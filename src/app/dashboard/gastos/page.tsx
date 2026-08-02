@@ -13,7 +13,7 @@ import { DatePicker } from "@/components/calendario/DatePicker";
 import { puedeEscribirModulo } from "@/lib/permisos";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
-const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0, fecha: new Date().toISOString().slice(0, 10) };
+const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0 };
 
 /* Capitalizado en el TEXTO, no vía CSS (`className="capitalize"` en un
    `<option>`): el popover nativo del `<select>` al desplegarse no respeta
@@ -46,7 +46,7 @@ export default function GastosPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.monto) return;
+    if (!form.monto || !form.fecha) return;
     setGuardando(true);
     await addGasto(form);
     setGuardando(false);
@@ -83,7 +83,7 @@ export default function GastosPage() {
           </select>
           <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input text-sm" />
           <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
-          <button type="submit" disabled={guardando} className="btn-primary col-span-full">
+          <button type="submit" disabled={guardando || !form.monto || !form.fecha} className="btn-primary col-span-full">
             Registrar gasto
           </button>
         </form>
