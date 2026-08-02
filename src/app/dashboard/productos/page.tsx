@@ -29,7 +29,10 @@ const TIPO_MOVIMIENTO_LABEL: Record<(typeof TIPOS_MOVIMIENTO)[number], string> =
   ajuste: "Ajuste",
   devolucion: "Devolución",
 };
-const VACIO: Partial<Producto> = { categoria: "montura", precioVenta: 0, precioCosto: 0, activo: true };
+// Sin categoría por default (antes "montura") — mismo motivo que el fix de
+// categoría en gastos/page.tsx: forzar una elección a propósito en vez de
+// heredar en silencio la primera opción de la lista.
+const VACIO: Partial<Producto> = { precioVenta: 0, precioCosto: 0, activo: true };
 
 export default function ProductosPage() {
   const { negocio, productos, proveedores, addProducto, updateProducto, ajustarStock } = useData();
@@ -316,7 +319,7 @@ export default function ProductosPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Categoría</label>
                 <select
-                  value={form.categoria ?? "montura"}
+                  value={form.categoria ?? ""}
                   onChange={(e) => {
                     const categoria = e.target.value;
                     // Los 3 campos de lente de contacto solo son válidos con esta
@@ -328,6 +331,7 @@ export default function ProductosPage() {
                   }}
                   className="select mt-1 w-full text-sm"
                 >
+                  <option value="" disabled>Elegir categoría…</option>
                   {CATEGORIAS.map((c) => <option key={c} value={c}>{CATEGORIA_LABEL[c]}</option>)}
                 </select>
               </div>
@@ -350,7 +354,7 @@ export default function ProductosPage() {
                 <input type="checkbox" checked={form.activo ?? true} onChange={(e) => setForm({ ...form, activo: e.target.checked })} className="checkbox" />
                 Publicado como Activo (desmarca para dejarlo en Borrador)
               </label>
-              <button type="button" disabled={!form.nombre} onClick={() => setPaso(2)} className="btn-primary mt-2 w-full">
+              <button type="button" disabled={!form.nombre || !form.categoria} onClick={() => setPaso(2)} className="btn-primary mt-2 w-full">
                 Siguiente
               </button>
             </>

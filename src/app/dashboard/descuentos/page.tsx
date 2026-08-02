@@ -12,7 +12,11 @@ import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFechaPE } from "@/lib/formato/date";
 import { puedeEscribirModulo } from "@/lib/permisos";
 
-const VACIO: Partial<Descuento> = { tipo: "porcentaje", valor: 0, aplicaA: "ambos", activo: true };
+// Sin `tipo` por default (antes "porcentaje") — porcentaje vs. monto fijo
+// cambia el significado real del cupón (10 = 10% o S/10), no es un detalle
+// menor para heredar en silencio. `aplicaA: "ambos"` sí queda: es la opción
+// más permisiva/inclusiva, no una restricción escondida.
+const VACIO: Partial<Descuento> = { valor: 0, aplicaA: "ambos", activo: true };
 const APLICA_A_LABEL: Record<Descuento["aplicaA"], string> = {
   cotizaciones: "Solo cotizaciones",
   ventas: "Solo ventas",
@@ -40,7 +44,7 @@ export default function DescuentosPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.codigo || !form.valor) return;
+    if (!form.codigo || !form.valor || !form.tipo) return;
     setGuardando(true);
     await addDescuento({ ...form, codigo: form.codigo.toUpperCase() });
     setGuardando(false);
@@ -138,7 +142,8 @@ export default function DescuentosPage() {
         <form onSubmit={onSubmit} className="space-y-3">
           <input placeholder="Código (ej. VERANO10)" required value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input w-full text-sm uppercase" />
           <div className="grid grid-cols-2 gap-2">
-            <select value={form.tipo ?? "porcentaje"} onChange={(e) => setForm({ ...form, tipo: e.target.value as Descuento["tipo"] })} className="select text-sm">
+            <select value={form.tipo ?? ""} onChange={(e) => setForm({ ...form, tipo: e.target.value as Descuento["tipo"] })} className="select text-sm">
+              <option value="" disabled>Tipo…</option>
               <option value="porcentaje">% Porcentaje</option>
               <option value="monto">S/ Monto fijo</option>
             </select>
@@ -159,7 +164,7 @@ export default function DescuentosPage() {
             onChange={(d, h) => setForm({ ...form, vigenciaDesde: d || undefined, vigenciaHasta: h || undefined })}
           />
           <input placeholder="Límite de usos (opcional)" type="number" value={form.limiteUsos ?? ""} onChange={(e) => setForm({ ...form, limiteUsos: e.target.value ? Number(e.target.value) : undefined })} className="input w-full text-sm" />
-          <button type="submit" disabled={guardando} className="btn-primary w-full">
+          <button type="submit" disabled={guardando || !form.codigo || !form.valor || !form.tipo} className="btn-primary w-full">
             {guardando ? "Guardando…" : "Crear cupón"}
           </button>
         </form>

@@ -13,7 +13,10 @@ import { DatePicker } from "@/components/calendario/DatePicker";
 import { puedeEscribirModulo } from "@/lib/permisos";
 
 const CATEGORIAS = ["alquiler", "sueldos", "insumos", "servicios", "proveedor", "otro"] as const;
-const VACIO: Partial<Gasto> = { categoria: "otro", monto: 0 };
+// Sin categoría por default (antes "otro") — un gasto sin categoría elegida
+// a propósito quedaba clasificado como "otro" en silencio, sin que quien
+// carga el gasto se diera cuenta de que nunca tocó ese campo.
+const VACIO: Partial<Gasto> = { monto: 0 };
 
 /* Capitalizado en el TEXTO, no vía CSS (`className="capitalize"` en un
    `<option>`): el popover nativo del `<select>` al desplegarse no respeta
@@ -46,7 +49,7 @@ export default function GastosPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.monto || !form.fecha) return;
+    if (!form.monto || !form.fecha || !form.categoria) return;
     setGuardando(true);
     await addGasto(form);
     setGuardando(false);
@@ -73,7 +76,8 @@ export default function GastosPage() {
 
       {puedeEditar && (
         <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-          <select value={form.categoria ?? "otro"} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
+          <select value={form.categoria ?? ""} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
+            <option value="" disabled>Elegir categoría…</option>
             {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
           </select>
           <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
@@ -83,7 +87,7 @@ export default function GastosPage() {
           </select>
           <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input text-sm" />
           <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
-          <button type="submit" disabled={guardando || !form.monto || !form.fecha} className="btn-primary col-span-full">
+          <button type="submit" disabled={guardando || !form.monto || !form.fecha || !form.categoria} className="btn-primary col-span-full">
             Registrar gasto
           </button>
         </form>

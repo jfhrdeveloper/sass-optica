@@ -6,13 +6,25 @@ import { ArrowLeft, CheckCircle2, Printer } from "lucide-react";
 import { RAZON_SOCIAL, RUC, ATENCION_100_VIRTUAL } from "@/lib/contacto";
 import { construirHtmlConstanciaReclamo, type DatosReclamo, type TipoReclamo, type TipoBien } from "@/lib/reclamos";
 
-const VACIO: DatosReclamo = {
-  tipo: "reclamo",
+/* `tipo`/`bienTipo` sin default (antes "reclamo"/"servicio") — son
+   distinciones legales reales del Libro de Reclamaciones (Reclamo ≠ Queja,
+   Producto ≠ Servicio), no un detalle de UI: heredarlas en silencio podría
+   dejar mal clasificado el reclamo de alguien que nunca tocó esos campos.
+   El tipo local afloja esos 2 campos a `| ""` mientras están sin elegir —
+   los radios/`<select>` llevan `required`, así que el navegador bloquea el
+   submit hasta que ambos tengan un valor real; para cuando `onSubmit` corre,
+   ya son válidos. `consumidorDocumentoTipo: "DNI"` SÍ queda: es el
+   documento de la enorme mayoría de quienes llenan este formulario, no una
+   clasificación legal que cambie el trámite. */
+type FormReclamo = Omit<DatosReclamo, "tipo" | "bienTipo"> & { tipo: TipoReclamo | ""; bienTipo: TipoBien | "" };
+
+const VACIO: FormReclamo = {
+  tipo: "",
   consumidorNombres: "", consumidorApellidos: "",
   consumidorDocumentoTipo: "DNI", consumidorDocumentoNumero: "",
   consumidorDomicilio: "", consumidorTelefono: "", consumidorEmail: "",
   esMenorEdad: false, apoderadoNombre: "",
-  bienTipo: "servicio", bienDescripcion: "",
+  bienTipo: "", bienDescripcion: "",
   montoReclamado: undefined,
   detalle: "", pedido: "",
 };
@@ -25,12 +37,12 @@ const VACIO: DatosReclamo = {
    (lib/reclamos.ts + window.print()) — es la copia que la ley exige
    entregarle al consumidor, sin depender de un email/PDF externo tampoco. */
 export default function LibroReclamacionesPage() {
-  const [form, setForm] = useState<DatosReclamo>(VACIO);
+  const [form, setForm] = useState<FormReclamo>(VACIO);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmacion, setConfirmacion] = useState<{ numero: string; fecha: Date } | null>(null);
 
-  function set<K extends keyof DatosReclamo>(campo: K, valor: DatosReclamo[K]) {
+  function set<K extends keyof FormReclamo>(campo: K, valor: FormReclamo[K]) {
     setForm((prev) => ({ ...prev, [campo]: valor }));
   }
 
@@ -56,7 +68,11 @@ export default function LibroReclamacionesPage() {
 
   function imprimir() {
     if (!confirmacion) return;
-    const html = construirHtmlConstanciaReclamo(confirmacion.numero, form, confirmacion.fecha);
+    // Cast seguro: solo se llega a `confirmacion` tras un submit exitoso, y
+    // el submit nunca corrió sin `tipo`/`bienTipo` reales (radios/`<select>`
+    // `required`, ver VACIO más arriba) — para acá `form` ya es un
+    // DatosReclamo completo en los hechos, aunque su tipo local sea más laxo.
+    const html = construirHtmlConstanciaReclamo(confirmacion.numero, form as DatosReclamo, confirmacion.fecha);
     const ventana = window.open("", "_blank", "width=420,height=640");
     if (!ventana) return;
     ventana.document.write(html);
@@ -104,7 +120,7 @@ export default function LibroReclamacionesPage() {
               <div className="flex gap-4">
                 {(["reclamo", "queja"] as TipoReclamo[]).map((t) => (
                   <label key={t} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                    <input type="radio" name="tipo" className="radio" checked={form.tipo === t} onChange={() => set("tipo", t)} />
+                    <input required type="radio" name="tipo" className="radio" checked={form.tipo === t} onChange={() => set("tipo", t)} />
                     {t === "reclamo" ? "Reclamo" : "Queja"}
                   </label>
                 ))}
@@ -142,7 +158,8 @@ export default function LibroReclamacionesPage() {
             <div>
               <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Bien contratado</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <select value={form.bienTipo} onChange={(e) => set("bienTipo", e.target.value as TipoBien)} className="select text-sm">
+                <select required value={form.bienTipo} onChange={(e) => set("bienTipo", e.target.value as TipoBien)} className="select text-sm">
+                  <option value="" disabled>Elegir…</option>
                   <option value="servicio">Servicio</option>
                   <option value="producto">Producto</option>
                 </select>
