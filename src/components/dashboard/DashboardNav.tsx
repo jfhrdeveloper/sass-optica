@@ -8,7 +8,8 @@ import { useSession } from "@/components/providers/SessionProvider";
 import { useData } from "@/components/providers/DataProvider";
 import { coincideBusqueda } from "@/lib/formato/texto";
 import { nombrePlanSuscripcion, nombreEstadoSuscripcion } from "@/lib/precios";
-import { NAV, type Hijo, type Restriccion } from "@/lib/dashboard-nav";
+import { formatearFechaPE } from "@/lib/formato/date";
+import { NAV, type Hijo, type Restriccion, type NavItem } from "@/lib/dashboard-nav";
 import { puedeLeerModulo } from "@/lib/permisos";
 
 const MAX_RESULTADOS_BUSQUEDA = 5;
@@ -176,6 +177,8 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
   const grupoTieneAlerta = (key: string) => key === "comercial" && stockBajo > 0;
   const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
   const puedeVer = (i: Restriccion) => (!i.soloAdmin || esAdmin) && tienePermiso(i.permiso);
+  // Se saca del nav.map() de abajo para renderizarse aparte, en el pie fijo.
+  const itemMejoras = NAV.find((i): i is Extract<NavItem, { kind: "link" }> => i.kind === "link" && i.href === "/dashboard/mejoras");
   /* El link "Ajustes" apunta a /dashboard/ajustes si sos administrador; el
      resto de roles no puede entrar ahí (proxy.ts los rebota), así que
      aterrizan directo en la pestaña de Suscripción/facturación — ver
@@ -386,6 +389,9 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
         />
         <div className="space-y-0.5">
         {NAV.map((item) => {
+          // "Mejoras" se renderiza aparte, en el pie fijo del sidebar (ver
+          // más abajo) — no como último ítem de este nav scrolleable.
+          if (item.kind === "link" && item.href === "/dashboard/mejoras") return null;
           if (item.kind === "link") {
             if (!puedeVer(item)) return null;
             return filaLink(item.href, item.label, item.icon, esActivo(item.href));
@@ -478,40 +484,75 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
         </div>
       </nav>
 
-      {/* Identidad del negocio + plan — vivía como una línea de texto gris al
-         fondo de Inicio (`dashboard/page.tsx`), suelta y sin diseño real.
-         Se mudó acá porque es información constante del negocio, no de una
-         página puntual — el sidebar está presente en todo el dashboard.
-         Ahora es un link (mismo destino que "Ajustes" del nav — resolverHref
-         ya manda a Facturación si no sos administrador) con el logo/iniciales
-         del negocio, mismo círculo que ya usa DashboardTopbar.tsx — antes era
-         solo texto, sin ninguna acción ni identidad visual real. Oculto en
-         colapsado: no entra ni el nombre del negocio ni el badge en 64px, y
-         ya queda accesible expandiendo. */}
-      {!colapsado && negocio && (
-        <Link
-          href={resolverHref("/dashboard/ajustes")}
-          className="flex items-center gap-2.5 border-t border-slate-100 px-3 py-3 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
-        >
-          {negocio.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={negocio.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
-          ) : (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-light text-xs font-semibold text-primary">
-              {negocio.nombre?.[0]?.toUpperCase() ?? "O"}
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{negocio.nombre}</p>
-            <p className="truncate text-xs text-slate-400 dark:text-slate-500">{negocio.subdominio}</p>
-            {suscripcion && (
-              <span className={`badge mt-1 ${ESTADO_BADGE[suscripcion.estado] ?? "badge-neutral"}`}>
-                {nombrePlanSuscripcion(suscripcion.plan)} · {nombreEstadoSuscripcion(suscripcion.estado)}
-              </span>
-            )}
+      {/* Pie fijo del sidebar (no scrollea con el nav) — 3 piezas, de arriba
+         a abajo: "Mejoras" (utilidad secundaria, antes vivía como último
+         ítem del nav scrolleable — se sacó de ahí para que no compita
+         visualmente con lo operativo del día a día, ver dashboard-nav.ts),
+         aviso de prueba gratis (solo si el negocio la está usando) e
+         identidad del negocio + plan (siempre visible, incluso colapsado —
+         antes desaparecía del todo en 64px; antes TAMBIÉN se repetía en
+         DashboardTopbar.tsx, decisión explícita del usuario de dejarla
+         solo acá). */}
+      <div className="border-t border-slate-100 dark:border-slate-800">
+        {itemMejoras && puedeVer(itemMejoras) && (
+          <div className="px-2 py-2">
+            {filaLink(itemMejoras.href, itemMejoras.label, itemMejoras.icon, esActivo(itemMejoras.href))}
           </div>
-        </Link>
-      )}
+        )}
+
+        {/* Prueba gratis: mismo criterio que el banner de Inicio
+           (`suscripcion?.estado === "trial"`) — pero acá es visible desde
+           CUALQUIER página del dashboard, no solo Inicio. Sin espacio para
+           el texto en 64px colapsado; ahí el aviso se reduce a un punto
+           ámbar sobre el ícono de la identidad, más abajo. */}
+        {!colapsado && suscripcion?.estado === "trial" && (
+          <Link
+            href="/dashboard/facturacion"
+            className="mx-2 mb-2 block rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+          >
+            <p className="font-medium">Prueba gratis</p>
+            <p>Hasta el {formatearFechaPE(suscripcion.trialFin)}</p>
+          </Link>
+        )}
+
+        {negocio && (
+          <Link
+            href={resolverHref("/dashboard/ajustes")}
+            title={colapsado ? negocio.nombre : undefined}
+            className={`flex items-center gap-2.5 border-t border-slate-100 py-3 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60 ${
+              colapsado ? "justify-center px-0" : "px-3"
+            }`}
+          >
+            <span className="relative shrink-0">
+              {negocio.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={negocio.logoUrl} alt="" className="h-8 w-8 rounded-md object-cover" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-light text-xs font-semibold text-primary">
+                  {negocio.nombre?.[0]?.toUpperCase() ?? "O"}
+                </div>
+              )}
+              {colapsado && suscripcion?.estado === "trial" && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900"
+                />
+              )}
+            </span>
+            {!colapsado && (
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{negocio.nombre}</p>
+                <p className="truncate text-xs text-slate-400 dark:text-slate-500">{negocio.subdominio}</p>
+                {suscripcion && (
+                  <span className={`badge mt-1 ${ESTADO_BADGE[suscripcion.estado] ?? "badge-neutral"}`}>
+                    {nombrePlanSuscripcion(suscripcion.plan)} · {nombreEstadoSuscripcion(suscripcion.estado)}
+                  </span>
+                )}
+              </div>
+            )}
+          </Link>
+        )}
+      </div>
     </aside>
   );
 }

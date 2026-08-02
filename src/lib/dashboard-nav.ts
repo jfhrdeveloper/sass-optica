@@ -47,7 +47,14 @@ export const NAV: NavItem[] = [
      sí, es el buzón de sugerencias/votación cross-tenant) — antes vivía
      arriba, junto a Clientes/Citas, y competía por atención con lo que sí
      se usa todos los días. Sigue visible para cualquier rol (no es
-     soloAdmin), solo se despriorizó por posición. */
+     soloAdmin), solo se despriorizó por posición.
+
+     Sigue siendo el ÚLTIMO ítem acá (el sidebar de escritorio lo saca de
+     este array vía `.find()` para renderizarlo en su pie fijo, no como
+     último ítem del nav scrolleable — ver DashboardNav.tsx) porque el resto
+     de consumidores de `NAV` (BottomTabBar.tsx → hoja "Más", CommandPalette.tsx,
+     el editor de accesos rápidos de Inicio) sí lo listan en orden tal cual,
+     y ahí "al final" sigue siendo la posición correcta. */
   { kind: "link", href: "/dashboard/mejoras", label: "Mejoras", icon: Lightbulb },
 ];
 
