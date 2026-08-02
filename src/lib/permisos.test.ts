@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nivelDe, puedeLeer, puedeEscribir, puedeLeerModulo, puedeEscribirModulo } from "@/lib/permisos";
+import { nivelDe, puedeLeer, puedeEscribir, puedeLeerModulo, puedeEscribirModulo, nivelBaseDeRol, modulosDeRolPrincipal } from "@/lib/permisos";
 
 describe("nivelDe / puedeLeer / puedeEscribir", () => {
   it("resuelve 'ninguno' cuando la clave no está presente", () => {
@@ -82,5 +82,28 @@ describe("puedeLeerModulo / puedeEscribirModulo — con rol personalizado asigna
     const encargado = { rol: "encargado", permisos: {}, rolPersonalizadoId: "r2" };
     expect(puedeLeerModulo(encargado, conGastos, "gastos")).toBe(true);
     expect(puedeEscribirModulo(encargado, conGastos, "gastos")).toBe(false);
+  });
+});
+
+describe("nivelBaseDeRol / modulosDeRolPrincipal — vista de referencia de Roles principales", () => {
+  it("administrador: escritura en todo, incluidos los módulos sensibles", () => {
+    expect(nivelBaseDeRol("administrador", "ventas")).toBe("escritura");
+    expect(nivelBaseDeRol("administrador", "gastos")).toBe("escritura");
+  });
+
+  it("encargado: escritura en operativos, ninguno en sensibles", () => {
+    expect(nivelBaseDeRol("encargado", "ventas")).toBe("escritura");
+    expect(nivelBaseDeRol("encargado", "gastos")).toBe("ninguno");
+  });
+
+  it("trabajador: solo lectura en operativos, ninguno en sensibles", () => {
+    expect(nivelBaseDeRol("trabajador", "ventas")).toBe("lectura");
+    expect(nivelBaseDeRol("trabajador", "gastos")).toBe("ninguno");
+  });
+
+  it("modulosDeRolPrincipal devuelve un nivel por cada módulo delegable", () => {
+    const modulos = modulosDeRolPrincipal("trabajador");
+    expect(modulos.length).toBeGreaterThan(0);
+    expect(modulos.every((m) => ["ninguno", "lectura", "escritura"].includes(m.nivel))).toBe(true);
   });
 });

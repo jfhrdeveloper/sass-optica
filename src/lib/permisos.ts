@@ -105,3 +105,21 @@ export function puedeEscribirModulo(
   if (!empleado.rolPersonalizadoId) return esOperativo(clave) && empleado.rol === "encargado";
   return puedeEscribir(permisosEfectivos(empleado, rolesPersonalizados), clave);
 }
+
+/* Nivel de acceso "de fábrica" de un rol PRINCIPAL (sin rol personalizado
+   asignado) sobre un módulo puntual — reusa puedeLeerModulo/puedeEscribirModulo
+   con un empleado ficticio en vez de reimplementar la matriz de reglas, para
+   que nunca se desincronice si esas dos cambian. Usado por la vista de
+   referencia "Roles principales" en /dashboard/roles (solo lectura, no
+   editable — el acceso de administrador/encargado/trabajador es fijo, no se
+   configura). */
+export function nivelBaseDeRol(rol: string, clave: string): NivelPermiso {
+  const empleadoFalso = { rol, permisos: {} };
+  if (puedeEscribirModulo(empleadoFalso, [], clave)) return "escritura";
+  if (puedeLeerModulo(empleadoFalso, [], clave)) return "lectura";
+  return "ninguno";
+}
+
+export function modulosDeRolPrincipal(rol: string): { clave: string; label: string; nivel: NivelPermiso }[] {
+  return MODULOS_DELEGABLES.map((m) => ({ clave: m.clave, label: m.label, nivel: nivelBaseDeRol(rol, m.clave) }));
+}

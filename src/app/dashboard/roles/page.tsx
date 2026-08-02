@@ -1,23 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCheck, Eye, Plus, Settings2, Trash2 } from "lucide-react";
+import { CheckCheck, Eye, Plus, Settings2, ShieldCheck, Trash2 } from "lucide-react";
 import { useData, type RolPersonalizado } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { nombreRol } from "@/lib/roles";
-import { MODULOS_DELEGABLES, nivelDe, type NivelPermiso } from "@/lib/permisos";
+import { MODULOS_DELEGABLES, nivelDe, modulosDeRolPrincipal, type NivelPermiso } from "@/lib/permisos";
 import { ROLES_SIMULABLES } from "@/lib/simulacion-rol";
 
 const ROL_VACIO = { nombre: "", permisos: {} as Record<string, string> };
 
+/* "Escritura" siempre incluye lectura (ver tiene_permiso_escritura() en
+   supabase-schema.sql: "'escritura' implica lectura, no hay forma de dar
+   escritura sin lectura") — no es un cuarto nivel "ambos" separado, el
+   label solo lo deja explícito para no depender de que quien lo lea sepa
+   ese detalle de memoria. */
 const NIVELES: { valor: NivelPermiso; label: string }[] = [
   { valor: "ninguno", label: "Ninguno" },
   { valor: "lectura", label: "Lectura" },
-  { valor: "escritura", label: "Escritura" },
+  { valor: "escritura", label: "Lectura y escritura" },
 ];
+
+const ROLES_PRINCIPALES = ["administrador", "encargado", "trabajador"] as const;
+
+function etiquetaNivel(nivel: NivelPermiso): string {
+  return nivel === "escritura" ? "lectura y escritura" : "lectura";
+}
 
 /* Ruta protegida a nivel de proxy (rutasSoloAdministrador) — solo
    administrador llega hasta aquí. Junta las dos piezas de "gestión de
@@ -121,6 +132,47 @@ export default function RolesPage() {
         </div>
       )}
 
+      {/* Referencia de solo lectura — el acceso de los 3 roles principales es
+         fijo (ver puede_gestionar()/sin_rol_personalizado() en el schema),
+         nada acá se edita. Sirve para saber de un vistazo a dónde llega cada
+         uno ANTES de asignarle un rol personalizado, que reemplaza este piso
+         por completo (ver el aviso en el formulario de abajo). */}
+      <h2 className="mt-6 flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
+        <ShieldCheck size={16} /> Roles principales
+      </h2>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        El acceso de base de cada rol, sin ningún rol personalizado asignado — de referencia, no se edita acá.
+      </p>
+      <div className="table-card mt-3">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="table-head-cell">Rol</th>
+                <th className="table-head-cell hidden md:table-cell">Módulos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ROLES_PRINCIPALES.map((rol) => {
+                const modulos = modulosDeRolPrincipal(rol).filter((m) => m.nivel !== "ninguno");
+                return (
+                  <tr key={rol} className="table-row">
+                    <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{nombreRol(rol)}</td>
+                    <td className="table-body-cell hidden md:table-cell text-slate-500 dark:text-slate-400">
+                      {rol === "administrador"
+                        ? "Todos los módulos (lectura y escritura)."
+                        : modulos.length > 0
+                          ? modulos.map((m) => `${m.label} (${etiquetaNivel(m.nivel)})`).join(", ")
+                          : "Ninguno."}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="mt-6 flex items-center justify-between">
         <h2 className="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
           <Settings2 size={16} /> Roles personalizados
@@ -151,16 +203,22 @@ export default function RolesPage() {
                 const modulos = MODULOS_DELEGABLES
                   .map((m) => ({ ...m, nivel: nivelDe(r.permisos, m.clave) }))
                   .filter((m) => m.nivel !== "ninguno");
-                const nEmpleados = empleados.filter((e) => e.rolPersonalizadoId === r.id).length;
+                const empleadosDelRol = empleados.filter((e) => e.rolPersonalizadoId === r.id);
                 return (
                   <tr key={r.id} className="table-row">
                     <td className="table-body-cell font-medium text-slate-900 dark:text-slate-100">{r.nombre}</td>
                     <td className="table-body-cell hidden md:table-cell text-slate-500 dark:text-slate-400">
                       {modulos.length > 0
-                        ? modulos.map((m) => `${m.label} (${m.nivel === "escritura" ? "escritura" : "lectura"})`).join(", ")
+                        ? modulos.map((m) => `${m.label} (${etiquetaNivel(m.nivel)})`).join(", ")
                         : "Ninguno"}
                     </td>
-                    <td className="table-body-cell text-slate-600 dark:text-slate-300">{nEmpleados}</td>
+                    <td className="table-body-cell text-slate-600 dark:text-slate-300">
+                      {empleadosDelRol.length > 0
+                        ? `${empleadosDelRol.slice(0, 3).map((e) => `${e.nombres} ${e.apellidos}`).join(", ")}${
+                            empleadosDelRol.length > 3 ? ` y ${empleadosDelRol.length - 3} más` : ""
+                          }`
+                        : "Nadie"}
+                    </td>
                     <td className="table-body-cell text-right">
                       <div className="flex justify-end gap-1">
                         <button onClick={() => abrirEditar(r)} title="Editar" aria-label={`Editar ${r.nombre}`} className="row-icon-btn">

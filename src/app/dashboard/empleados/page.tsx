@@ -34,7 +34,19 @@ import { nombreRol } from "@/lib/roles";
    selector: ni ascender a alguien a administrador ni degradarlo — es una
    operación de mayor riesgo (podría dejar el negocio sin ningún
    administrador) que merece su propio flujo con más resguardos, no un
-   <select> más en esta tabla. */
+   <select> más en esta tabla.
+
+   Rol principal y rol personalizado viven en UN SOLO <select> (antes eran
+   dos columnas separadas, a pedido del usuario se unificaron): un
+   <optgroup> con Encargado/Trabajador y otro con los roles personalizados
+   del negocio. Elegir un rol personalizado solo toca `rolPersonalizadoId`
+   (el `rol` principal de fondo queda como estaba — es inerte mientras haya
+   un rol personalizado asignado, ver permisos.ts); elegir Encargado o
+   Trabajador SIEMPRE limpia `rolPersonalizadoId` y vuelve al piso base de
+   ese rol. Contrapartida real de unificarlo: ya no se puede cambiar
+   Encargado↔Trabajador sin soltar el rol personalizado que tenía asignado
+   (antes sí, porque eran columnas independientes) — hay que volver a
+   elegirlo después si hace falta. */
 export default function EmpleadosPage() {
   const { empleados, rolesPersonalizados, updateEmpleado } = useData();
   const { empleado: yo } = useSession();
@@ -79,9 +91,16 @@ export default function EmpleadosPage() {
     toast(`Invitación enviada a ${email}.`);
   }
 
-  async function cambiarRol(emp: Empleado, nuevoRol: "encargado" | "trabajador") {
-    await updateEmpleado(emp.id, { rol: nuevoRol });
-    toast(`${emp.nombres} ahora es ${nombreRol(nuevoRol)}.`);
+  async function cambiarRol(emp: Empleado, valor: string) {
+    if (valor === "encargado" || valor === "trabajador") {
+      // "" (no undefined) para que empleadoToRow sí incluya el campo en el patch — ver mappers.ts.
+      await updateEmpleado(emp.id, { rol: valor, rolPersonalizadoId: "" });
+      toast(`${emp.nombres} ahora es ${nombreRol(valor)}.`);
+      return;
+    }
+    const rolPersonalizado = rolesPersonalizados.find((r) => r.id === valor);
+    await updateEmpleado(emp.id, { rolPersonalizadoId: valor });
+    toast(`${emp.nombres} ahora tiene el rol personalizado "${rolPersonalizado?.nombre ?? ""}".`);
   }
 
   async function eliminar(id: string) {
@@ -107,7 +126,7 @@ export default function EmpleadosPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Empleados</h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Qué módulos ve cada uno se define en{" "}
-        <a href="/dashboard/roles" className="link">Roles</a> — acá solo elegís cuál rol personalizado le corresponde a cada persona.
+        <a href="/dashboard/roles" className="link">Roles</a> — acá elegís qué rol (principal o personalizado) le corresponde a cada persona.
       </p>
 
       <div className="table-card mt-4">
@@ -123,7 +142,6 @@ export default function EmpleadosPage() {
               <tr>
                 <th className="table-head-cell">Nombre</th>
                 <th className="table-head-cell">Rol</th>
-                <th className="table-head-cell">Rol personalizado</th>
                 <th className="table-head-cell text-right">Acciones</th>
               </tr>
             </thead>
@@ -146,28 +164,21 @@ export default function EmpleadosPage() {
                           nombreRol(e.rol)
                         ) : (
                           <select
-                            value={e.rol}
-                            onChange={(ev) => cambiarRol(e, ev.target.value as "encargado" | "trabajador")}
+                            value={e.rolPersonalizadoId || e.rol}
+                            onChange={(ev) => cambiarRol(e, ev.target.value)}
                             className="select text-sm"
                           >
-                            <option value="trabajador">{nombreRol("trabajador")}</option>
-                            <option value="encargado">{nombreRol("encargado")}</option>
-                          </select>
-                        )}
-                      </td>
-                      <td className="table-body-cell">
-                        {e.rol === "administrador" ? (
-                          <span className="text-slate-400 dark:text-slate-500">No aplica</span>
-                        ) : (
-                          <select
-                            value={e.rolPersonalizadoId ?? ""}
-                            onChange={(ev) => updateEmpleado(e.id, { rolPersonalizadoId: ev.target.value || undefined })}
-                            className="select text-sm"
-                          >
-                            <option value="">Sin rol personalizado (acceso base)</option>
-                            {rolesPersonalizados.map((r) => (
-                              <option key={r.id} value={r.id}>{r.nombre}</option>
-                            ))}
+                            <optgroup label="Rol principal">
+                              <option value="trabajador">{nombreRol("trabajador")}</option>
+                              <option value="encargado">{nombreRol("encargado")}</option>
+                            </optgroup>
+                            {rolesPersonalizados.length > 0 && (
+                              <optgroup label="Roles personalizados">
+                                {rolesPersonalizados.map((r) => (
+                                  <option key={r.id} value={r.id}>{r.nombre}</option>
+                                ))}
+                              </optgroup>
+                            )}
                           </select>
                         )}
                       </td>
@@ -191,7 +202,7 @@ export default function EmpleadosPage() {
                     </tr>
                     {confirmandoId === e.id && errorEliminar && (
                       <tr className="table-row">
-                        <td colSpan={4} className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{errorEliminar}</td>
+                        <td colSpan={3} className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{errorEliminar}</td>
                       </tr>
                     )}
                   </Fragment>
