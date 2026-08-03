@@ -41,7 +41,7 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/40 transition-opacity" onClick={onCancelar} />
-      <div className="relative w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+      <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
         <div className="flex items-start gap-3">
           <div
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${

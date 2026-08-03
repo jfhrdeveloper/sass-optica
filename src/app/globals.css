@@ -24,6 +24,16 @@
    positivos (ventas, stock ok, indicadores +%). Ver diseno-referencia/ y
    docs/pending-task.md. Fuente única: no redefinir estos colores ad-hoc en
    componentes (docs/style-guide.md). */
+/* Red de seguridad contra scroll horizontal accidental en móvil — el ancho
+   real ya se controla por página (ej. `.table-card` + su wrap
+   `overflow-x-auto` interno), esto es un respaldo global si algo se escapa. */
+html, body {
+  overflow-x: hidden;
+}
+body {
+  max-width: 100vw;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #0f172a; /* slate-900 */
@@ -147,6 +157,14 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* Safari en iOS hace auto-zoom al enfocar un input/select/textarea con
+   font-size por debajo de 16px — `.input`/`.select` usan text-sm (14px). Esta
+   es la mitad del "doble candado" contra ese zoom: la otra mitad es
+   `maximumScale: 1` en el viewport (layout.tsx). */
+input, textarea, select {
+  font-size: max(16px, 1em);
+}
+
 /* ================= CLASES REUTILIZABLES =================
    Centralizadas acá por la regla de docs/style-guide.md: "no redeclarar los
    mismos estilos en cada componente". Cada una trae su propia variante
@@ -197,7 +215,7 @@ input[type="number"]::-webkit-inner-spin-button {
   .select {
     @apply rounded-lg border border-slate-300 py-2 pl-3 pr-9 text-sm text-slate-900
            focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
-           appearance-none bg-no-repeat cursor-pointer
+           appearance-none bg-no-repeat cursor-pointer truncate
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
     background-position: right 0.65rem center;
@@ -356,6 +374,10 @@ input[type="number"]::-webkit-inner-spin-button {
      sigue definiendo sus propias columnas, pero todas comparten el mismo
      contenedor/densidad/iconografía (ver docs/pending-task.md, sesión de
      rediseño de listas). */
+  /* `overflow-hidden` acá es solo para las esquinas redondeadas — el scroll
+     horizontal en móvil lo da el <div overflow-x-auto> interno que envuelve
+     la <table> en cada página. No quitar ese div pensando que es redundante
+     con esto: sin él, la tabla se corta en vez de scrollear. */
   .table-card {
     @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm
            transition-shadow duration-150 dark:border-slate-800 dark:bg-slate-900;

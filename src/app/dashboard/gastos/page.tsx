@@ -76,16 +76,16 @@ export default function GastosPage() {
 
       {puedeEditar && (
         <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-          <select value={form.categoria ?? ""} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select text-sm">
+          <select value={form.categoria ?? ""} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select min-w-0 text-sm">
             <option value="" disabled>Elegir categoría…</option>
             {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
           </select>
-          <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input text-sm" />
-          <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select text-sm">
+          <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input min-w-0 text-sm" />
+          <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select min-w-0 text-sm">
             <option value="">Sin proveedor</option>
             {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
-          <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input text-sm" />
+          <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input min-w-0 text-sm" />
           <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
           <button type="submit" disabled={guardando || !form.monto || !form.fecha || !form.categoria} className="btn-primary col-span-full">
             Registrar gasto

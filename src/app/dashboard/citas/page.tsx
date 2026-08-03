@@ -433,8 +433,12 @@ export default function CitasPage() {
           />
           <DatePicker etiqueta="Fecha de la cita" placeholder="Fecha" valor={fechaCita} onChange={setFechaCita} />
           <div className="grid grid-cols-2 gap-2">
-            <TimePicker etiqueta="Hora de inicio" placeholder="Hora de inicio" valor={horaCita} onChange={cambiarHoraInicio} />
-            <TimePicker etiqueta="Hora de fin" placeholder="Hora de fin" valor={horaFinCita} onChange={setHoraFinCita} />
+            <div className="min-w-0">
+              <TimePicker etiqueta="Hora de inicio" placeholder="Hora de inicio" valor={horaCita} onChange={cambiarHoraInicio} />
+            </div>
+            <div className="min-w-0">
+              <TimePicker etiqueta="Hora de fin" placeholder="Hora de fin" valor={horaFinCita} onChange={setHoraFinCita} />
+            </div>
           </div>
           {horaCita && horaFinCita && diferenciaMinutos(horaCita, horaFinCita) <= 0 && (
             <p className="text-xs text-red-600 dark:text-red-400">La hora de fin debe ser posterior a la de inicio.</p>

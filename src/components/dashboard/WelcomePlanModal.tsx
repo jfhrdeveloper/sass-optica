@@ -50,7 +50,7 @@ function WelcomePlanModalInner() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Bienvenida">
       <div className="absolute inset-0 bg-slate-900/40" onClick={cerrar} />
-      <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-900">
         <button
           onClick={cerrar}
           aria-label="Cerrar"

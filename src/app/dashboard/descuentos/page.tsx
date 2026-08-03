@@ -142,12 +142,12 @@ export default function DescuentosPage() {
         <form onSubmit={onSubmit} className="space-y-3">
           <input placeholder="Código (ej. VERANO10)" required value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input w-full text-sm uppercase" />
           <div className="grid grid-cols-2 gap-2">
-            <select value={form.tipo ?? ""} onChange={(e) => setForm({ ...form, tipo: e.target.value as Descuento["tipo"] })} className="select text-sm">
+            <select value={form.tipo ?? ""} onChange={(e) => setForm({ ...form, tipo: e.target.value as Descuento["tipo"] })} className="select min-w-0 text-sm">
               <option value="" disabled>Tipo…</option>
               <option value="porcentaje">% Porcentaje</option>
               <option value="monto">S/ Monto fijo</option>
             </select>
-            <input placeholder="Valor" type="number" step="0.01" required value={form.valor ?? ""} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} className="input text-sm" />
+            <input placeholder="Valor" type="number" step="0.01" required value={form.valor ?? ""} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} className="input min-w-0 text-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Aplica a</label>

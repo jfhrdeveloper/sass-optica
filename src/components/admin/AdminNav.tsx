@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { ADMIN_NAV } from "@/lib/admin-nav";
+import { ADMIN_NAV, esRutaActivaAdmin } from "@/lib/admin-nav";
 import { useAdminSignOut } from "@/lib/hooks/useAdminSignOut";
 
 /* Sidebar fijo del panel admin — versión reducida de DashboardNav.tsx (solo
-   3 rutas, sin grupos/colapso: no hace falta esa complejidad para un menú
+   5 rutas, sin grupos/colapso: no hace falta esa complejidad para un menú
    tan chico). Sin dependencia de DataProvider/SessionProvider (esos
    providers son del namespace de negocio, el admin-panel nunca los monta).
    `hidden md:flex`: en mobile la navegación vive en AdminBottomTabBar.tsx +
@@ -33,7 +33,7 @@ export function AdminNav() {
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">
         {ADMIN_NAV.map(({ href, label, icon: Icon }) => {
-          const activo = pathname === href;
+          const activo = esRutaActivaAdmin(pathname, href);
           return (
             <Link
               key={href}

@@ -362,12 +362,12 @@ export default function ProductosPage() {
             <>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Precios y stock</p>
               <div className={puedeVerCosto ? "grid grid-cols-2 gap-2" : ""}>
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de venta (S/)</label>
                   <input type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
                 </div>
                 {puedeVerCosto && (
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de costo (S/)</label>
                     <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
                   </div>
@@ -405,11 +405,11 @@ export default function ProductosPage() {
               </div>
               {!editandoId && (
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Stock inicial</label>
                     <input type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="input mt-1 w-full text-sm" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Stock mínimo</label>
                     <input type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="input mt-1 w-full text-sm" />
                     <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Se marca en rojo cuando el stock baje de aquí.</p>
