@@ -132,6 +132,15 @@ body {
   button:not(:disabled), [role="button"], summary {
     cursor: pointer;
   }
+
+  /* Mobile (Chrome/Safari) pinta un overlay gris RECTANGULAR al tocar
+     cualquier botón/link, sin respetar su `border-radius` — en un botón
+     `rounded-full` se ve como un destello cuadrado que aparece y desaparece
+     al soltar. Se apaga acá (una sola vez, para todo el sitio) y el feedback
+     táctil pasa a los `active:` explícitos de `.btn-*` de abajo. */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* Tipografía de títulos: Poppins (más pesada/geométrica que Geist a
@@ -179,18 +188,19 @@ input, textarea, select {
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-full bg-primary px-4 py-2
            text-sm font-medium text-white transition-colors hover:bg-primary-dark
-           disabled:opacity-50;
+           active:bg-primary-dark disabled:opacity-50;
   }
   .btn-outline {
     @apply inline-flex items-center justify-center rounded-full border border-slate-300
            bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors
-           hover:bg-slate-50 disabled:opacity-50
-           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+           hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50
+           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800
+           dark:active:bg-slate-700;
   }
   .btn-danger {
     @apply inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-2
            text-sm font-medium text-white transition-colors hover:bg-red-700
-           disabled:opacity-50;
+           active:bg-red-800 disabled:opacity-50;
   }
   .card {
     @apply rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow duration-150

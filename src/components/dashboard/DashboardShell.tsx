@@ -42,7 +42,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {/* `.page-enter` acá y no en cada page.tsx: un solo punto de
             aplicación, igual que antes. `pb-24` en mobile: el tab bar fijo
             de abajo (BottomTabBar.tsx) taparía el final del contenido. */}
-        <div className="page-enter mx-auto max-w-[1440px] px-6 pb-24 md:pb-6">
+        <div className="page-enter mx-auto max-w-[1440px] px-4 sm:px-6 pb-24 md:pb-6">
           {children}
         </div>
       </div>

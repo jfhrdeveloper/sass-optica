@@ -45,7 +45,7 @@ export function SlideOver({ abierto, onClose, titulo, children }: Props) {
             <X size={18} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 pt-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>{children}</div>
       </div>
     </div>
   );

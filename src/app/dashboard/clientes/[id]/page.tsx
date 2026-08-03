@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X, Contact } from "lucide-react";
-import { useData, type ExamenOptometrico } from "@/components/providers/DataProvider";
+import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X, Contact, Printer } from "lucide-react";
+import { useData, type ExamenOptometrico, type Venta } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useClienteForm } from "@/lib/hooks/useClienteForm";
@@ -21,6 +21,7 @@ import { isMockMode } from "@/lib/mock/mock-mode";
 import { urlWhatsAppContacto } from "@/lib/contacto";
 import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";
 import { calcularSeguimientos, calcularRecallControlAnual, estaVencido, type Seguimiento } from "@/lib/seguimiento-clientes";
+import { construirHtmlRecibo } from "@/lib/recibo";
 
 /* Citas y exámenes de la ficha se paginan más chico que las listas del
    dashboard (usePaginado usa 10 por defecto) — pedido explícito del
@@ -132,6 +133,27 @@ export default function ClienteDetallePage() {
   const ventasDelCliente = cliente
     ? [...ventas].filter((v) => v.clienteId === cliente.id).sort((a, b) => b.fecha.localeCompare(a.fecha))
     : [];
+
+  /* Reimprimir el recibo de una compra pasada — mismo patrón que
+     imprimirRecibo en ventas/page.tsx (ventana nueva + HTML con su propio
+     `<style>`, no depende del dark mode del dashboard). Pedido explícito:
+     desde la ficha del cliente también se necesita reimprimir, no solo
+     desde el listado general de Ventas. */
+  function imprimirRecibo(v: Venta) {
+    const html = construirHtmlRecibo({
+      negocioNombre: negocio?.nombre ?? "Óptica",
+      negocioRuc: negocio?.ruc,
+      clienteNombre: cliente ? `${cliente.nombres} ${cliente.apellidos}` : "—",
+      venta: v,
+      items: ventaItems.filter((it) => it.ventaId === v.id),
+    });
+    const ventana = window.open("", "_blank", "width=400,height=600");
+    if (!ventana) { toast("El navegador bloqueó la ventana de impresión.", "error"); return; }
+    ventana.document.write(html);
+    ventana.document.close();
+    ventana.focus();
+    ventana.print();
+  }
 
   /* Historial de cambios: misma fuente (audit_log) y misma restricción de
      rol que tenía el panel lateral anterior — ver comentario original en
@@ -442,9 +464,24 @@ export default function ClienteDetallePage() {
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Compras ({ventasDelCliente.length})</h2>
           <ul className="mt-2 space-y-1.5">
             {ventasDelCliente.map((v) => (
-              <li key={v.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
-                <span className="text-slate-700 dark:text-slate-200">{formatearFecha(v.fecha)}</span>
-                <span className="text-slate-400 dark:text-slate-500">S/ {v.total.toFixed(2)}</span>
+              <li key={v.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
+                <div className="min-w-0">
+                  <p className="text-slate-700 dark:text-slate-200">{formatearFecha(v.fecha)}</p>
+                  <p className="truncate text-xs text-slate-400 dark:text-slate-500">
+                    {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-medium text-slate-700 dark:text-slate-200">S/ {v.total.toFixed(2)}</span>
+                  <button
+                    onClick={() => imprimirRecibo(v)}
+                    title="Reimprimir recibo"
+                    aria-label={`Reimprimir recibo de la compra del ${formatearFecha(v.fecha)}`}
+                    className="row-icon-btn"
+                  >
+                    <Printer size={15} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

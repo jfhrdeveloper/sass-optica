@@ -12,15 +12,12 @@ function iniciales(nombres?: string, apellidos?: string): string {
 }
 
 /* Franja horizontal arriba del contenido (patrón Gmail/Notion/Linear): a la
-   derecha tema + cuenta. La identidad del negocio (logo/nombre/subdominio/
-   plan) vive SOLO en el pie fijo del sidebar (DashboardNav.tsx) — antes
-   también se repetía acá, decisión explícita del usuario de no duplicarla:
-   el sidebar la sigue mostrando (reducida a solo el ícono) incluso
-   colapsado, así que el topbar ya no necesita ser su respaldo. El rastro de
-   navegación (Breadcrumbs) que iba a la izquierda se quitó a pedido del
-   usuario. */
+   derecha tema + cuenta. En escritorio la identidad del negocio vive en el
+   pie fijo del sidebar (DashboardNav.tsx); en móvil el sidebar se oculta,
+   así que la identidad aparece en el extremo izquierdo de este topbar.
+   El rastro de navegación (Breadcrumbs) se quitó a pedido del usuario. */
 export function DashboardTopbar() {
-  const { sucursales, sucursalFiltro, setSucursalFiltro } = useData();
+  const { negocio, sucursales, sucursalFiltro, setSucursalFiltro } = useData();
   const { empleado, signOut } = useSession();
   const [abierto, setAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -37,7 +34,32 @@ export function DashboardTopbar() {
   return (
     // `h-16` fijo (no `py-*`) para que el borde inferior quede exactamente a
     // la misma altura que el header del sidebar — ver DashboardNav.tsx.
-    <div className="sticky top-0 z-20 mb-4 flex h-16 items-center justify-end gap-4 border-b border-slate-200 bg-slate-50/80 px-6 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
+    <div className="sticky top-0 z-20 mb-4 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 backdrop-blur-sm sm:px-6 dark:border-slate-800 dark:bg-slate-950/80">
+      {/* Identidad del negocio — visible solo en móvil (en escritorio
+          la muestra el pie del sidebar). El div siempre se renderiza
+          en móvil para anclar el justify-between y evitar que el
+          contenido derecho salte al cargarse negocio. */}
+      <div className="flex min-w-0 items-center gap-2 md:hidden">
+        {negocio && (
+          <>
+            {negocio.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={negocio.logoUrl} alt="" className="h-7 w-7 shrink-0 rounded-md object-cover" />
+            ) : (
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-light text-xs font-semibold text-primary">
+                {negocio.nombre?.[0]?.toUpperCase() ?? "O"}
+              </div>
+            )}
+            <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+              {negocio.nombre}
+            </span>
+          </>
+        )}
+      </div>
+      {/* Spacer desktop: en escritorio el sidebar ya muestra la
+          identidad; el spacer mantiene el contenido derecho pegado
+          al borde derecho igual que justify-end haría. */}
+      <div className="hidden md:block" />
       <div className="flex shrink-0 items-center gap-3">
         <button
           type="button"

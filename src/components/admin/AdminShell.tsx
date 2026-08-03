@@ -13,7 +13,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <AdminNav />
       <AdminMobileHeader />
-      <div className="min-h-screen p-6 pb-24 md:ml-60 md:pb-6">
+      <div className="min-h-screen p-4 pb-24 sm:px-6 sm:pt-6 md:ml-60 md:pb-6">
         <div className="page-enter mx-auto max-w-5xl">{children}</div>
       </div>
       <AdminBottomTabBar />

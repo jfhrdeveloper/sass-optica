@@ -55,14 +55,18 @@ export function AnalyticsProvider() {
       aria-label="Aviso de cookies"
       className="page-enter fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-8"
     >
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
         <p className="text-sm text-slate-600 dark:text-slate-300">
           Usamos cookies para entender cómo se usa esta página y mejorarla. Puedes ver el detalle
           en nuestra <Link href="/legal?tab=cookies" className="link font-medium">Política de cookies</Link>.
         </p>
+        {/* Mismo ancho fijo en los dos (no solo mismo estilo) — "Rechazar" tiene
+            más letras que "Aceptar" y sin esto el botón outline se ve más largo,
+            rompiendo el balance visual que busca la Ley 29733 (ver comentario
+            de arriba: ninguna opción debe pesar más que la otra). */}
         <div className="flex shrink-0 gap-2">
-          <button onClick={() => elegir("rechazado")} className="btn-outline">Rechazar</button>
-          <button onClick={() => elegir("aceptado")} className="btn-primary">Aceptar</button>
+          <button onClick={() => elegir("rechazado")} className="btn-outline w-28">Rechazar</button>
+          <button onClick={() => elegir("aceptado")} className="btn-primary w-28">Aceptar</button>
         </div>
       </div>
     </div>

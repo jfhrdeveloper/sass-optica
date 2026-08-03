@@ -296,17 +296,17 @@ export default function VentasPage() {
               cliente se crea recién en confirmarVenta() (no al escribir acá),
               así cancelar la venta no deja un cliente huérfano a medio llenar. */}
           {clienteId === CLIENTE_NUEVO && (
-            <div className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-900">
+            <div className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-2.5 sm:grid-cols-3 dark:bg-slate-900">
               <Campo label="Nombres">
-                <input value={nuevoCliente.nombres} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombres: e.target.value })} className="input text-sm" />
+                <input value={nuevoCliente.nombres} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombres: e.target.value })} className="input w-full text-sm" />
               </Campo>
               <Campo label="Apellidos">
-                <input value={nuevoCliente.apellidos} onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellidos: e.target.value })} className="input text-sm" />
+                <input value={nuevoCliente.apellidos} onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellidos: e.target.value })} className="input w-full text-sm" />
               </Campo>
               <Campo label="Teléfono">
-                <input value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} className="input text-sm" />
+                <input value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} className="input w-full text-sm" />
               </Campo>
-              <p className="text-xs text-slate-400 dark:text-slate-500">Se crea al confirmar la venta.</p>
+              <p className="col-span-full text-xs text-slate-400 dark:text-slate-500">Se crea al confirmar la venta.</p>
             </div>
           )}
         </div>
@@ -333,34 +333,38 @@ export default function VentasPage() {
         </div>
 
         {modoItem === "catalogo" ? (
-          <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="mt-2 space-y-2">
             <Campo label="Producto">
-              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select text-sm">
+              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select w-full text-sm">
                 <option value="">Elegir producto…</option>
                 {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} — S/ {p.precioVenta.toFixed(2)}</option>)}
               </select>
             </Campo>
-            <Campo label="Cantidad">
-              <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
-            </Campo>
-            <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline px-3 py-1 text-sm disabled:opacity-50">
-              Agregar ítem
-            </button>
+            <div className="flex items-end gap-2">
+              <Campo label="Cantidad">
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+              </Campo>
+              <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
+                Agregar ítem
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="mt-2 space-y-2">
             <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)">
-              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input text-sm" />
+              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full text-sm" />
             </Campo>
-            <Campo label="Precio unitario (S/)">
-              <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28 text-sm" />
-            </Campo>
-            <Campo label="Cantidad">
-              <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
-            </Campo>
-            <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline px-3 py-1 text-sm disabled:opacity-50">
-              Agregar ítem
-            </button>
+            <div className="flex items-end gap-2">
+              <Campo label="Precio unitario (S/)">
+                <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28 text-sm" />
+              </Campo>
+              <Campo label="Cantidad">
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+              </Campo>
+              <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
+                Agregar ítem
+              </button>
+            </div>
           </div>
         )}
 
@@ -395,9 +399,9 @@ export default function VentasPage() {
           </div>
         )}
 
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-2 text-sm">
+        <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:flex sm:flex-wrap sm:items-end sm:justify-between">
           <Campo label="Método de pago">
-            <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="select text-sm">
+            <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="select w-full text-sm">
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="yape">Yape</option>
@@ -411,7 +415,7 @@ export default function VentasPage() {
                 value={sucursalVentaId}
                 onChange={(e) => setSucursalVentaId(e.target.value)}
                 disabled={!!empleado?.sucursalId}
-                className="select text-sm"
+                className="select w-full text-sm"
               >
                 <option value="">Sin sede asignada</option>
                 {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -419,7 +423,7 @@ export default function VentasPage() {
             </Campo>
           )}
           {metodoPago === "tarjeta" && (
-            <label className="mb-1.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
               <input type="checkbox" checked={recargoTarjeta} onChange={(e) => setRecargoTarjeta(e.target.checked)} className="checkbox" />
               Incluir recargo por tarjeta ({(RECARGO_TARJETA_PCT * 100).toFixed(0)}%)
             </label>
@@ -428,7 +432,7 @@ export default function VentasPage() {
             <Campo label="Código de descuento (opcional)">
               <select
                 value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-                className="select w-48 text-sm"
+                className="select w-full text-sm sm:w-48"
               >
                 <option value="">Sin descuento</option>
                 {descuentosDisponibles.map((d) => (
@@ -439,7 +443,7 @@ export default function VentasPage() {
               </select>
             </Campo>
           )}
-          <div className="text-right">
+          <div className="text-right sm:ml-auto">
             {descuentoAplicado && (
               <p className="text-accent">
                 {descuentoAplicado.codigo} aplicado: −S/ {descuentoMonto.toFixed(2)}

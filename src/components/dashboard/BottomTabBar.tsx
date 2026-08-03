@@ -54,13 +54,26 @@ export function BottomTabBar() {
             <Link
               key={t.href}
               href={t.href}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"
             >
               {/* "Seleccionado" se ve igual en todo el sitio: fondo primario sólido +
-                  texto blanco (docs/style-guide.md), no solo un cambio de color de texto. */}
+                  texto blanco (docs/style-guide.md), no solo un cambio de color de texto.
+                  El feedback al tocar (`active:`) queda confinado a esta píldora
+                  `rounded-xl` en vez del rectángulo completo del `Link` (que ocupa todo
+                  el alto/ancho del tab) — si no, el tap highlight nativo del navegador
+                  (que sí es un rectángulo, ver regla global en globals.css) se apagó
+                  pero no quedaba ningún reemplazo cuadrado/redondeado al tocar.
+
+                  Ancho fijo (`w-16`, no `px-3` suelto ajustándose al texto): "Clientes"
+                  tiene más letras que "Citas"/"Ventas"/"Inicio", así que sin esto cada
+                  píldora salía de un tamaño distinto al cambiar de tab. Y `aspect-square`
+                  (alto = ancho): con solo el ancho fijo la caja quedaba ancha y baja
+                  (rectángulo horizontal) — mismo criterio que Aceptar/Rechazar en el
+                  banner de cookies (AnalyticsProvider.tsx), pero ahí sí basta el ancho
+                  porque son botones de una sola línea, no una píldora cuadrada. */}
               <span
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1 ${
-                  activo ? "bg-primary text-white" : ""
+                className={`flex aspect-square w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors ${
+                  activo ? "bg-primary text-white" : "active:bg-slate-100 dark:active:bg-white/10"
                 }`}
               >
                 <Icon size={20} strokeWidth={activo ? 2.5 : 2} />
@@ -72,10 +85,12 @@ export function BottomTabBar() {
         <button
           type="button"
           onClick={() => setMasAbierto(true)}
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+          className="flex flex-1 flex-col items-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"
         >
-          <Menu size={20} />
-          Más
+          <span className="flex aspect-square w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors active:bg-slate-100 dark:active:bg-white/10">
+            <Menu size={20} />
+            Más
+          </span>
         </button>
       </nav>
 

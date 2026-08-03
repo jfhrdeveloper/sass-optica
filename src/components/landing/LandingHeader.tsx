@@ -126,8 +126,12 @@ export function LandingHeader() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* ====== Desktop — píldora flotante ====== */}
-      <div className={`hidden w-full justify-center transition-all duration-500 ease-in-out sm:flex ${scrolleado ? "pt-4" : "pt-6"}`}>
+      {/* ====== Desktop — píldora flotante ======
+          Corte en 914px (no el `sm` de Tailwind, 640px): con logo + 4 links +
+          toggle + 2 botones, la píldora no entra en el rango 640-913px y se
+          rompe/desborda. Por eso el desktop arranca recién en 914px y hasta
+          ahí se queda con la hamburguesa. */}
+      <div className={`hidden w-full justify-center transition-all duration-500 ease-in-out min-[914px]:flex ${scrolleado ? "pt-4" : "pt-6"}`}>
         <div
           className={`flex items-center gap-1 transition-all duration-500 ease-in-out ${
             scrolleado
@@ -166,7 +170,7 @@ export function LandingHeader() {
       </div>
 
       {/* ====== Mobile — píldora + hamburguesa ====== */}
-      <div className={`flex w-full justify-center transition-all duration-500 ease-in-out sm:hidden ${scrolleado ? "pt-4" : "pt-0"}`}>
+      <div className={`flex w-full justify-center transition-all duration-500 ease-in-out min-[914px]:hidden ${scrolleado ? "pt-4" : "pt-0"}`}>
         <div
           className={`flex w-full items-center transition-all duration-500 ease-in-out ${
             scrolleado
@@ -193,12 +197,12 @@ export function LandingHeader() {
       <div
         onClick={cerrar}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 sm:hidden ${
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 min-[914px]:hidden ${
           menuAbierto ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex w-[80vw] max-w-[320px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out dark:bg-slate-950 sm:hidden ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-[80vw] max-w-[320px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out dark:bg-slate-950 min-[914px]:hidden ${
           menuAbierto ? "translate-x-0" : "translate-x-full"
         }`}
       >
