@@ -298,6 +298,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link href="/legal?tab=terminos" className="link-underline transition-colors hover:text-primary">Términos y condiciones</Link>
               <Link href="/legal?tab=privacidad" className="link-underline transition-colors hover:text-primary">Política de privacidad</Link>
+              <Link href="/legal?tab=cookies" className="link-underline transition-colors hover:text-primary">Política de cookies</Link>
               <Link href="/legal?tab=proteccion" className="link-underline transition-colors hover:text-primary">Protección de datos</Link>
               <Link href="/libro-reclamaciones" className="link-underline transition-colors hover:text-primary">Libro de Reclamaciones</Link>
             </div>

@@ -6,6 +6,7 @@ import { LegalHub } from "@/components/legal/LegalHub";
 const METADATA_POR_TAB: Record<string, Metadata> = {
   terminos: { title: "Términos y condiciones", description: "Términos y condiciones del servicio de gestión para ópticas." },
   privacidad: { title: "Política de privacidad", description: "Cómo se tratan los datos personales y de salud (recetas ópticas) de tus pacientes, conforme a la Ley N° 29733." },
+  cookies: { title: "Política de cookies", description: "Qué cookies usa el sistema hoy y por qué, conforme a la Ley N° 29733 y su reglamento." },
   proteccion: { title: "Protección de datos", description: "Los mecanismos técnicos reales de seguridad: RLS, aislamiento por negocio, auditoría y papelera con recuperación." },
 };
 
@@ -38,7 +39,8 @@ export default async function LegalPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const tabInicial = tab === "privacidad" || tab === "proteccion" ? tab : "terminos";
+  const tabInicial =
+    tab === "privacidad" || tab === "cookies" || tab === "proteccion" ? tab : "terminos";
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">

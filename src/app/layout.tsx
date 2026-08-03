@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { PageTransitionProvider } from "@/components/landing/PageTransition";
+import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { RAZON_SOCIAL } from "@/lib/contacto";
 import "./globals.css";
 
@@ -88,6 +90,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <PageTransitionProvider>{children}</PageTransitionProvider>
+        {/* Sin cookies, sin PII, datos anónimos descartados a las 24h — no
+            requiere el consentimiento de AnalyticsProvider (ver bitácora). */}
+        <Analytics />
+        <AnalyticsProvider />
       </body>
     </html>
   );

@@ -4,10 +4,29 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import { EMAIL_SOPORTE, RAZON_SOCIAL } from "@/lib/contacto";
+import { reiniciarConsentimientoCookies } from "@/lib/analytics/cookie-consent";
 
-type TabId = "terminos" | "privacidad" | "proteccion";
+type TabId = "terminos" | "privacidad" | "cookies" | "proteccion";
 
 type Seccion = { id: string; titulo: string; cuerpo: React.ReactNode };
+
+/* Botón propio (no un link de texto): borra la elección guardada y recarga,
+   para que AnalyticsProvider.tsx (montado en el layout raíz, sin relación
+   directa con este árbol) vuelva a leer el estado limpio y muestre el
+   banner de nuevo — ver cookie-consent.ts. */
+function CambiarPreferenciaCookies() {
+  return (
+    <div>
+      <p>
+        Si aceptaste o rechazaste las cookies de analítica y quieres volver a elegir, puedes
+        reiniciar tu preferencia:
+      </p>
+      <button onClick={reiniciarConsentimientoCookies} className="btn-outline mt-3">
+        Cambiar mi preferencia de cookies
+      </button>
+    </div>
+  );
+}
 
 /* Contenido migrado tal cual de la versión anterior de esta página (2 tabs
    sin sub-índice) — solo se partió cada `H + p` en un objeto `{ id, titulo,
@@ -203,7 +222,20 @@ const PRIVACIDAD: Seccion[] = [
   },
   {
     id: "priv-8",
-    titulo: "8. Encargados y transferencias",
+    titulo: "8. Derecho a la portabilidad",
+    cuerpo: (
+      <p>
+        Como administrador de una óptica, puedes solicitar tus datos y los de tu negocio en un
+        formato estructurado y de uso común, para llevarlos a otro proveedor si lo decides.
+        Escríbenos a{" "}
+        <a href={`mailto:${EMAIL_SOPORTE}`} className="link font-medium">{EMAIL_SOPORTE}</a> para
+        coordinar la exportación.
+      </p>
+    ),
+  },
+  {
+    id: "priv-9",
+    titulo: "9. Encargados y transferencias",
     cuerpo: (
       <p>
         Para prestar el servicio nos apoyamos en proveedores de infraestructura en la nube y de
@@ -213,13 +245,108 @@ const PRIVACIDAD: Seccion[] = [
     ),
   },
   {
-    id: "priv-9",
-    titulo: "9. Seguridad",
+    id: "priv-10",
+    titulo: "10. Seguridad",
     cuerpo: (
       <p>
         Aplicamos cifrado en tránsito, control de acceso por roles, aislamiento por negocio y
         registro de auditoría de las operaciones sensibles. Ningún sistema es infalible: si
         detectáramos un incidente que afecte tus datos, lo comunicaremos conforme a la normativa.
+      </p>
+    ),
+  },
+];
+
+/* La Ley 29733 (y su reglamento, D.S. 016-2024-JUS) exige consentimiento
+   previo/expreso solo para cookies que van más allá de lo estrictamente
+   necesario (analítica, marketing, ubicación) — las estrictamente
+   necesarias para prestar el servicio (mantener la sesión iniciada) están
+   exceptuadas. Desde que se sumó PostHog (analítica en páginas públicas,
+   ver AnalyticsProvider.tsx), sí hay algo opcional que aceptar/rechazar —
+   por eso ahora existe el banner. Vercel Analytics NO cuenta como cookie no
+   esencial: no usa cookies ni guarda identificadores, es tráfico anónimo
+   agregado y se descarta a las 24h, así que no requiere este mismo
+   consentimiento. */
+const COOKIES: Seccion[] = [
+  {
+    id: "cook-1",
+    titulo: "1. Qué es una cookie",
+    cuerpo: (
+      <p>
+        Una cookie es un pequeño archivo que un sitio guarda en tu navegador para recordar
+        información entre visitas, por ejemplo que iniciaste sesión.
+      </p>
+    ),
+  },
+  {
+    id: "cook-2",
+    titulo: "2. Cookies estrictamente necesarias",
+    cuerpo: (
+      <p>
+        La cookie de sesión que crea nuestro proveedor de autenticación cuando inicias sesión o te
+        registras es{" "}
+        <strong className="font-semibold text-slate-800 dark:text-slate-100">
+          estrictamente necesaria
+        </strong>{" "}
+        para que el sistema te reconozca como usuario logueado; sin ella no podrías usar el
+        dashboard. No pedimos tu permiso para esta cookie porque la ley la exceptúa: es
+        indispensable para el servicio que pediste. La preferencia de tema claro/oscuro se guarda
+        en tu navegador (localStorage), no en una cookie.
+      </p>
+    ),
+  },
+  {
+    id: "cook-3",
+    titulo: "3. Cookies de analítica (opcionales)",
+    cuerpo: (
+      <p>
+        Usamos <strong className="font-semibold text-slate-800 dark:text-slate-100">PostHog</strong>{" "}
+        para entender cómo se navega esta página pública (qué se hace clic, en qué parte del
+        proceso de registro se detiene alguien) y así mejorarla — nunca dentro del panel del
+        sistema (<code className="rounded bg-slate-100 px-1 py-0.5 text-xs dark:bg-slate-800">/dashboard</code>),
+        donde se muestra información de tus pacientes. PostHog guarda cookies con un identificador
+        anónimo (sin tu nombre ni datos de contacto) por hasta 1 año, para reconocer visitas
+        repetidas. Estas cookies{" "}
+        <strong className="font-semibold text-slate-800 dark:text-slate-100">
+          solo se activan si aceptas el aviso
+        </strong>{" "}
+        que aparece la primera vez que visitas la página — si lo rechazas, nunca se cargan.
+      </p>
+    ),
+  },
+  {
+    id: "cook-4",
+    titulo: "4. Cookies que NO usamos",
+    cuerpo: (
+      <p>
+        No usamos cookies de publicidad ni de redes sociales, ni compartimos tu navegación con
+        terceros con fines comerciales.
+      </p>
+    ),
+  },
+  {
+    id: "cook-5",
+    titulo: "5. Cómo eliminarlas",
+    cuerpo: (
+      <p>
+        Puedes borrar cualquier cookie desde la configuración de tu navegador en cualquier momento.
+        Borrar la cookie de sesión te cerrará la sesión; borrar las de PostHog solo hace que la
+        próxima visita se cuente como nueva.
+      </p>
+    ),
+  },
+  {
+    id: "cook-6",
+    titulo: "6. Cambiar tu preferencia",
+    cuerpo: <CambiarPreferenciaCookies />,
+  },
+  {
+    id: "cook-7",
+    titulo: "7. Contacto",
+    cuerpo: (
+      <p>
+        Para cualquier consulta sobre cookies, escríbenos a{" "}
+        <a href={`mailto:${EMAIL_SOPORTE}`} className="link font-medium">{EMAIL_SOPORTE}</a>.
       </p>
     ),
   },
@@ -329,15 +456,16 @@ const PROTECCION: Seccion[] = [
 const TABS: { id: TabId; label: string; secciones: Seccion[] }[] = [
   { id: "terminos", label: "Términos y condiciones", secciones: TERMINOS },
   { id: "privacidad", label: "Política de privacidad", secciones: PRIVACIDAD },
+  { id: "cookies", label: "Política de cookies", secciones: COOKIES },
   { id: "proteccion", label: "Protección de datos", secciones: PROTECCION },
 ];
 
 /* Sidebar con sub-índice por sección — patrón tomado de ferdocs-web
    (src/app/legal/page.tsx de ese proyecto). A diferencia de ferdocs, acá NO
-   hay expand/collapse independiente del tab activo: con solo 2 pestañas
-   (sin "Info" ni "Cookies", que no aplican aquí) el sub-índice de la pestaña
-   activa simplemente se muestra siempre — un toggle aparte sería un control
-   de más para dos opciones.
+   hay expand/collapse independiente del tab activo: con solo 4 pestañas
+   (sin "Info", que no aplica aquí) el sub-índice de la pestaña activa
+   simplemente se muestra siempre — un toggle aparte sería un control de más
+   para tan pocas opciones.
 
    `LazyMotion` propio (no el de LandingMotionProvider.tsx, que solo envuelve
    la landing): esta página vive fuera de ese árbol, así que arma su propio
@@ -430,7 +558,7 @@ export function LegalHub({ tabInicial }: { tabInicial: TabId }) {
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="min-w-0 flex-1 space-y-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
           >
-            <p className="text-xs text-slate-400 dark:text-slate-500">Última actualización: julio de 2026</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Última actualización: agosto de 2026</p>
             {tabActual.secciones.map((s) => (
               <section key={s.id} id={s.id} className="scroll-mt-28">
                 <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">{s.titulo}</h2>
