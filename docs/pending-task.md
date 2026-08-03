@@ -55,6 +55,15 @@ Nada se ha probado contra credenciales reales (Supabase/Culqi) — ver Pendiente
       ```
       Seguir el rollout escalonado recomendado (log → preview → producción) antes de publicar en
       `deny` directo si el tráfico real es incierto.
+- [ ] **Analítica (sesión 2026-08-02 (25)) — dejado a propósito para cuando el proyecto pase a
+      producción, no antes:**
+      - Crear cuenta gratis en posthog.com, pegar `NEXT_PUBLIC_POSTHOG_KEY` en `.env.local` (hoy
+        vacío a propósito → `AnalyticsProvider` no inicializa nada sin esto).
+      - `vercel link` / deploy real del proyecto (hoy `sass-optica` no existe en la cuenta de
+        Vercel del usuario) para que `<Analytics />` (Vercel Analytics) empiece a mandar datos —
+        el componente ya está en el layout raíz, solo necesita el sitio desplegado ahí.
+      - Con datos reales entrando, armar el embudo Landing→Registro→Pago desde el panel propio de
+        PostHog (configuración, no código).
 
 ## Pendientes activos (no bloquean, pero quedan abiertos)
 - [x] Decidir permisos exactos de `gastos` para el rol `encargado` — resuelto de forma más
@@ -176,6 +185,103 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 `okvet2-explore.js` en el scratchpad de la sesión (no versionado, es herramienta de research).
 
 ## Bitácora de sesiones
+
+### 2026-08-02 (25) — Vercel Analytics + PostHog (analítica solo en páginas públicas) + banner de cookies real
+- **Qué cambió:** el usuario preguntó por Google Analytics/heatmaps para medir clics y tiempo en
+  página. Se le explicaron las dos categorías (tráfico vs. heatmaps/session recording) y se
+  confirmaron 2 decisiones con el usuario: combinación **Vercel Analytics + PostHog** (sin
+  Microsoft Clarity, redundante con PostHog) y **sin desplegar a Vercel todavía** (`sass-optica`
+  no está en la cuenta de Vercel del usuario — se verificó con `vercel project ls` contra sus 7
+  proyectos existentes — así que Vercel Analytics queda cableado en el código pero inactivo hasta
+  que el usuario despliegue). Implementado:
+  1. **`@vercel/analytics`** — `<Analytics />` en el layout raíz, sitio completo (sin cookies, sin
+     PII, dato anónimo agregado descartado a las 24h — no necesita el consentimiento del punto 2).
+  2. **PostHog** (`posthog-js`, `src/lib/analytics/posthog.ts`) — inerte sin
+     `NEXT_PUBLIC_POSTHOG_KEY` (mismo patrón que Supabase/Culqi), import dinámico, grabación de
+     sesión desactivada por defecto (`disable_session_recording: true` — se activa a mano desde
+     el panel de PostHog si el usuario lo decide más adelante, no por defecto).
+  3. **`AnalyticsProvider.tsx`** (nuevo, montado en el layout raíz) — el corazón de la decisión de
+     diseño: PostHog **nunca** se inicializa en `/dashboard` ni `/admin-panel` (ahí se ve
+     información real de pacientes — graduaciones, recetas — que el auto-enmascarado genérico de
+     estas herramientas no está pensado para detectar), y en las páginas públicas donde sí corre,
+     **no se inicializa hasta que el visitante acepta el banner** — nunca antes, nunca por
+     defecto. Banner con botones "Aceptar"/"Rechazar" del mismo peso visual (`btn-primary`/
+     `btn-outline`), sin casillas premarcadas, consistente con lo investigado en la sesión (24)
+     sobre la Ley 29733.
+  4. **Pestaña "Política de cookies" reescrita** (`LegalHub.tsx`) — ya no dice "no usamos
+     analítica"; ahora documenta PostHog, su alcance (solo páginas públicas), duración de la
+     cookie (~1 año) y agrega botón nuevo "Cambiar mi preferencia de cookies"
+     (`reiniciarConsentimientoCookies()` en `cookie-consent.ts`, borra el localStorage y recarga
+     para que el banner reaparezca — los dos árboles de componentes no se hablan directamente).
+  5. `.env.example`/`.env.local`: `NEXT_PUBLIC_POSTHOG_KEY`/`NEXT_PUBLIC_POSTHOG_HOST` nuevas,
+     vacías a propósito (el usuario todavía no tiene cuenta en posthog.com).
+  - Verificado: `npx tsc --noEmit`, `npm run lint`, `npm run build` y `npm test` (249/249)
+    limpios. Visual con Playwright (instalado ad-hoc en el scratchpad de la sesión, no es
+    dependencia del proyecto): banner visible en la landing con botones parejos, screenshot
+    revisado; confirmado que el banner NO aparece en `/dashboard` — sí aparece en `/login` cuando
+    `/dashboard` redirige ahí por falta de sesión, que es el comportamiento correcto (`/login` es
+    página pública).
+- **Por qué:** pedido explícito del usuario tras una ronda de preguntas para acotar el alcance
+  (qué herramientas, y si desplegar a Vercel ahora o no).
+- **Pendiente:** el usuario necesita crear su cuenta gratuita en posthog.com y pegar la key en
+  `.env.local` para que la analítica arranque de verdad (no delegable, requiere su cuenta). Vercel
+  Analytics necesita el deploy real (fuera de alcance de esta sesión, a propósito). Cuando haya
+  datos reales, el embudo Landing→Registro→Pago se configura desde el panel propio de PostHog
+  (no es código).
+
+### 2026-08-02 (24) — Pestaña "Política de cookies" + derecho de portabilidad en Privacidad
+- **Qué cambió:** el usuario preguntó por qué no había un banner de aceptar/rechazar cookies en la
+  landing, y qué debe llevar exactamente una política de privacidad/términos para un SaaS
+  peruano. Investigación contra la Ley N° 29733 y su reglamento (D.S. 016-2024-JUS, vigente desde
+  marzo de 2025, WebSearch + WebFetch a docs.culqi.com/recordinglaw.com/kukie.io) más una
+  revisión del código real: el sitio hoy **no pone ninguna cookie no esencial** (sin analítica ni
+  marketing en el proyecto; el tema claro/oscuro usa `localStorage`, no cookie) — la única cookie
+  es la de sesión de Supabase, que aparece recién al iniciar sesión/registrarse y es estrictamente
+  necesaria (exceptuada de consentimiento previo por ley). Conclusión: no hacía falta un banner de
+  aceptar/rechazar (no hay nada opcional que consentir), pero sí una política de cookies honesta
+  que lo explique, y el usuario confirmó implementar eso más un hallazgo nuevo (portabilidad):
+  1. **Pestaña nueva "Política de cookies"** en `/legal` (`LegalHub.tsx`, mismo patrón que las
+     otras 3 — array `COOKIES` + `TabId`/`TABS`): explica qué cookies se usan hoy (solo sesión),
+     por qué no hay banner (nada opcional que rechazar), y el compromiso de mostrar un banner
+     real de aceptar/rechazar/personalizar el día que se sume analítica o marketing. Registrada en
+     `src/app/legal/page.tsx` (metadata + parseo de `tabInicial`), `sitemap.ts` y el footer de
+     `src/app/page.tsx`.
+  2. **Derecho de portabilidad** — nuevo desde sept-2025 en el reglamento peruano, no estaba
+     mencionado. Sección nueva "8. Derecho a la portabilidad" en la pestaña Privacidad
+     (`priv-8`), renumerando las 2 secciones siguientes (`priv-9`/`priv-10`) — solo texto, sin
+     botón de exportar todavía (no se pidió implementarlo).
+  - Verificado: `npx tsc --noEmit`, `npm run lint`, `npm run build` (incluida `/legal`) y
+    `npm test` (249/249) limpios.
+- **Por qué:** pedido explícito del usuario tras explicarle el marco legal completo; confirmó
+  exactamente estos 2 ítems de una lista de 3 opciones (la tercera era "no tocar código todavía").
+- **Pendiente (mencionado al usuario, no implementado a propósito):** dos hallazgos nuevos de la
+  investigación, fuera del alcance pedido esta sesión — **registro del banco de datos personales
+  ante la ANPD vía la plataforma SIPDP** (gratuito y obligatorio, sin evidencia de haberse hecho,
+  es un trámite del usuario, no código) y un **botón de exportar los datos de la cuenta**
+  (la portabilidad hoy solo está documentada como "escríbenos", no hay self-service). El DPO
+  (Oficial de Protección de Datos) NO aplica todavía: el umbral por ingresos da plazo hasta
+  noviembre de 2028 para empresas con menos de S/825k anuales.
+
+### 2026-08-02 (23) — Webhook de Culqi: verificación server-a-server (Culqi no firma sus webhooks)
+- **Qué cambió:** en la sesión anterior una auditoría de seguridad (RLS/aislamiento — sin gaps
+  cross-tenant) encontró un hallazgo real fuera de RLS: `/api/webhooks/culqi` activaba la
+  suscripción del `negocio_id` que viniera en el body del POST sin validar nada, porque el
+  endpoint es público y Culqi lo llama sin sesión. Se investigó contra `docs.culqi.com`
+  (WebFetch) si Culqi expone algún mecanismo de firma de webhook (HMAC, secreto compartido,
+  header especial) — **confirmado que no expone ninguno**, a diferencia de Stripe. La mitigación
+  estándar para proveedores sin firma es no confiar en el payload y volver a consultar el recurso
+  contra la API real: el webhook ahora toma solo el `id` del cargo del body, hace un
+  `GET https://api.culqi.com/v2/charges/{id}` server-a-server con `CULQI_SECRET_KEY`, y solo
+  activa la suscripción con los datos que Culqi confirme en esa respuesta (`metadata.negocio_id`,
+  `amount`, `currency_code`, `source.type`) — nunca con lo que el body original decía. Si no hay
+  `CULQI_SECRET_KEY` configurada (hoy, sin cuenta real) o Culqi no reconoce el cargo, el evento se
+  ignora sin tocar ninguna suscripción, igual que antes de tener cuenta Culqi real.
+  Verificado: `npx tsc --noEmit` y `npm run lint` limpios. No se pudo probar contra Culqi real
+  (sigue sin `CULQI_SECRET_KEY`, pendiente de la cuenta real — ver "Pendientes activos").
+- **Por qué:** el hallazgo de la auditoría anterior quedó explícitamente pendiente de decisión
+  ("¿lo arreglo ahora o lo dejo anotado?"); el usuario pidió resolver todo lo que no dependa de
+  crear el proyecto Supabase real (explícitamente descartado por ahora), y este era el único
+  ítem de esa lista resoluble 100% en código.
 
 ### 2026-08-01 (22) — 4 features de research de competencia + los 2 cabos sueltos de Multisedes
 - **Qué cambió:** de una lista de 14 ideas de research (tendencias de software para ópticas +
