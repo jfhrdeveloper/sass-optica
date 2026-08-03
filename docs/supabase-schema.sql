@@ -419,10 +419,10 @@ create table if not exists public.mejoras_votos (
 alter table public.mejoras_sugeridas enable row level security;
 drop policy if exists mejoras_sugeridas_select_propia on public.mejoras_sugeridas;
 create policy mejoras_sugeridas_select_propia on public.mejoras_sugeridas for select
-  using (negocio_id = public.current_tenant());
+  using (negocio_id = (select public.current_tenant()));
 drop policy if exists mejoras_sugeridas_insert on public.mejoras_sugeridas;
 create policy mejoras_sugeridas_insert on public.mejoras_sugeridas for insert
-  with check (public.is_administrador() and negocio_id = public.current_tenant());
+  with check ((select public.is_administrador()) and negocio_id = (select public.current_tenant()));
 -- Sin policy de update/delete: cambiar el estado (pendiente→planificado→...)
 -- es exclusivo del dueño del SaaS vía service_role (admin-panel), nunca del
 -- negocio que la propuso.
@@ -430,13 +430,13 @@ create policy mejoras_sugeridas_insert on public.mejoras_sugeridas for insert
 alter table public.mejoras_votos enable row level security;
 drop policy if exists mejoras_votos_select_propio on public.mejoras_votos;
 create policy mejoras_votos_select_propio on public.mejoras_votos for select
-  using (negocio_id = public.current_tenant());
+  using (negocio_id = (select public.current_tenant()));
 drop policy if exists mejoras_votos_insert on public.mejoras_votos;
 create policy mejoras_votos_insert on public.mejoras_votos for insert
-  with check (negocio_id = public.current_tenant());
+  with check (negocio_id = (select public.current_tenant()));
 drop policy if exists mejoras_votos_delete on public.mejoras_votos;
 create policy mejoras_votos_delete on public.mejoras_votos for delete
-  using (negocio_id = public.current_tenant());
+  using (negocio_id = (select public.current_tenant()));
 
 -- Vista pública anonimizada: el único camino de lectura del tablero
 -- compartido. Nunca expone negocio_id de un tercero — `es_mia`/`ya_vote` se
@@ -645,7 +645,7 @@ alter table public.eventos_uso   enable row level security;
 -- (service_role), igual que pagos_saas.
 drop policy if exists eventos_uso_insert on public.eventos_uso;
 create policy eventos_uso_insert on public.eventos_uso for insert
-  with check (negocio_id = public.current_tenant());
+  with check (negocio_id = (select public.current_tenant()));
 
 alter table public.libro_reclamaciones enable row level security;
 -- libro_reclamaciones: sin policies para anon/authenticated a propósito —
@@ -663,7 +663,7 @@ alter table public.notas_soporte enable row level security;
 -- gate de acceso a admin.dominio). Nadie escribe desde el cliente — el alta
 -- es manual por SQL Editor (ver POST-INSTALACIÓN).
 drop policy if exists super_admins_self_read on public.super_admins;
-create policy super_admins_self_read on public.super_admins for select using (id = auth.uid());
+create policy super_admins_self_read on public.super_admins for select using (id = (select auth.uid()));
 
 -- ====== NEGOCIOS ======
 -- Lectura/escritura del propio negocio; alta de negocios queda reservada a
@@ -671,10 +671,10 @@ create policy super_admins_self_read on public.super_admins for select using (id
 -- porque en ese momento el usuario todavía no tiene negocio_id asignado).
 drop policy if exists negocios_read       on public.negocios;
 drop policy if exists negocios_admin_edit on public.negocios;
-create policy negocios_read       on public.negocios for select using (id = public.current_tenant());
+create policy negocios_read       on public.negocios for select using (id = (select public.current_tenant()));
 create policy negocios_admin_edit on public.negocios for update
-  using (public.is_administrador() and id = public.current_tenant())
-  with check (public.is_administrador() and id = public.current_tenant());
+  using ((select public.is_administrador()) and id = (select public.current_tenant()))
+  with check ((select public.is_administrador()) and id = (select public.current_tenant()));
 
 -- ====== EMPLEADOS ("usuarios") ======
 -- Alta (registro/invitar) y baja (eliminar) SIEMPRE vía /api/* con
@@ -683,14 +683,14 @@ drop policy if exists empleados_self_read    on public.empleados;
 drop policy if exists empleados_team_read    on public.empleados;
 drop policy if exists empleados_self_update  on public.empleados;
 drop policy if exists empleados_admin_update on public.empleados;
-create policy empleados_self_read    on public.empleados for select using (id = auth.uid());
+create policy empleados_self_read    on public.empleados for select using (id = (select auth.uid()));
 create policy empleados_team_read    on public.empleados for select
-  using (negocio_id = public.current_tenant());
+  using (negocio_id = (select public.current_tenant()));
 create policy empleados_self_update  on public.empleados for update
-  using (id = auth.uid()) with check (id = auth.uid());
+  using (id = (select auth.uid())) with check (id = (select auth.uid()));
 create policy empleados_admin_update on public.empleados for update
-  using (public.is_administrador() and negocio_id = public.current_tenant())
-  with check (public.is_administrador() and negocio_id = public.current_tenant());
+  using ((select public.is_administrador()) and negocio_id = (select public.current_tenant()))
+  with check ((select public.is_administrador()) and negocio_id = (select public.current_tenant()));
 
 -- ====== ROLES_PERSONALIZADOS ======
 -- Exclusivo del administrador — encargado/trabajador nunca necesitan LEER el
@@ -700,8 +700,8 @@ create policy empleados_admin_update on public.empleados for update
 alter table public.roles_personalizados enable row level security;
 drop policy if exists roles_personalizados_admin on public.roles_personalizados;
 create policy roles_personalizados_admin on public.roles_personalizados for all
-  using (public.is_administrador() and negocio_id = public.current_tenant())
-  with check (public.is_administrador() and negocio_id = public.current_tenant());
+  using ((select public.is_administrador()) and negocio_id = (select public.current_tenant()))
+  with check ((select public.is_administrador()) and negocio_id = (select public.current_tenant()));
 
 -- ====== SUSCRIPCIONES ======
 -- Lectura para TODO empleado del negocio (no solo administrador): el proxy
@@ -717,7 +717,7 @@ create policy roles_personalizados_admin on public.roles_personalizados for all
 drop policy if exists suscripciones_admin_read on public.suscripciones;
 drop policy if exists suscripciones_read on public.suscripciones;
 create policy suscripciones_read on public.suscripciones for select
-  using (negocio_id = public.current_tenant());
+  using (negocio_id = (select public.current_tenant()));
 
 -- ================================================================
 -- MÓDULO DE DOMINIO: gestión de la óptica (Fase 6)
@@ -1201,6 +1201,43 @@ create table if not exists public.campanias_email (
 );
 create index if not exists idx_campanias_negocio on public.campanias_email(negocio_id);
 
+-- ====== ÍNDICES ADICIONALES (auditoría best-practices: FK sin índice +
+-- compuestos negocio_id+fecha para el patrón de reporte "del negocio, en tal
+-- rango") ======
+create index if not exists idx_ventas_empleado on public.ventas(empleado_id);
+create index if not exists idx_ventas_sucursal on public.ventas(sucursal_id);
+create index if not exists idx_ventas_receta   on public.ventas(receta_id);
+create index if not exists idx_venta_items_producto on public.venta_items(producto_id);
+create index if not exists idx_citas_empleado  on public.citas(empleado_id);
+create index if not exists idx_citas_sucursal  on public.citas(sucursal_id);
+create index if not exists idx_ordenes_lab_venta            on public.ordenes_laboratorio(venta_id);
+create index if not exists idx_ordenes_lab_venta_item       on public.ordenes_laboratorio(venta_item_id);
+create index if not exists idx_ordenes_lab_cliente          on public.ordenes_laboratorio(cliente_id);
+create index if not exists idx_ordenes_lab_receta           on public.ordenes_laboratorio(receta_id);
+create index if not exists idx_ordenes_lab_empleado         on public.ordenes_laboratorio(empleado_id);
+create index if not exists idx_ordenes_lab_sucursal_origen  on public.ordenes_laboratorio(sucursal_origen_id);
+create index if not exists idx_ordenes_lab_sucursal_destino on public.ordenes_laboratorio(sucursal_destino_id);
+create index if not exists idx_empleados_rol_personalizado on public.empleados(rol_personalizado_id);
+create index if not exists idx_empleados_sucursal          on public.empleados(sucursal_id);
+create index if not exists idx_gastos_proveedor on public.gastos(proveedor_id);
+create index if not exists idx_gastos_empleado  on public.gastos(empleado_id);
+create index if not exists idx_recetas_empleado on public.recetas(empleado_id);
+create index if not exists idx_recetas_cita     on public.recetas(cita_id);
+create index if not exists idx_examenes_cita      on public.examenes_optometricos(cita_id);
+create index if not exists idx_examenes_receta    on public.examenes_optometricos(receta_id);
+create index if not exists idx_examenes_empleado  on public.examenes_optometricos(empleado_id);
+create index if not exists idx_cajas_empleado_apertura on public.cajas(empleado_apertura_id);
+create index if not exists idx_cajas_empleado_cierre   on public.cajas(empleado_cierre_id);
+create index if not exists idx_cajas_sucursal          on public.cajas(sucursal_id);
+create index if not exists idx_stock_sucursal_sucursal on public.stock_sucursal(sucursal_id);
+create index if not exists idx_mejoras_sugeridas_negocio on public.mejoras_sugeridas(negocio_id);
+
+create index if not exists idx_ventas_negocio_fecha   on public.ventas(negocio_id, fecha);
+create index if not exists idx_citas_negocio_fecha    on public.citas(negocio_id, fecha_hora);
+create index if not exists idx_gastos_negocio_fecha   on public.gastos(negocio_id, fecha);
+create index if not exists idx_cajas_negocio_fecha    on public.cajas(negocio_id, fecha_apertura);
+create index if not exists idx_movstock_negocio_fecha on public.movimientos_stock(negocio_id, fecha);
+
 -- ====== TRIGGERS updated_at (módulo de dominio) ======
 do $$
 declare t text;
@@ -1238,10 +1275,10 @@ alter table public.cotizacion_items  enable row level security;
 -- — is_administrador() a secas, sin puede_gestionar() ni permiso delegable.
 drop policy if exists sucursales_read  on public.sucursales;
 drop policy if exists sucursales_write on public.sucursales;
-create policy sucursales_read on public.sucursales for select using (negocio_id = public.current_tenant());
+create policy sucursales_read on public.sucursales for select using (negocio_id = (select public.current_tenant()));
 create policy sucursales_write on public.sucursales for all
-  using (public.is_administrador() and negocio_id = public.current_tenant())
-  with check (public.is_administrador() and negocio_id = public.current_tenant());
+  using ((select public.is_administrador()) and negocio_id = (select public.current_tenant()))
+  with check ((select public.is_administrador()) and negocio_id = (select public.current_tenant()));
 
 -- clientes / recetas / examenes_optometricos / productos / proveedores /
 -- cotizaciones: lectura abierta SOLO sin rol personalizado asignado (el
@@ -1262,11 +1299,11 @@ begin
     execute format('drop policy if exists %1$s_write on public.%1$s;', t);
     execute format(
       'create policy %1$s_read on public.%1$s for select
-         using ((public.sin_rol_personalizado() or public.tiene_permiso_lectura(%2$L)) and negocio_id = public.current_tenant());', t, clave);
+         using (((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura(%2$L))) and negocio_id = (select public.current_tenant()));', t, clave);
     execute format(
       'create policy %1$s_write on public.%1$s for all
-         using ((public.puede_gestionar() or public.tiene_permiso_escritura(%2$L)) and negocio_id = public.current_tenant())
-         with check ((public.puede_gestionar() or public.tiene_permiso_escritura(%2$L)) and negocio_id = public.current_tenant());', t, clave);
+         using (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura(%2$L))) and negocio_id = (select public.current_tenant()))
+         with check (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura(%2$L))) and negocio_id = (select public.current_tenant()));', t, clave);
   end loop;
 end $$;
 
@@ -1288,18 +1325,18 @@ begin
     execute format(
       'create policy %1$s_read on public.%1$s for select
          using (
-           (public.sin_rol_personalizado() or public.tiene_permiso_lectura(%1$L)) and negocio_id = public.current_tenant()
-           and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
+           ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura(%1$L))) and negocio_id = (select public.current_tenant())
+           and ((select public.current_sucursal()) is null or sucursal_id is null or sucursal_id = (select public.current_sucursal()))
          );', t);
     execute format(
       'create policy %1$s_write on public.%1$s for all
          using (
-           (public.puede_gestionar() or public.tiene_permiso_escritura(%1$L)) and negocio_id = public.current_tenant()
-           and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
+           ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura(%1$L))) and negocio_id = (select public.current_tenant())
+           and ((select public.current_sucursal()) is null or sucursal_id is null or sucursal_id = (select public.current_sucursal()))
          )
          with check (
-           (public.puede_gestionar() or public.tiene_permiso_escritura(%1$L)) and negocio_id = public.current_tenant()
-           and (public.current_sucursal() is null or sucursal_id is null or sucursal_id = public.current_sucursal())
+           ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura(%1$L))) and negocio_id = (select public.current_tenant())
+           and ((select public.current_sucursal()) is null or sucursal_id is null or sucursal_id = (select public.current_sucursal()))
          );', t);
   end loop;
 end $$;
@@ -1314,10 +1351,10 @@ end $$;
 drop policy if exists ordenes_lab_read  on public.ordenes_laboratorio;
 drop policy if exists ordenes_lab_write on public.ordenes_laboratorio;
 create policy ordenes_lab_read on public.ordenes_laboratorio for select
-  using ((public.sin_rol_personalizado() or public.tiene_permiso_lectura('laboratorio')) and negocio_id = public.current_tenant());
+  using (((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('laboratorio'))) and negocio_id = (select public.current_tenant()));
 create policy ordenes_lab_write on public.ordenes_laboratorio for all
-  using ((public.puede_gestionar() or public.tiene_permiso_escritura('laboratorio')) and negocio_id = public.current_tenant())
-  with check ((public.puede_gestionar() or public.tiene_permiso_escritura('laboratorio')) and negocio_id = public.current_tenant());
+  using (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('laboratorio'))) and negocio_id = (select public.current_tenant()))
+  with check (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('laboratorio'))) and negocio_id = (select public.current_tenant()));
 
 -- cajas: mismo criterio OPERATIVO que ordenes_laboratorio — clave propia
 -- 'caja', separada de 'gastos'. Antes compartían clave (ambas se
@@ -1330,10 +1367,10 @@ create policy ordenes_lab_write on public.ordenes_laboratorio for all
 drop policy if exists cajas_read  on public.cajas;
 drop policy if exists cajas_write on public.cajas;
 create policy cajas_read on public.cajas for select
-  using ((public.sin_rol_personalizado() or public.tiene_permiso_lectura('caja')) and negocio_id = public.current_tenant());
+  using (((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('caja'))) and negocio_id = (select public.current_tenant()));
 create policy cajas_write on public.cajas for all
-  using ((public.puede_gestionar() or public.tiene_permiso_escritura('caja')) and negocio_id = public.current_tenant())
-  with check ((public.puede_gestionar() or public.tiene_permiso_escritura('caja')) and negocio_id = public.current_tenant());
+  using (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('caja'))) and negocio_id = (select public.current_tenant()))
+  with check (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('caja'))) and negocio_id = (select public.current_tenant()));
 
 -- inventario (hereda tenant vía productos.negocio_id) — mismo permiso
 -- delegable 'productos' que la tabla productos: ajustar stock es parte de
@@ -1341,12 +1378,12 @@ create policy cajas_write on public.cajas for all
 drop policy if exists inventario_read  on public.inventario;
 drop policy if exists inventario_write on public.inventario;
 create policy inventario_read  on public.inventario for select using (
-  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('productos'))
-  and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+  ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('productos')))
+  and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = (select public.current_tenant())));
 create policy inventario_write on public.inventario for all using (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('productos')) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant())
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('productos'))) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = (select public.current_tenant()))
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('productos')) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = public.current_tenant()));
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('productos'))) and exists (select 1 from public.productos p where p.id = inventario.producto_id and p.negocio_id = (select public.current_tenant())));
 
 -- stock_sucursal (Multisedes Fase B) — hereda tenant vía productos.negocio_id,
 -- + el mismo filtro de sede que citas/ventas + el permiso delegable 'productos'.
@@ -1354,18 +1391,18 @@ alter table public.stock_sucursal enable row level security;
 drop policy if exists stock_sucursal_read  on public.stock_sucursal;
 drop policy if exists stock_sucursal_write on public.stock_sucursal;
 create policy stock_sucursal_read on public.stock_sucursal for select using (
-  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('productos'))
-  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
-  and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
+  ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('productos')))
+  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = (select public.current_tenant()))
+  and ((select public.current_sucursal()) is null or sucursal_id = (select public.current_sucursal()))
 );
 create policy stock_sucursal_write on public.stock_sucursal for all using (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('productos'))
-  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
-  and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('productos')))
+  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = (select public.current_tenant()))
+  and ((select public.current_sucursal()) is null or sucursal_id = (select public.current_sucursal()))
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('productos'))
-  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = public.current_tenant())
-  and (public.current_sucursal() is null or sucursal_id = public.current_sucursal())
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('productos')))
+  and exists (select 1 from public.productos p where p.id = stock_sucursal.producto_id and p.negocio_id = (select public.current_tenant()))
+  and ((select public.current_sucursal()) is null or sucursal_id = (select public.current_sucursal()))
 );
 
 -- movimientos_stock (solo lectura + insert; nunca update/delete — trazabilidad)
@@ -1373,9 +1410,9 @@ create policy stock_sucursal_write on public.stock_sucursal for all using (
 drop policy if exists movstock_read  on public.movimientos_stock;
 drop policy if exists movstock_write on public.movimientos_stock;
 create policy movstock_read  on public.movimientos_stock for select using (
-  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('productos')) and negocio_id = public.current_tenant());
+  ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('productos'))) and negocio_id = (select public.current_tenant()));
 create policy movstock_write on public.movimientos_stock for insert
-  with check ((public.puede_gestionar() or public.tiene_permiso_escritura('productos')) and negocio_id = public.current_tenant());
+  with check (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('productos'))) and negocio_id = (select public.current_tenant()));
 
 -- venta_items (hereda tenant vía ventas.negocio_id) — mismo permiso
 -- delegable 'ventas' que la tabla ventas: sin esto, un trabajador con
@@ -1383,24 +1420,24 @@ create policy movstock_write on public.movimientos_stock for insert
 drop policy if exists venta_items_read  on public.venta_items;
 drop policy if exists venta_items_write on public.venta_items;
 create policy venta_items_read  on public.venta_items for select using (
-  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('ventas'))
-  and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
+  ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('ventas')))
+  and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = (select public.current_tenant())));
 create policy venta_items_write on public.venta_items for all using (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('ventas')) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant())
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('ventas'))) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = (select public.current_tenant()))
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('ventas')) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = public.current_tenant()));
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('ventas'))) and exists (select 1 from public.ventas v where v.id = venta_items.venta_id and v.negocio_id = (select public.current_tenant())));
 
 -- cotizacion_items (hereda tenant vía cotizaciones.negocio_id) — mismo
 -- permiso delegable 'cotizaciones' que la tabla cotizaciones.
 drop policy if exists cotizacion_items_read  on public.cotizacion_items;
 drop policy if exists cotizacion_items_write on public.cotizacion_items;
 create policy cotizacion_items_read  on public.cotizacion_items for select using (
-  (public.sin_rol_personalizado() or public.tiene_permiso_lectura('cotizaciones'))
-  and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
+  ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('cotizaciones')))
+  and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = (select public.current_tenant())));
 create policy cotizacion_items_write on public.cotizacion_items for all using (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('cotizaciones')) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant())
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('cotizaciones'))) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = (select public.current_tenant()))
 ) with check (
-  (public.puede_gestionar() or public.tiene_permiso_escritura('cotizaciones')) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = public.current_tenant()));
+  ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('cotizaciones'))) and exists (select 1 from public.cotizaciones q where q.id = cotizacion_items.cotizacion_id and q.negocio_id = (select public.current_tenant())));
 
 -- gastos: SIN piso por defecto para nadie salvo administrador (ni siquiera
 -- un encargado sin rol personalizado lee esto gratis — a diferencia de
@@ -1413,23 +1450,23 @@ drop policy if exists gastos_admin_all on public.gastos;
 drop policy if exists gastos_read  on public.gastos;
 drop policy if exists gastos_write on public.gastos;
 create policy gastos_read on public.gastos for select
-  using ((public.is_administrador() or public.tiene_permiso_lectura('gastos')) and negocio_id = public.current_tenant());
+  using (((select public.is_administrador()) or (select public.tiene_permiso_lectura('gastos'))) and negocio_id = (select public.current_tenant()));
 create policy gastos_write on public.gastos for all
-  using ((public.is_administrador() or public.tiene_permiso_escritura('gastos')) and negocio_id = public.current_tenant())
-  with check ((public.is_administrador() or public.tiene_permiso_escritura('gastos')) and negocio_id = public.current_tenant());
+  using (((select public.is_administrador()) or (select public.tiene_permiso_escritura('gastos'))) and negocio_id = (select public.current_tenant()))
+  with check (((select public.is_administrador()) or (select public.tiene_permiso_escritura('gastos'))) and negocio_id = (select public.current_tenant()));
 
 -- comprobantes (lectura para todo el negocio; escritura solo service_role)
 drop policy if exists comprobantes_read on public.comprobantes;
-create policy comprobantes_read on public.comprobantes for select using (negocio_id = public.current_tenant());
+create policy comprobantes_read on public.comprobantes for select using (negocio_id = (select public.current_tenant()));
 
 -- descuentos: mismo criterio que gastos (sin piso por defecto salvo admin).
 drop policy if exists descuentos_read  on public.descuentos;
 drop policy if exists descuentos_write on public.descuentos;
 create policy descuentos_read on public.descuentos for select
-  using ((public.is_administrador() or public.tiene_permiso_lectura('descuentos')) and negocio_id = public.current_tenant());
+  using (((select public.is_administrador()) or (select public.tiene_permiso_lectura('descuentos'))) and negocio_id = (select public.current_tenant()));
 create policy descuentos_write on public.descuentos for all
-  using ((public.is_administrador() or public.tiene_permiso_escritura('descuentos')) and negocio_id = public.current_tenant())
-  with check ((public.is_administrador() or public.tiene_permiso_escritura('descuentos')) and negocio_id = public.current_tenant());
+  using (((select public.is_administrador()) or (select public.tiene_permiso_escritura('descuentos'))) and negocio_id = (select public.current_tenant()))
+  with check (((select public.is_administrador()) or (select public.tiene_permiso_escritura('descuentos'))) and negocio_id = (select public.current_tenant()));
 
 -- campanias_email: mismo criterio que gastos/descuentos. Sin UI propia
 -- todavía (/dashboard/marketing no existe en el proyecto), se deja
@@ -1438,10 +1475,10 @@ create policy descuentos_write on public.descuentos for all
 drop policy if exists campanias_read  on public.campanias_email;
 drop policy if exists campanias_write on public.campanias_email;
 create policy campanias_read on public.campanias_email for select
-  using ((public.is_administrador() or public.tiene_permiso_lectura('marketing')) and negocio_id = public.current_tenant());
+  using (((select public.is_administrador()) or (select public.tiene_permiso_lectura('marketing'))) and negocio_id = (select public.current_tenant()));
 create policy campanias_write on public.campanias_email for all
-  using ((public.is_administrador() or public.tiene_permiso_escritura('marketing')) and negocio_id = public.current_tenant())
-  with check ((public.is_administrador() or public.tiene_permiso_escritura('marketing')) and negocio_id = public.current_tenant());
+  using (((select public.is_administrador()) or (select public.tiene_permiso_escritura('marketing'))) and negocio_id = (select public.current_tenant()))
+  with check (((select public.is_administrador()) or (select public.tiene_permiso_escritura('marketing'))) and negocio_id = (select public.current_tenant()));
 
 -- ================================================================
 -- AUDIT LOG: registro por triggers de TODAS las escrituras de gestión
@@ -1514,7 +1551,7 @@ end $$;
 alter table public.audit_log enable row level security;
 drop policy if exists audit_read on public.audit_log;
 create policy audit_read on public.audit_log for select
-  using (public.is_administrador() and negocio_id = public.current_tenant());
+  using ((select public.is_administrador()) and negocio_id = (select public.current_tenant()));
 grant select on public.audit_log to authenticated;
 revoke insert, update, delete on public.audit_log from anon, authenticated;
 
@@ -1528,11 +1565,11 @@ drop policy if exists "avatars_upload" on storage.objects;
 drop policy if exists "avatars_update" on storage.objects;
 drop policy if exists "avatars_delete" on storage.objects;
 create policy "avatars_upload" on storage.objects for insert with check (
-  bucket_id = 'avatars' and auth.role() = 'authenticated');
+  bucket_id = 'avatars' and (select auth.role()) = 'authenticated');
 create policy "avatars_update" on storage.objects for update using (
-  bucket_id = 'avatars' and auth.uid() = (storage.foldername(name))[1]::uuid);
+  bucket_id = 'avatars' and (select auth.uid()) = (storage.foldername(name))[1]::uuid);
 create policy "avatars_delete" on storage.objects for delete using (
-  bucket_id = 'avatars' and auth.uid() = (storage.foldername(name))[1]::uuid);
+  bucket_id = 'avatars' and (select auth.uid()) = (storage.foldername(name))[1]::uuid);
 
 -- ================================================================
 -- pg_cron: reversión diaria de trials de plan pago vencidos sin pago
