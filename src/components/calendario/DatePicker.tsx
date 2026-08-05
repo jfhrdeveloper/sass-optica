@@ -99,10 +99,10 @@ export function DatePicker({ valor, onChange, etiqueta = "Fecha", placeholder = 
         aria-haspopup="dialog"
         aria-expanded={abierto}
         aria-label={etiqueta}
-        className="input flex w-full items-center gap-2 text-sm"
+        className="input flex h-11 w-full items-center gap-2 sm:h-auto"
       >
         <CalendarDays size={15} className="shrink-0 text-slate-400" />
-        <span className={valor ? "flex-1 text-left" : "flex-1 text-left text-slate-400 dark:text-slate-500"}>
+        <span className={valor ? "flex-1 text-left" : "flex-1 text-left text-slate-500 dark:text-slate-500"}>
           {valor ? formatearFechaPE(valor) : placeholder}
         </span>
         {valor && (
@@ -112,7 +112,14 @@ export function DatePicker({ valor, onChange, etiqueta = "Fecha", placeholder = 
             aria-label="Quitar fecha"
             onClick={limpiar}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(""); } }}
-            className="rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
+            /* -my-[10px]: el área táctil sigue midiendo 44px real, pero con
+               margen negativo no empuja la altura de la fila del `.input` —
+               sin esto, este botón de 44px anidado dentro de la fila (que de
+               por sí mide ~40px) la forzaba a crecer a ~60px SOLO cuando
+               había una fecha cargada (el botón solo aparece con `valor`),
+               dejando la casilla más alta que las demás del formulario justo
+               al elegir una fecha (bug real, reportado por el usuario). */
+            className="-my-[10px] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
           >
             <X size={13} />
           </span>
@@ -170,7 +177,7 @@ const CLASES = {
     "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-100 dark:hover:bg-slate-800",
   month_grid: "w-full border-collapse",
   weekdays: "flex",
-  weekday: "w-10 pb-1 text-[11px] font-medium uppercase text-slate-400 dark:text-slate-500",
+  weekday: "w-10 pb-1 text-[11px] font-medium uppercase text-slate-500 dark:text-slate-500",
   week: "flex w-full",
   day: "h-9 w-10 p-0 text-center text-sm",
   day_button:

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, User, Search, Eye, Trash2, Users, RotateCcw, XCircle } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Cliente } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,7 +18,7 @@ import { formatearFecha } from "@/lib/formato/date";
 const DIAS_RIESGO = 180;
 
 export default function ClientesPage() {
-  const { clientes, citas, restaurarCliente, purgarCliente } = useData();
+  const { clientes, citas, restaurarCliente, purgarCliente, ready } = useData();
   const toast = useToast();
   const router = useRouter();
   const formEstado = useClienteForm();
@@ -98,11 +99,11 @@ export default function ClientesPage() {
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-                className="input w-full pl-9 text-sm"
+                className="input h-11 w-full pl-9 sm:h-auto"
               />
             </div>
             {!verPapelera && (
-              <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select w-full text-sm sm:w-auto">
+              <select value={filtroRiesgo} onChange={(e) => setFiltroRiesgo(e.target.value as typeof filtroRiesgo)} className="select h-11 w-full sm:h-auto sm:w-auto">
                 <option value="todos">Todos</option>
                 <option value="riesgo">En riesgo</option>
                 <option value="al_dia">Al día</option>
@@ -116,7 +117,7 @@ export default function ClientesPage() {
           <div className="grid w-full grid-cols-2 gap-2 sm:contents">
             <button
               onClick={() => setVerPapelera((v) => !v)}
-              className={verPapelera ? "btn-primary w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:w-auto sm:px-4" : "btn-outline w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:w-auto sm:px-4"}
+              className={verPapelera ? "btn-primary h-11 w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:h-auto sm:w-auto sm:px-4" : "btn-outline h-11 w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:h-auto sm:w-auto sm:px-4"}
             >
               <Trash2 size={16} /> {verPapelera ? "Volver a clientes" : "Papelera"}
               {!verPapelera && clientesPapelera.length > 0 && (
@@ -124,13 +125,14 @@ export default function ClientesPage() {
               )}
             </button>
             {!verPapelera && (
-              <button onClick={formEstado.nuevo} className="btn-primary w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:ml-auto sm:w-auto sm:px-4">
+              <button onClick={formEstado.nuevo} className="btn-primary h-11 w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:ml-auto sm:h-auto sm:w-auto sm:px-4">
                 <Plus size={16} /> Nuevo cliente
               </button>
             )}
           </div>
         </div>
 
+        <Skeleton name="clientes-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -141,7 +143,7 @@ export default function ClientesPage() {
                     superar los 768px — con lg queda oculta en cualquier orientación
                     de celular, solo se ve en pantallas de verdad tipo laptop/desktop. */}
                 <th className="table-head-cell hidden lg:table-cell">{verPapelera ? "Eliminado" : "Historial"}</th>
-                <th className="table-head-cell text-right">Acciones</th>
+                <th className="table-head-cell">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -160,7 +162,7 @@ export default function ClientesPage() {
                           <span className={`block font-medium text-slate-900 dark:text-slate-100 ${verPapelera ? "" : "transition-colors hover:text-primary"}`}>
                             {c.nombres} {c.apellidos}
                           </span>
-                          <span className="block text-xs text-slate-400 dark:text-slate-500">
+                          <span className="block text-xs text-slate-500 dark:text-slate-500">
                             {c.documentoTipo} {c.documentoNumero ?? "—"}
                           </span>
                         </span>
@@ -192,9 +194,9 @@ export default function ClientesPage() {
                     </td>
                     <td className="table-body-cell text-right">
                       {/* Papelera: 2 íconos, alineados al borde igual que el encabezado
-                          "Acciones" (text-right). Ver: un solo ícono, centrado en vez de
-                          pegado al borde — se ve raro un ícono solo colgando a la derecha. */}
-                      <div className={verPapelera ? "flex justify-end gap-1" : "flex justify-center gap-1"}>
+                          "Acciones" (text-right). Ver más: alineado a la IZQUIERDA de la
+                          celda (pedido explícito), con texto — no solo el ícono. */}
+                      <div className={verPapelera ? "flex justify-end gap-1" : "flex justify-start"}>
                         {verPapelera ? (
                           <>
                             <button onClick={() => restaurar(c)} title="Restaurar" aria-label={`Restaurar a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
@@ -207,11 +209,15 @@ export default function ClientesPage() {
                         ) : (
                           /* Editar y Eliminar ya NO viven en esta fila — se mueven
                              dentro de la ficha del cliente (clientes/[id]/page.tsx).
-                             Acá solo queda Ver (la fila también navega al hacer
+                             Acá solo queda "Ver más" (la fila también navega al hacer
                              click completo, este botón es el punto de entrada
                              explícito/accesible). */
-                          <button onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/clientes/${c.id}`); }} title="Ver" aria-label={`Ver a ${c.nombres} ${c.apellidos}`} className="row-icon-btn">
-                            <Eye size={15} />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/clientes/${c.id}`); }}
+                            aria-label={`Ver más de ${c.nombres} ${c.apellidos}`}
+                            className="flex h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            <Eye size={15} /> Ver más
                           </button>
                         )}
                       </div>
@@ -232,6 +238,7 @@ export default function ClientesPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 

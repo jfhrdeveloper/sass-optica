@@ -99,6 +99,25 @@ body {
   color: var(--foreground);
 }
 
+/* Evita el flash de sidebar expandido en cada F5/recarga: DashboardShell.tsx
+   arranca `colapsado=false` siempre (no puede leer localStorage en el render
+   de servidor) y recién lo corrige en un efecto que corre DESPUÉS del primer
+   paint — por una fracción de segundo se ve el sidebar de 16rem aunque el
+   usuario lo haya dejado colapsado. El script inline de layout.tsx marca
+   <html> con la clase `sidebar-colapsado` ANTES de que React monte, leyendo
+   localStorage directamente; esta regla fuerza el ancho final ya en ese
+   primer paint, sin esperar al efecto de React.
+
+   Sin `@layer` a propósito (mismo motivo que la regla de `transition` de
+   arriba): una regla FUERA de cualquier `@layer` le gana a las utilidades
+   `w-64`/`ml-64` de Tailwind (`@layer utilities`) sin importar especificidad,
+   así que gana incluso mientras el estado de React todavía no se sincronizó
+   con localStorage. */
+@media (min-width: 768px) {
+  html.sidebar-colapsado .dashboard-aside { width: 4rem; }
+  html.sidebar-colapsado .dashboard-content { margin-left: 4rem; }
+}
+
 /* Transición suave al alternar claro/oscuro (ThemeToggle.tsx agrega/quita
    `.dark` en <html>) — sin esto el cambio de color es instantáneo y se
    siente brusco en toda la pantalla de golpe. Selector universal a
@@ -167,9 +186,12 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /* Safari en iOS hace auto-zoom al enfocar un input/select/textarea con
-   font-size por debajo de 16px — `.input`/`.select` usan text-sm (14px). Esta
-   es la mitad del "doble candado" contra ese zoom: la otra mitad es
-   `maximumScale: 1` en el viewport (layout.tsx). */
+   font-size por debajo de 16px. Esta es la mitad del "doble candado" contra
+   ese zoom: la otra mitad es `maximumScale: 1` en el viewport (layout.tsx).
+   OJO: en Tailwind v4 `@layer components` gana sobre `@layer base` sin
+   importar especificidad — así que `.input`/`.select` NO pueden llevar
+   `text-sm` en su `@apply` (ver más abajo) o esta regla queda pisada en
+   silencio y el candado se rompe. */
 input, textarea, select {
   font-size: max(16px, 1em);
 }
@@ -185,21 +207,29 @@ input, textarea, select {
      esos dos eran la excepción (llevaban `rounded-full` suelto en el JSX) y
      el resto del proyecto iba en `rounded-lg`. Cambiarlo acá lo unifica de
      una sola vez, sin tocar cada botón (regla de docs/style-guide.md). */
+  /* text-base (no text-sm) a propósito — .input/.select ya usan text-base
+     (fix del zoom de iOS, ver más abajo). Con el mismo py-2 en los dos
+     lados, un botón en text-sm quedaba ~3px más bajo que el input/select de
+     al lado en la misma fila de filtros — desalineado en TODA la app, no
+     solo en una página (bug real, reportado por el usuario en Clientes). */
+  /* py-1.5 (no py-2) — reducido a pedido del usuario ("se ven muy grandes"
+     en PC y mobile). .input/.select también bajaron a py-1.5 para mantener
+     la misma alineación. */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-full bg-primary px-4 py-2
-           text-sm font-medium text-white transition-colors hover:bg-primary-dark
+    @apply inline-flex items-center justify-center rounded-full bg-primary px-4 py-1.5
+           text-base font-medium text-white transition-colors hover:bg-primary-dark
            active:bg-primary-dark disabled:opacity-50;
   }
   .btn-outline {
     @apply inline-flex items-center justify-center rounded-full border border-slate-300
-           bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors
+           bg-white px-4 py-1.5 text-base font-medium text-slate-700 transition-colors
            hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800
            dark:active:bg-slate-700;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-2
-           text-sm font-medium text-white transition-colors hover:bg-red-700
+    @apply inline-flex items-center justify-center rounded-full bg-red-600 px-4 py-1.5
+           text-base font-medium text-white transition-colors hover:bg-red-700
            active:bg-red-800 disabled:opacity-50;
   }
   .card {
@@ -209,8 +239,17 @@ input, textarea, select {
   .page-enter {
     animation: fade-in 0.25s ease-out;
   }
+  /* Label visible arriba de cada campo de formulario (clientes, citas, ventas,
+     cotizaciones, etc.) — antes el `placeholder` hacía de label, así que
+     desaparecía justo al escribir y nunca dejaba ver qué campo era
+     obligatorio. El asterisco de "obligatorio" va suelto en el JSX
+     (`<span className="text-red-500">*</span>` después del texto), no acá,
+     porque no todo `.form-label` lo lleva. */
+  .form-label {
+    @apply mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400;
+  }
   .input {
-    @apply rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900
+    @apply rounded-lg border border-slate-300 px-3 py-1.5 text-base text-slate-900
            placeholder:text-slate-400 focus:border-primary focus:outline-none
            focus:ring-2 focus:ring-primary/20
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500;
@@ -223,7 +262,7 @@ input, textarea, select {
      del chevron queda fijo en slate-400: es legible en los dos temas, no
      hace falta una segunda versión para dark. */
   .select {
-    @apply rounded-lg border border-slate-300 py-2 pl-3 pr-9 text-sm text-slate-900
+    @apply rounded-lg border border-slate-300 py-1.5 pl-3 pr-9 text-base text-slate-900
            focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
            appearance-none bg-no-repeat cursor-pointer truncate
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
@@ -240,7 +279,7 @@ input, textarea, select {
   .badge-danger  { @apply bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400; }
   .badge-neutral { @apply bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300; }
   .nav-section-label {
-    @apply px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500;
+    @apply px-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500;
   }
   /* Subrayado que crece de izquierda a derecha al hover (links de columna
      del footer) — `scaleX` con `transform-origin: left` en vez de animar
@@ -398,7 +437,7 @@ input, textarea, select {
   }
   .table-head-cell {
     @apply bg-slate-50 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide
-           text-slate-400 dark:bg-slate-800/50 dark:text-slate-500;
+           text-slate-500 dark:bg-slate-800/50 dark:text-slate-500;
   }
   /* OJO al nombrar clases de tabla: "table‑row"/"table‑cell" (sin prefijo,
      con guion normal en vez de este guion no-separable) son también nombres
@@ -434,7 +473,7 @@ input, textarea, select {
            bg-primary-light text-primary;
   }
   .row-icon-btn {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400
            transition-colors hover:bg-slate-100 hover:text-slate-700
            focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
            dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200;
@@ -444,7 +483,7 @@ input, textarea, select {
   }
   .table-empty {
     @apply flex flex-col items-center justify-center gap-2 py-10 text-center text-sm
-           text-slate-400 dark:text-slate-500;
+           text-slate-500 dark:text-slate-500;
   }
 
   /* Switch (toggle deslizante) — reemplaza el patrón anterior de "click al

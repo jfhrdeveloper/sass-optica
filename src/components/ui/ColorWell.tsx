@@ -53,7 +53,7 @@ export function ColorWell({ valor, onChange, etiqueta = "Color de marca" }: Prop
        DateRangePicker.tsx: sin esto, en una pantalla más angosta que
        `anchoDeseado + margen*2` el popover queda con `left` negativo,
        cortado por el borde. */
-    const ancho = Math.min(264, window.innerWidth - margen * 2);
+    const ancho = Math.min(280, window.innerWidth - margen * 2);
     const alto = 280;
     const abajo = t.bottom + margen + alto <= window.innerHeight;
     setPos({
@@ -113,7 +113,7 @@ export function ColorWell({ valor, onChange, etiqueta = "Color de marca" }: Prop
         aria-haspopup="dialog"
         aria-expanded={abierto}
         aria-label={`${etiqueta}: ${valor}`}
-        className="flex items-center gap-2 rounded-full border border-slate-300 bg-white p-1 pr-2 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+        className="flex h-11 items-center gap-2 rounded-full border border-slate-300 bg-white pl-1 pr-3 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
       >
         <span
           className="h-7 w-7 rounded-full border border-black/10"
@@ -132,7 +132,7 @@ export function ColorWell({ valor, onChange, etiqueta = "Color de marca" }: Prop
           className="card fixed z-50 p-3 shadow-xl"
         >
           <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Colores disponibles</p>
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-5 gap-2">
             {PALETA_MARCA.map((c) => (
               <button
                 key={c.hex}
@@ -141,7 +141,7 @@ export function ColorWell({ valor, onChange, etiqueta = "Color de marca" }: Prop
                 title={`${c.nombre} · ${c.hex}`}
                 aria-label={c.nombre}
                 aria-pressed={valor.toLowerCase() === c.hex.toLowerCase()}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 transition-transform hover:scale-110"
+                className="flex h-11 w-11 items-center justify-center rounded-lg border border-black/10 transition-transform hover:scale-110"
                 style={{ backgroundColor: c.hex }}
               >
                 {valor.toLowerCase() === c.hex.toLowerCase() && <Check size={14} className="text-white" />}
@@ -160,7 +160,7 @@ export function ColorWell({ valor, onChange, etiqueta = "Color de marca" }: Prop
                 onChange={(e) => setHex(e.target.value)}
                 placeholder="#2563EB"
                 spellCheck={false}
-                className="input w-full text-sm"
+                className="input w-full"
               />
               {soportaGotero && (
                 <button
@@ -168,7 +168,7 @@ export function ColorWell({ valor, onChange, etiqueta = "Color de marca" }: Prop
                   onClick={gotero}
                   title="Tomar un color de la pantalla"
                   aria-label="Tomar un color de la pantalla"
-                  className="shrink-0 rounded-full border border-slate-300 p-2 text-slate-500 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
                 >
                   <Pipette size={14} />
                 </button>

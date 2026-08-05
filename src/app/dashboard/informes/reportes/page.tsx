@@ -84,10 +84,10 @@ export default function ReportesPage() {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         <div className="ml-auto flex gap-2">
-          <button onClick={exportarExcel} disabled={generando === "excel"} className="btn-outline gap-1.5 text-sm">
+          <button onClick={exportarExcel} disabled={generando === "excel"} className="btn-outline h-11 gap-1.5 text-sm sm:h-auto">
             <Download size={15} /> {generando === "excel" ? "Generando…" : "Excel"}
           </button>
-          <button onClick={imprimirPdf} className="btn-outline gap-1.5 text-sm">
+          <button onClick={imprimirPdf} className="btn-outline h-11 gap-1.5 text-sm sm:h-auto">
             <Printer size={15} /> PDF
           </button>
         </div>
@@ -95,15 +95,15 @@ export default function ReportesPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Ingresos</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Ingresos</p>
           <p className="mt-1 text-2xl font-semibold text-accent">S/ {ingresosTotal.toFixed(2)}</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Egresos</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Egresos</p>
           <p className="mt-1 text-2xl font-semibold text-red-600 dark:text-red-400">S/ {egresosTotal.toFixed(2)}</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Balance</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Balance</p>
           <p className={`mt-1 text-2xl font-semibold ${balance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-600 dark:text-red-400"}`}>
             S/ {balance.toFixed(2)}
           </p>
@@ -114,7 +114,7 @@ export default function ReportesPage() {
         <div className="card p-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Ingresos por método de pago</h2>
           {porMetodo.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">Sin ingresos en este período.</p>
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-500">Sin ingresos en este período.</p>
           ) : (
             <ul className="mt-3 space-y-1.5 text-sm">
               {porMetodo.map((m) => (
@@ -129,7 +129,7 @@ export default function ReportesPage() {
         <div className="card p-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Egresos por categoría</h2>
           {porCategoria.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">Sin egresos en este período.</p>
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-500">Sin egresos en este período.</p>
           ) : (
             <ul className="mt-3 space-y-1.5 text-sm">
               {porCategoria.map((c) => (

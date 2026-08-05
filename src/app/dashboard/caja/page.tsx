@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Download, Printer, Wallet, Plus, X } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type ItemAperturaCaja } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -24,7 +25,7 @@ const ITEM_APERTURA_VACIO: ItemAperturaCaja = { metodo: "Efectivo", monto: 0 };
    control real vive acá + en la RLS de `cajas` — mismo criterio que
    /dashboard/laboratorio. */
 export default function CajaPage() {
-  const { cajas, ventas, negocio, empleados, rolesPersonalizados, abrirCaja, cerrarCaja } = useData();
+  const { cajas, ventas, negocio, empleados, rolesPersonalizados, abrirCaja, cerrarCaja, ready } = useData();
   const { empleado } = useSession();
   const toast = useToast();
   const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "caja");
@@ -157,25 +158,25 @@ export default function CajaPage() {
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                   Desde {formatearFechaHora(cajaAbierta.fechaApertura)} · Monto inicial S/ {cajaAbierta.montoInicial.toFixed(2)}
                   {cajaAbierta.desgloseApertura.length > 1 && (
-                    <span className="text-slate-400 dark:text-slate-500">
+                    <span className="text-slate-500 dark:text-slate-500">
                       {" "}({cajaAbierta.desgloseApertura.map((it) => `${it.metodo}: S/ ${it.monto.toFixed(2)}`).join(" · ")})
                     </span>
                   )}
                 </p>
               </div>
               {puedeEditar && !cerrandoForm && (
-                <button onClick={() => setCerrandoForm(true)} className="btn-primary">Cerrar caja</button>
+                <button onClick={() => setCerrandoForm(true)} className="btn-primary h-11 sm:h-auto">Cerrar caja</button>
               )}
             </div>
 
             {cuadrePreview && (
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                <div><span className="text-slate-400 dark:text-slate-500">Efectivo</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalEfectivo.toFixed(2)}</p></div>
-                <div><span className="text-slate-400 dark:text-slate-500">Tarjeta</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalTarjeta.toFixed(2)}</p></div>
-                <div><span className="text-slate-400 dark:text-slate-500">Yape</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalYape.toFixed(2)}</p></div>
-                <div><span className="text-slate-400 dark:text-slate-500">Plin</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalPlin.toFixed(2)}</p></div>
-                <div><span className="text-slate-400 dark:text-slate-500">Transferencia</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalTransferencia.toFixed(2)}</p></div>
-                <div><span className="text-slate-400 dark:text-slate-500">Efectivo esperado</span><p className="font-semibold text-primary">S/ {cuadrePreview.montoEfectivoEsperado.toFixed(2)}</p></div>
+                <div><span className="text-slate-500 dark:text-slate-500">Efectivo</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalEfectivo.toFixed(2)}</p></div>
+                <div><span className="text-slate-500 dark:text-slate-500">Tarjeta</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalTarjeta.toFixed(2)}</p></div>
+                <div><span className="text-slate-500 dark:text-slate-500">Yape</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalYape.toFixed(2)}</p></div>
+                <div><span className="text-slate-500 dark:text-slate-500">Plin</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalPlin.toFixed(2)}</p></div>
+                <div><span className="text-slate-500 dark:text-slate-500">Transferencia</span><p className="font-medium text-slate-900 dark:text-slate-100">S/ {cuadrePreview.totalTransferencia.toFixed(2)}</p></div>
+                <div><span className="text-slate-500 dark:text-slate-500">Efectivo esperado</span><p className="font-semibold text-primary">S/ {cuadrePreview.montoEfectivoEsperado.toFixed(2)}</p></div>
               </div>
             )}
 
@@ -183,14 +184,14 @@ export default function CajaPage() {
               <form onSubmit={onCerrar} className="mt-4 max-w-xs space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Efectivo contado</label>
-                  <input type="number" step="0.01" required value={montoContado} onChange={(e) => setMontoContado(Number(e.target.value))} className="input mt-1 w-full text-sm" />
+                  <input type="number" step="0.01" required value={montoContado} onChange={(e) => setMontoContado(Number(e.target.value))} className="input mt-1 h-11 w-full sm:h-auto" />
                 </div>
                 <p className={`text-sm font-medium ${montoContado - cuadrePreview.montoEfectivoEsperado === 0 ? "text-slate-500 dark:text-slate-400" : "text-red-600 dark:text-red-400"}`}>
                   Diferencia: {montoContado - cuadrePreview.montoEfectivoEsperado >= 0 ? "+" : ""}S/ {(montoContado - cuadrePreview.montoEfectivoEsperado).toFixed(2)}
                 </p>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setCerrandoForm(false)} className="btn-outline flex-1">Cancelar</button>
-                  <button type="submit" disabled={guardando} className="btn-primary flex-1">{guardando ? "Cerrando…" : "Confirmar cierre"}</button>
+                  <button type="button" onClick={() => setCerrandoForm(false)} className="btn-outline h-11 flex-1 sm:h-auto">Cancelar</button>
+                  <button type="submit" disabled={guardando} className="btn-primary h-11 flex-1 sm:h-auto">{guardando ? "Cerrando…" : "Confirmar cierre"}</button>
                 </div>
               </form>
             )}
@@ -203,14 +204,14 @@ export default function CajaPage() {
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Abre la caja al empezar el turno para registrar el monto inicial.</p>
               </div>
               {puedeEditar && !abriendoForm && (
-                <button onClick={() => setAbriendoForm(true)} className="btn-primary gap-1.5"><Wallet size={16} /> Abrir caja</button>
+                <button onClick={() => setAbriendoForm(true)} className="btn-primary h-11 gap-1.5 sm:h-auto"><Wallet size={16} /> Abrir caja</button>
               )}
             </div>
             {abriendoForm && (
               <form onSubmit={onAbrir} className="mt-4 max-w-sm space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Monto inicial por método</label>
-                  <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
                     Si al empezar el turno ya hay saldo en más de un medio (efectivo, Yape, etc.), añade un ítem por cada uno.
                   </p>
                   <datalist id="metodos-apertura-caja">
@@ -224,14 +225,14 @@ export default function CajaPage() {
                           placeholder="Método (ej. Efectivo)"
                           value={it.metodo}
                           onChange={(e) => actualizarItemApertura(i, { metodo: e.target.value })}
-                          className="input flex-1 text-sm"
+                          className="input h-11 flex-1 sm:h-auto"
                         />
                         <input
                           type="number" step="0.01" min={0}
                           placeholder="0.00"
                           value={it.monto || ""}
                           onChange={(e) => actualizarItemApertura(i, { monto: Number(e.target.value) })}
-                          className="input w-24 text-sm"
+                          className="input h-11 w-24 sm:h-auto"
                         />
                         <button
                           type="button" onClick={() => quitarItemApertura(i)}
@@ -250,8 +251,8 @@ export default function CajaPage() {
                   <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">Total: S/ {totalApertura.toFixed(2)}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setAbriendoForm(false)} className="btn-outline flex-1">Cancelar</button>
-                  <button type="submit" disabled={guardando || totalApertura <= 0} className="btn-primary flex-1">{guardando ? "Abriendo…" : "Abrir caja"}</button>
+                  <button type="button" onClick={() => setAbriendoForm(false)} className="btn-outline h-11 flex-1 sm:h-auto">Cancelar</button>
+                  <button type="submit" disabled={guardando || totalApertura <= 0} className="btn-primary h-11 flex-1 sm:h-auto">{guardando ? "Abriendo…" : "Abrir caja"}</button>
                 </div>
               </form>
             )}
@@ -262,16 +263,17 @@ export default function CajaPage() {
       <h2 className="mt-8 text-sm font-semibold text-slate-700 dark:text-slate-200">Historial de cierres</h2>
       <div className="table-card mt-2">
         <div className="table-filter-bar justify-end">
-          <button onClick={exportarCSV} disabled={historial.length === 0} className="btn-outline gap-1.5 text-sm">
+          <button onClick={exportarCSV} disabled={historial.length === 0} className="btn-outline h-11 gap-1.5 text-sm sm:h-auto">
             <Download size={15} /> CSV
           </button>
-          <button onClick={exportarExcel} disabled={historial.length === 0 || exportandoExcel} className="btn-outline gap-1.5 text-sm">
+          <button onClick={exportarExcel} disabled={historial.length === 0 || exportandoExcel} className="btn-outline h-11 gap-1.5 text-sm sm:h-auto">
             <Download size={15} /> {exportandoExcel ? "Generando…" : "Excel"}
           </button>
-          <button onClick={imprimirListado} disabled={historial.length === 0} className="btn-outline gap-1.5 text-sm">
+          <button onClick={imprimirListado} disabled={historial.length === 0} className="btn-outline h-11 gap-1.5 text-sm sm:h-auto">
             <Printer size={15} /> PDF
           </button>
         </div>
+        <Skeleton name="caja-historial-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -315,6 +317,7 @@ export default function CajaPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
     </main>

@@ -130,17 +130,17 @@ export default function LibroReclamacionesPage() {
             <div>
               <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Datos del consumidor</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input required placeholder="Nombres" value={form.consumidorNombres} onChange={(e) => set("consumidorNombres", e.target.value)} className="input text-sm" />
-                <input required placeholder="Apellidos" value={form.consumidorApellidos} onChange={(e) => set("consumidorApellidos", e.target.value)} className="input text-sm" />
-                <select value={form.consumidorDocumentoTipo} onChange={(e) => set("consumidorDocumentoTipo", e.target.value)} className="select text-sm">
+                <input required placeholder="Nombres" value={form.consumidorNombres} onChange={(e) => set("consumidorNombres", e.target.value)} className="input" />
+                <input required placeholder="Apellidos" value={form.consumidorApellidos} onChange={(e) => set("consumidorApellidos", e.target.value)} className="input" />
+                <select value={form.consumidorDocumentoTipo} onChange={(e) => set("consumidorDocumentoTipo", e.target.value)} className="select">
                   <option value="DNI">DNI</option>
                   <option value="CE">Carné de Extranjería</option>
                   <option value="Pasaporte">Pasaporte</option>
                 </select>
-                <input required placeholder="N° de documento" value={form.consumidorDocumentoNumero} onChange={(e) => set("consumidorDocumentoNumero", e.target.value)} className="input text-sm" />
-                <input required placeholder="Domicilio" value={form.consumidorDomicilio} onChange={(e) => set("consumidorDomicilio", e.target.value)} className="input text-sm sm:col-span-2" />
-                <input placeholder="Teléfono (opcional)" value={form.consumidorTelefono ?? ""} onChange={(e) => set("consumidorTelefono", e.target.value)} className="input text-sm" />
-                <input required type="email" placeholder="Email" value={form.consumidorEmail} onChange={(e) => set("consumidorEmail", e.target.value)} className="input text-sm" />
+                <input required placeholder="N° de documento" value={form.consumidorDocumentoNumero} onChange={(e) => set("consumidorDocumentoNumero", e.target.value)} className="input" />
+                <input required placeholder="Domicilio" value={form.consumidorDomicilio} onChange={(e) => set("consumidorDomicilio", e.target.value)} className="input sm:col-span-2" />
+                <input placeholder="Teléfono (opcional)" value={form.consumidorTelefono ?? ""} onChange={(e) => set("consumidorTelefono", e.target.value)} className="input" />
+                <input required type="email" placeholder="Email" value={form.consumidorEmail} onChange={(e) => set("consumidorEmail", e.target.value)} className="input" />
               </div>
               <label className="mt-2 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <input type="checkbox" className="checkbox" checked={form.esMenorEdad} onChange={(e) => set("esMenorEdad", e.target.checked)} />
@@ -150,7 +150,7 @@ export default function LibroReclamacionesPage() {
                 <input
                   required placeholder="Nombre del padre, madre o apoderado"
                   value={form.apoderadoNombre ?? ""} onChange={(e) => set("apoderadoNombre", e.target.value)}
-                  className="input mt-2 w-full text-sm"
+                  className="input mt-2 w-full"
                 />
               )}
             </div>
@@ -158,7 +158,7 @@ export default function LibroReclamacionesPage() {
             <div>
               <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Bien contratado</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <select required value={form.bienTipo} onChange={(e) => set("bienTipo", e.target.value as TipoBien)} className="select text-sm">
+                <select required value={form.bienTipo} onChange={(e) => set("bienTipo", e.target.value as TipoBien)} className="select">
                   <option value="" disabled>Elegir…</option>
                   <option value="servicio">Servicio</option>
                   <option value="producto">Producto</option>
@@ -166,12 +166,12 @@ export default function LibroReclamacionesPage() {
                 <input
                   type="number" step="0.01" min="0" placeholder="Monto reclamado (S/, opcional)"
                   value={form.montoReclamado ?? ""} onChange={(e) => set("montoReclamado", e.target.value ? Number(e.target.value) : undefined)}
-                  className="input text-sm"
+                  className="input"
                 />
                 <input
                   required placeholder="Descripción (ej. Plan Premium, suscripción de julio)"
                   value={form.bienDescripcion} onChange={(e) => set("bienDescripcion", e.target.value)}
-                  className="input text-sm sm:col-span-2"
+                  className="input sm:col-span-2"
                 />
               </div>
             </div>
@@ -179,18 +179,18 @@ export default function LibroReclamacionesPage() {
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Detalle del reclamo/queja</label>
-                <textarea required rows={4} value={form.detalle} onChange={(e) => set("detalle", e.target.value)} className="input w-full text-sm" />
+                <textarea required rows={4} value={form.detalle} onChange={(e) => set("detalle", e.target.value)} className="input w-full" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">¿Qué pides como solución?</label>
-                <textarea required rows={3} value={form.pedido} onChange={(e) => set("pedido", e.target.value)} className="input w-full text-sm" />
+                <textarea required rows={3} value={form.pedido} onChange={(e) => set("pedido", e.target.value)} className="input w-full" />
               </div>
             </div>
 
             <button type="submit" disabled={enviando} className="btn-primary w-full">
               {enviando ? "Enviando…" : "Enviar reclamo"}
             </button>
-            <p className="text-xs text-slate-400 dark:text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-500">
               El proveedor debe responder en un plazo no mayor a 15 días hábiles.
             </p>
           </form>

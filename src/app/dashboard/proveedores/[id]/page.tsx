@@ -47,10 +47,10 @@ export default function ProveedorDetallePage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{proveedor.nombre}</h1>
-            <p className="text-xs text-slate-400 dark:text-slate-500">{proveedor.ruc ?? "Sin RUC"}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-500">{proveedor.ruc ?? "Sin RUC"}</p>
           </div>
         </div>
-        <label className="btn-outline inline-flex shrink-0 cursor-pointer items-center gap-2 px-3 py-1.5 text-xs">
+        <label className="btn-outline inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 px-3 py-1.5 text-xs sm:h-auto">
           <input
             type="checkbox" role="switch" checked={proveedor.activo}
             onChange={() => updateProveedor(proveedor.id, { activo: !proveedor.activo })}
@@ -62,22 +62,22 @@ export default function ProveedorDetallePage() {
 
       <div className="card mt-5 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="text-xs text-slate-400 dark:text-slate-500">Contacto</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Contacto</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{proveedor.contacto ?? "—"}</div>
         </div>
         <div>
-          <div className="text-xs text-slate-400 dark:text-slate-500">Teléfono</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Teléfono</div>
           <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900 dark:text-slate-100">
             {proveedor.telefono ?? "—"}
             {proveedor.telefono && <BotonWhatsApp telefono={proveedor.telefono} />}
           </div>
         </div>
         <div>
-          <div className="text-xs text-slate-400 dark:text-slate-500">Email</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Email</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{proveedor.email ?? "—"}</div>
         </div>
         <div>
-          <div className="text-xs text-slate-400 dark:text-slate-500">Dirección</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Dirección</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{proveedor.direccion ?? "—"}</div>
         </div>
       </div>
@@ -89,14 +89,14 @@ export default function ProveedorDetallePage() {
       <div className="mt-8">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Productos que provee ({productosDelProveedor.length})</h2>
         {productosDelProveedor.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">Todavía no tiene productos vinculados en Stock.</p>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-500">Todavía no tiene productos vinculados en Stock.</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {productosDelProveedor.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
                 <div>
                   <p className="text-slate-700 dark:text-slate-200">{p.nombre}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">Stock actual: {p.stockActual}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500">Stock actual: {p.stockActual}</p>
                 </div>
                 <span className="text-slate-500 dark:text-slate-400">Costo S/ {p.precioCosto.toFixed(2)}</span>
               </li>
@@ -113,7 +113,7 @@ export default function ProveedorDetallePage() {
           )}
         </div>
         {gastosDelProveedor.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-500">
             Todavía no hay gastos registrados a nombre de este proveedor.
           </p>
         ) : (
@@ -122,7 +122,7 @@ export default function ProveedorDetallePage() {
               <li key={g.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
                 <div>
                   <p className="text-slate-700 dark:text-slate-200">{formatearFecha(g.fecha)}</p>
-                  {g.descripcion && <p className="text-xs text-slate-400 dark:text-slate-500">{g.descripcion}</p>}
+                  {g.descripcion && <p className="text-xs text-slate-500 dark:text-slate-500">{g.descripcion}</p>}
                 </div>
                 <span className="text-slate-500 dark:text-slate-400">S/ {g.monto.toFixed(2)}</span>
               </li>

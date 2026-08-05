@@ -88,11 +88,24 @@ export default function AjustesPage() {
       <form onSubmit={guardarDatos} className="card mt-4 space-y-3 p-4">
         <h2 className="font-medium text-slate-900 dark:text-slate-100">Datos del negocio</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <input placeholder="Nombre del negocio" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input text-sm" />
-          <input placeholder="RUC" value={form.ruc} onChange={(e) => setForm({ ...form, ruc: e.target.value })} className="input text-sm" />
-          <input placeholder="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input text-sm" />
-          <input placeholder="Dirección" value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input text-sm" />
+          <div>
+            <label className="form-label">Nombre del negocio <span className="text-red-500">*</span></label>
+            <input placeholder="Ej. Óptica Central" required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input w-full" />
+          </div>
+          <div>
+            <label className="form-label">RUC</label>
+            <input placeholder="Ej. 20123456789" value={form.ruc} onChange={(e) => setForm({ ...form, ruc: e.target.value })} className="input w-full" />
+          </div>
+          <div>
+            <label className="form-label">Teléfono</label>
+            <input placeholder="Ej. 987654321" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input w-full" />
+          </div>
+          <div>
+            <label className="form-label">Dirección</label>
+            <input placeholder="Ej. Av. Los Álamos 123" value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input w-full" />
+          </div>
         </div>
+        <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
         <button type="submit" disabled={guardando} className="btn-primary">
           {guardando ? "Guardando…" : "Guardar cambios"}
         </button>
@@ -109,7 +122,7 @@ export default function AjustesPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={negocio.logoUrl} alt="Logo del negocio" className="h-14 w-14 rounded-lg border border-slate-200 dark:border-slate-800 object-cover" />
           ) : (
-            <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500">Sin logo</div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-500">Sin logo</div>
           )}
           <div className="flex flex-col items-start gap-1.5">
             <label className={`btn-outline cursor-pointer ${subiendoLogo ? "pointer-events-none opacity-50" : ""}`}>
@@ -123,7 +136,7 @@ export default function AjustesPage() {
             )}
           </div>
         </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500">JPG, PNG o WebP. Máximo 8MB.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-500">JPG, PNG o WebP. Máximo 8MB.</p>
 
         <div className="flex items-center gap-3">
           <ColorWell valor={colorPrimario} onChange={setColorPrimario} />

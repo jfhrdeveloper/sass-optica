@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, ChevronDown, Package, Search, Truck, Users, type LucideIcon } from "lucide-react";
@@ -11,16 +11,9 @@ import { nombrePlanSuscripcion, nombreEstadoSuscripcion } from "@/lib/precios";
 import { formatearFechaPE, diasEntre } from "@/lib/formato/date";
 import { NAV, type Hijo, type Restriccion, type NavItem } from "@/lib/dashboard-nav";
 import { puedeLeerModulo } from "@/lib/permisos";
+import { useIsomorphicLayoutEffect } from "@/lib/hooks/useIsomorphicLayoutEffect";
 
 const MAX_RESULTADOS_BUSQUEDA = 5;
-
-/* `useLayoutEffect` no hace nada en el servidor (y React tira un warning en
-   consola si se usa igual durante el SSR) — este componente SÍ se renderiza
-   en servidor (no está montado con `ssr: false`), así que se evita con el
-   patrón estándar "isomorphic": en el navegador es `useLayoutEffect` de
-   verdad (mide el DOM antes del pintado, sin flash); en el servidor cae a
-   `useEffect` (que ahí no llega a ejecutarse de todos modos). */
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /* Buscador global (antes vivía suelto en /dashboard/page.tsx, como
    "Inicio" del buscador): se mudó al sidebar para que esté disponible desde
@@ -81,18 +74,18 @@ function BuscadorGlobal({ colapsado, onExpandir }: { colapsado: boolean; onExpan
         onFocus={() => setEnfocado(true)}
         onBlur={() => setTimeout(() => setEnfocado(false), 150)}
         placeholder="Buscar cliente, producto…"
-        className="input w-full pl-8 text-sm"
+        className="input w-full pl-8"
       />
 
       {enfocado && q.trim() && (
         <div className="card absolute inset-x-2 top-full z-30 mt-1 max-h-96 overflow-y-auto p-2 shadow-lg">
           {!hayResultados ? (
-            <p className="p-3 text-sm text-slate-400 dark:text-slate-500">Sin resultados para &quot;{q}&quot;.</p>
+            <p className="p-3 text-sm text-slate-500 dark:text-slate-500">Sin resultados para &quot;{q}&quot;.</p>
           ) : (
             <>
               {resultados!.clientes.length > 0 && (
                 <div className="mb-1">
-                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Clientes</p>
+                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Clientes</p>
                   {resultados!.clientes.map((c) => (
                     <button
                       key={c.id}
@@ -106,7 +99,7 @@ function BuscadorGlobal({ colapsado, onExpandir }: { colapsado: boolean; onExpan
               )}
               {resultados!.proveedores.length > 0 && (
                 <div className="mb-1">
-                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Proveedores</p>
+                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Proveedores</p>
                   {resultados!.proveedores.map((p) => (
                     <button
                       key={p.id}
@@ -120,7 +113,7 @@ function BuscadorGlobal({ colapsado, onExpandir }: { colapsado: boolean; onExpan
               )}
               {resultados!.productos.length > 0 && (
                 <div>
-                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Productos</p>
+                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Productos</p>
                   {resultados!.productos.map((p) => (
                     <button
                       key={p.id}
@@ -268,9 +261,23 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
       }
     }
   }
-  const [indicador, setIndicador] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [indicador, setIndicador] = useState<{ top: number; left: number; width: number; height: number; instantaneo: boolean } | null>(null);
+  /* Primera medición desde que este <DashboardNav> se montó: arranca en
+     `{top:0,left:0,width:0,height:0,opacity:0}` (ver estilo de la píldora,
+     más abajo) y recién en este efecto se entera de dónde va de verdad. Sin
+     este ref, esa primera actualización de posición/tamaño/opacidad quedaría
+     atrapada por `transition-[transform,opacity]` igual que cualquier cambio
+     posterior — la píldora "nace" en la esquina superior (0,0) y se ve
+     deslizar/crecer hasta el ítem activo real (p. ej. de Inicio a Clientes)
+     en vez de aparecer ya en su lugar. Se apaga la transición SOLO en esa
+     primera medición (vía `transitionDuration` inline, ver JSX) — cambios de
+     ruta o de acordeón después de montado sí deben animar, por eso se pone en
+     `false` apenas se usó una vez. */
+  const primeraMedicionRef = useRef(true);
   const medirIndicador = () => {
     const nav = navRef.current;
+    const instantaneo = primeraMedicionRef.current;
+    primeraMedicionRef.current = false;
     if (!nav || !claveActiva) { setIndicador(null); return; }
     const el = nav.querySelector<HTMLElement>(`[data-nav-key="${claveActiva}"]`);
     if (!el || el.offsetParent === null) { setIndicador(null); return; }
@@ -281,6 +288,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
       left: elRect.left - navRect.left + nav.scrollLeft,
       width: elRect.width,
       height: elRect.height,
+      instantaneo,
     });
   };
   useIsomorphicLayoutEffect(medirIndicador, [claveActiva, grupoAbierto]);
@@ -352,8 +360,8 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden rounded-r-[1.75rem] border-r border-slate-200 bg-white shadow-[4px_0_16px_-4px_rgba(15,23,42,0.12)] transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-900 dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)] md:flex ${
-        colapsado ? "w-16" : "w-60"
+      className={`dashboard-aside fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden rounded-r-[1.75rem] border-r border-slate-200 bg-white shadow-[4px_0_16px_-4px_rgba(15,23,42,0.12)] transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-900 dark:shadow-[4px_0_16px_-4px_rgba(0,0,0,0.4)] md:flex ${
+        colapsado ? "w-16" : "w-64"
       }`}
     >
       {/* Identidad del negocio/empleado y ThemeToggle viven en
@@ -397,6 +405,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
             width: indicador ? `${indicador.width}px` : 0,
             height: indicador ? `${indicador.height}px` : 0,
             opacity: indicador && !colapsando ? 1 : 0,
+            transitionDuration: indicador?.instantaneo ? "0ms" : undefined,
           }}
         />
         <div className="space-y-0.5">
@@ -576,7 +585,7 @@ export function DashboardNav({ colapsado, onToggle }: { colapsado: boolean; onTo
             {!colapsado && (
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{negocio.nombre}</p>
-                <p className="truncate text-xs text-slate-400 dark:text-slate-500">{negocio.subdominio}</p>
+                <p className="truncate text-xs text-slate-500 dark:text-slate-500">{negocio.subdominio}</p>
                 {suscripcion && (
                   <span className={`badge mt-1 ${ESTADO_BADGE[suscripcion.estado] ?? "badge-neutral"}`}>
                     {nombrePlanSuscripcion(suscripcion.plan)} · {nombreEstadoSuscripcion(suscripcion.estado)}

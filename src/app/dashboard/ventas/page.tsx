@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Receipt, Trash2, Printer, ScanBarcode } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { EscanerCodigoBarras } from "@/components/ui/EscanerCodigoBarras";
 import { productosRelacionados } from "@/lib/venta-cruzada";
 import { useData, type Venta, type VentaItem, type Producto } from "@/components/providers/DataProvider";
@@ -29,17 +30,17 @@ type ItemForm = Omit<VentaItem, "id" | "ventaId">;
 /* Ver el mismo componente en cotizaciones/page.tsx: el placeholder/label
    nativo de un &lt;select&gt; desaparece al elegir un valor, así que sin esto no
    hay forma de recordar qué campo es cada uno una vez lleno. */
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function Campo({ label, obligatorio, children }: { label: string; obligatorio?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">{label}</label>
+      <label className="form-label">{label}{obligatorio && <> <span className="text-red-500">*</span></>}</label>
       {children}
     </div>
   );
 }
 
 export default function VentasPage() {
-  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, sucursales, sucursalFiltro, addVenta, addCliente, anularVenta, updateDescuento } = useData();
+  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, sucursales, sucursalFiltro, addVenta, addCliente, anularVenta, updateDescuento, ready } = useData();
   const cajaAbierta = cajas.some((c) => c.estado === "abierta");
   const { empleado } = useSession();
   const toast = useToast();
@@ -285,7 +286,7 @@ export default function VentasPage() {
         <h2 className="font-medium">Nueva venta</h2>
         <div className="mt-2">
           <Campo label="Cliente">
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select w-full text-sm">
+            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select w-full">
               <option value="">Sin cliente</option>
               {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
               <option value={CLIENTE_NUEVO}>+ Nuevo cliente</option>
@@ -297,16 +298,16 @@ export default function VentasPage() {
               así cancelar la venta no deja un cliente huérfano a medio llenar. */}
           {clienteId === CLIENTE_NUEVO && (
             <div className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-2.5 sm:grid-cols-3 dark:bg-slate-900">
-              <Campo label="Nombres">
-                <input value={nuevoCliente.nombres} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombres: e.target.value })} className="input w-full text-sm" />
+              <Campo label="Nombres" obligatorio>
+                <input placeholder="Ej. María" value={nuevoCliente.nombres} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombres: e.target.value })} className="input w-full" />
               </Campo>
               <Campo label="Apellidos">
-                <input value={nuevoCliente.apellidos} onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellidos: e.target.value })} className="input w-full text-sm" />
+                <input placeholder="Ej. Gonzáles" value={nuevoCliente.apellidos} onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellidos: e.target.value })} className="input w-full" />
               </Campo>
               <Campo label="Teléfono">
-                <input value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} className="input w-full text-sm" />
+                <input placeholder="Ej. 987654321" value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} className="input w-full" />
               </Campo>
-              <p className="col-span-full text-xs text-slate-400 dark:text-slate-500">Se crea al confirmar la venta.</p>
+              <p className="col-span-full text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio · se crea al confirmar la venta.</p>
             </div>
           )}
         </div>
@@ -334,15 +335,15 @@ export default function VentasPage() {
 
         {modoItem === "catalogo" ? (
           <div className="mt-2 space-y-2">
-            <Campo label="Producto">
-              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select w-full text-sm">
+            <Campo label="Producto" obligatorio>
+              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select w-full">
                 <option value="">Elegir producto…</option>
                 {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} — S/ {p.precioVenta.toFixed(2)}</option>)}
               </select>
             </Campo>
             <div className="flex items-end gap-2">
               <Campo label="Cantidad">
-                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
               </Campo>
               <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
                 Agregar ítem
@@ -351,15 +352,15 @@ export default function VentasPage() {
           </div>
         ) : (
           <div className="mt-2 space-y-2">
-            <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)">
-              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full text-sm" />
+            <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)" obligatorio>
+              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full" />
             </Campo>
             <div className="flex items-end gap-2">
-              <Campo label="Precio unitario (S/)">
-                <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28 text-sm" />
+              <Campo label="Precio unitario (S/)" obligatorio>
+                <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28" />
               </Campo>
               <Campo label="Cantidad">
-                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
               </Campo>
               <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
                 Agregar ítem
@@ -387,7 +388,7 @@ export default function VentasPage() {
            llevaron...". Un clic agrega directo, sin pasar por el <select>. */}
         {sugerencias.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-slate-400 dark:text-slate-500">Suelen llevar también:</span>
+            <span className="text-xs text-slate-500 dark:text-slate-500">Suelen llevar también:</span>
             {sugerencias.map((p) => (
               <button
                 key={p.id} type="button" onClick={() => agregarSugerido(p)}
@@ -401,7 +402,7 @@ export default function VentasPage() {
 
         <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:flex sm:flex-wrap sm:items-end sm:justify-between">
           <Campo label="Método de pago">
-            <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="select w-full text-sm">
+            <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="select w-full">
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="yape">Yape</option>
@@ -415,7 +416,7 @@ export default function VentasPage() {
                 value={sucursalVentaId}
                 onChange={(e) => setSucursalVentaId(e.target.value)}
                 disabled={!!empleado?.sucursalId}
-                className="select w-full text-sm"
+                className="select w-full"
               >
                 <option value="">Sin sede asignada</option>
                 {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -432,7 +433,7 @@ export default function VentasPage() {
             <Campo label="Código de descuento (opcional)">
               <select
                 value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-                className="select w-full text-sm sm:w-48"
+                className="select w-full sm:w-48"
               >
                 <option value="">Sin descuento</option>
                 {descuentosDisponibles.map((d) => (
@@ -456,9 +457,10 @@ export default function VentasPage() {
           </div>
         </div>
 
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
         <button
           onClick={confirmarVenta} disabled={guardando || items.length === 0 || alLimiteVentas || !cajaAbierta}
-          className="btn-primary mt-3 w-full"
+          className="btn-primary mt-1 w-full"
         >
           {!cajaAbierta ? "Abre la caja para vender" : guardando ? "Guardando…" : "Confirmar venta"}
         </button>
@@ -466,7 +468,7 @@ export default function VentasPage() {
 
       <div className="table-card mt-6">
         <div className="table-filter-bar">
-          <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select text-sm">
+          <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select">
             <option value="todos">Todos los métodos</option>
             <option value="efectivo">Efectivo</option>
             <option value="tarjeta">Tarjeta</option>
@@ -477,6 +479,7 @@ export default function VentasPage() {
           <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         </div>
 
+        <Skeleton name="ventas-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -504,7 +507,7 @@ export default function VentasPage() {
                   <td className="table-body-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
                   <td className="table-body-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
-                    <div className="text-xs text-slate-400 dark:text-slate-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-500">
                       {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
                     </div>
                   </td>
@@ -551,6 +554,7 @@ export default function VentasPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 

@@ -28,23 +28,31 @@ export function SettingsTabs({ tabs: tabsProp }: { tabs: TabDeAjustes[] }) {
   if (tabs.length < 2) return null;
 
   return (
-    <div className="mt-4 flex gap-1 border-b border-slate-200 pb-2 dark:border-slate-800">
-      {tabs.map((t) => {
-        const activo = pathname === t.href;
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activo
-                ? "bg-primary-light text-primary"
-                : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-            }`}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
+    /* overflow-x-auto: con pocas pestañas cortas (Ajustes: 3, Informes: 2) el
+       total siempre entraba en pantalla; con más pestañas o una etiqueta larga
+       (ej. la ficha de cliente: Citas/Recetas/Exámenes optométricos/Compras)
+       el track sin esto se desbordaba y arrastraba scroll horizontal a la
+       página entera en mobile — acá queda contenido al propio track, mismo
+       criterio que Pagination.tsx/SegmentedControl.tsx. */
+    <div className="mt-4 overflow-x-auto border-b border-slate-200 pb-2 dark:border-slate-800">
+      <div className="flex w-fit gap-1">
+        {tabs.map((t) => {
+          const activo = pathname === t.href;
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                activo
+                  ? "bg-primary-light text-primary"
+                  : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+              }`}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

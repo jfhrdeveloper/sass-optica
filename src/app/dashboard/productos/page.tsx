@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Plus, Package, PackageSearch, Pencil, ScanBarcode, Download, Upload, X } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Producto } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -35,7 +36,7 @@ const TIPO_MOVIMIENTO_LABEL: Record<(typeof TIPOS_MOVIMIENTO)[number], string> =
 const VACIO: Partial<Producto> = { precioVenta: 0, precioCosto: 0, activo: true };
 
 export default function ProductosPage() {
-  const { negocio, productos, proveedores, addProducto, updateProducto, ajustarStock } = useData();
+  const { negocio, productos, proveedores, addProducto, updateProducto, ajustarStock, ready } = useData();
   const { empleado } = useSession();
   // El margen (precio de costo) es un dato financiero: el brief dice
   // explícitamente que el rol "trabajador" ve solo ventas/atención y
@@ -199,26 +200,26 @@ export default function ProductosPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
-          <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
+          <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select h-11 sm:h-auto">
             <option value="todas">Todas las categorías</option>
             {CATEGORIAS.map((c) => <option key={c} value={c}>{CATEGORIA_LABEL[c]}</option>)}
           </select>
-          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select h-11 sm:h-auto">
             <option value="todos">Todos los estados</option>
             <option value="activo">Activo</option>
             <option value="borrador">Borrador</option>
           </select>
-          <button onClick={() => setEscanerAbierto(true)} className="btn-outline ml-auto gap-1.5">
+          <button onClick={() => setEscanerAbierto(true)} className="btn-outline ml-auto h-11 gap-1.5 sm:h-auto">
             <ScanBarcode size={16} /> Escanear
           </button>
-          <button onClick={exportarExcel} disabled={exportando} className="btn-outline gap-1.5">
+          <button onClick={exportarExcel} disabled={exportando} className="btn-outline h-11 gap-1.5 sm:h-auto">
             <Download size={16} /> {exportando ? "Exportando…" : "Exportar"}
           </button>
-          <button onClick={() => inputImportarRef.current?.click()} disabled={importando} className="btn-outline gap-1.5">
+          <button onClick={() => inputImportarRef.current?.click()} disabled={importando} className="btn-outline h-11 gap-1.5 sm:h-auto">
             <Upload size={16} /> {importando ? "Importando…" : "Importar"}
           </button>
           <input ref={inputImportarRef} type="file" accept=".xlsx" onChange={onImportarExcel} className="hidden" />
-          <button onClick={nuevo} className="btn-primary gap-1.5">
+          <button onClick={nuevo} className="btn-primary h-11 gap-1.5 sm:h-auto">
             <Plus size={16} /> Nuevo producto
           </button>
         </div>
@@ -227,7 +228,7 @@ export default function ProductosPage() {
           <div className="mx-4 mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
             <div className="flex items-start justify-between gap-2">
               <p className="font-medium">{erroresImportacion.length} fila{erroresImportacion.length === 1 ? "" : "s"} del Excel no se importaron:</p>
-              <button onClick={() => setErroresImportacion([])} aria-label="Cerrar" className="shrink-0 text-red-600 hover:text-red-800 dark:text-red-400">
+              <button onClick={() => setErroresImportacion([])} aria-label="Cerrar" className="-m-1 flex h-11 w-11 shrink-0 items-center justify-center text-red-600 hover:text-red-800 dark:text-red-400">
                 <X size={15} />
               </button>
             </div>
@@ -237,6 +238,7 @@ export default function ProductosPage() {
           </div>
         )}
 
+        <Skeleton name="productos-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -257,7 +259,7 @@ export default function ProductosPage() {
                       <span className="row-avatar"><Package size={16} /></span>
                       <span>
                         <span className="block font-medium text-slate-900 dark:text-slate-100">{p.nombre}</span>
-                        <span className="block text-xs text-slate-400 dark:text-slate-500">
+                        <span className="block text-xs text-slate-500 dark:text-slate-500">
                           {p.marca ?? "—"}{p.codigo ? ` · ${p.codigo}` : ""}
                         </span>
                       </span>
@@ -303,6 +305,7 @@ export default function ProductosPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 
@@ -311,13 +314,13 @@ export default function ProductosPage() {
         <form onSubmit={onSubmit} className="space-y-3">
           {paso === 1 ? (
             <>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Datos básicos</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Datos básicos</p>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Nombre del producto</label>
-                <input placeholder="Ej. Ray-Ban Aviator" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input mt-1 w-full text-sm" />
+                <label className="form-label">Nombre del producto <span className="text-red-500">*</span></label>
+                <input placeholder="Ej. Ray-Ban Aviator" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input h-11 w-full sm:h-auto" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Categoría</label>
+                <label className="form-label">Categoría <span className="text-red-500">*</span></label>
                 <select
                   value={form.categoria ?? ""}
                   onChange={(e) => {
@@ -329,23 +332,23 @@ export default function ProductosPage() {
                       ? { ...form, categoria }
                       : { ...form, categoria, curvaBase: undefined, diametro: undefined, potencia: undefined });
                   }}
-                  className="select mt-1 w-full text-sm"
+                  className="select h-11 w-full sm:h-auto"
                 >
                   <option value="" disabled>Elegir categoría…</option>
                   {CATEGORIAS.map((c) => <option key={c} value={c}>{CATEGORIA_LABEL[c]}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Marca (opcional)</label>
-                <input placeholder="Ej. Ray-Ban" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="input mt-1 w-full text-sm" />
+                <label className="form-label">Marca</label>
+                <input placeholder="Ej. Ray-Ban" value={form.marca ?? ""} onChange={(e) => setForm({ ...form, marca: e.target.value })} className="input h-11 w-full sm:h-auto" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Código o SKU (opcional)</label>
-                <input placeholder="Tu código interno para identificarlo" value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input mt-1 w-full text-sm" />
+                <label className="form-label">Código o SKU</label>
+                <input placeholder="Tu código interno para identificarlo" value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input h-11 w-full sm:h-auto" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Proveedor (opcional)</label>
-                <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select mt-1 w-full text-sm">
+                <label className="form-label">Proveedor</label>
+                <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select h-11 w-full sm:h-auto">
                   <option value="">Sin proveedor</option>
                   {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
@@ -354,71 +357,72 @@ export default function ProductosPage() {
                 <input type="checkbox" checked={form.activo ?? true} onChange={(e) => setForm({ ...form, activo: e.target.checked })} className="checkbox" />
                 Publicado como Activo (desmarca para dejarlo en Borrador)
               </label>
-              <button type="button" disabled={!form.nombre || !form.categoria} onClick={() => setPaso(2)} className="btn-primary mt-2 w-full">
+              <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campos obligatorios</p>
+              <button type="button" disabled={!form.nombre || !form.categoria} onClick={() => setPaso(2)} className="btn-primary mt-2 h-11 w-full sm:h-auto">
                 Siguiente
               </button>
             </>
           ) : (
             <>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Precios y stock</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Precios y stock</p>
               <div className={puedeVerCosto ? "grid grid-cols-2 gap-2" : ""}>
                 <div className="min-w-0">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de venta (S/)</label>
-                  <input type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
+                  <label className="form-label">Precio de venta (S/)</label>
+                  <input type="number" step="0.01" value={form.precioVenta ?? 0} onChange={(e) => setForm({ ...form, precioVenta: Number(e.target.value) })} className="input h-11 w-full sm:h-auto" />
                 </div>
                 {puedeVerCosto && (
                   <div className="min-w-0">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Precio de costo (S/)</label>
-                    <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input mt-1 w-full text-sm" />
+                    <label className="form-label">Precio de costo (S/)</label>
+                    <input type="number" step="0.01" value={form.precioCosto ?? 0} onChange={(e) => setForm({ ...form, precioCosto: Number(e.target.value) })} className="input h-11 w-full sm:h-auto" />
                   </div>
                 )}
               </div>
               {form.categoria === "lente_contacto" && (
                 <>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Parámetros del lente de contacto</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Parámetros del lente de contacto</p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Curva base</label>
-                      <input type="number" step="0.01" placeholder="8.60" value={form.curvaBase ?? ""} onChange={(e) => setForm({ ...form, curvaBase: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                      <label className="form-label">Curva base</label>
+                      <input type="number" step="0.01" placeholder="8.60" value={form.curvaBase ?? ""} onChange={(e) => setForm({ ...form, curvaBase: e.target.value ? Number(e.target.value) : undefined })} className="input h-11 w-full sm:h-auto" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Diámetro</label>
-                      <input type="number" step="0.01" placeholder="14.20" value={form.diametro ?? ""} onChange={(e) => setForm({ ...form, diametro: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                      <label className="form-label">Diámetro</label>
+                      <input type="number" step="0.01" placeholder="14.20" value={form.diametro ?? ""} onChange={(e) => setForm({ ...form, diametro: e.target.value ? Number(e.target.value) : undefined })} className="input h-11 w-full sm:h-auto" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Potencia</label>
-                      <input type="number" step="0.01" placeholder="-2.50" value={form.potencia ?? ""} onChange={(e) => setForm({ ...form, potencia: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                      <label className="form-label">Potencia</label>
+                      <input type="number" step="0.01" placeholder="-2.50" value={form.potencia ?? ""} onChange={(e) => setForm({ ...form, potencia: e.target.value ? Number(e.target.value) : undefined })} className="input h-11 w-full sm:h-auto" />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Duración de una caja (días)</label>
-                    <input type="number" placeholder="30" value={form.duracionReposicionDias ?? ""} onChange={(e) => setForm({ ...form, duracionReposicionDias: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
-                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    <label className="form-label">Duración de una caja (días)</label>
+                    <input type="number" placeholder="30" value={form.duracionReposicionDias ?? ""} onChange={(e) => setForm({ ...form, duracionReposicionDias: e.target.value ? Number(e.target.value) : undefined })} className="input h-11 w-full sm:h-auto" />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
                       Con esto avisamos a tus clientes cuándo les toca reponer (ej. 30 para mensual, 1 para diario).
                     </p>
                   </div>
                 </>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Garantía del proveedor (meses)</label>
-                <input type="number" placeholder="Opcional" value={form.garantiaMeses ?? ""} onChange={(e) => setForm({ ...form, garantiaMeses: e.target.value ? Number(e.target.value) : undefined })} className="input mt-1 w-full text-sm" />
+                <label className="form-label">Garantía del proveedor (meses)</label>
+                <input type="number" placeholder="Ej. 12" value={form.garantiaMeses ?? ""} onChange={(e) => setForm({ ...form, garantiaMeses: e.target.value ? Number(e.target.value) : undefined })} className="input h-11 w-full sm:h-auto" />
               </div>
               {!editandoId && (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="min-w-0">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Stock inicial</label>
-                    <input type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="input mt-1 w-full text-sm" />
+                    <label className="form-label">Stock inicial</label>
+                    <input type="number" value={stockInicial} onChange={(e) => setStockInicial(Number(e.target.value))} className="input h-11 w-full sm:h-auto" />
                   </div>
                   <div className="min-w-0">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Stock mínimo</label>
-                    <input type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="input mt-1 w-full text-sm" />
-                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Se marca en rojo cuando el stock baje de aquí.</p>
+                    <label className="form-label">Stock mínimo</label>
+                    <input type="number" value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className="input h-11 w-full sm:h-auto" />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">Se marca en rojo cuando el stock baje de aquí.</p>
                   </div>
                 </div>
               )}
               <div className="mt-2 flex gap-2">
-                <button type="button" onClick={() => setPaso(1)} className="btn-outline flex-1">Atrás</button>
-                <button type="submit" disabled={guardando} className="btn-primary flex-1">
+                <button type="button" onClick={() => setPaso(1)} className="btn-outline h-11 flex-1 sm:h-auto">Atrás</button>
+                <button type="submit" disabled={guardando} className="btn-primary h-11 flex-1 sm:h-auto">
                   {editandoId ? "Guardar cambios" : "Agregar producto"}
                 </button>
               </div>
@@ -434,8 +438,8 @@ export default function ProductosPage() {
               {productoAjuste.nombre} — stock actual: <strong>{productoAjuste.stockActual}</strong>
             </p>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tipo de movimiento</label>
-              <select value={tipoMov} onChange={(e) => setTipoMov(e.target.value as typeof tipoMov)} className="select mt-1 w-full text-sm">
+              <label className="form-label">Tipo de movimiento</label>
+              <select value={tipoMov} onChange={(e) => setTipoMov(e.target.value as typeof tipoMov)} className="select h-11 w-full sm:h-auto">
                 {TIPOS_MOVIMIENTO.map((t) => <option key={t} value={t}>{TIPO_MOVIMIENTO_LABEL[t]}</option>)}
               </select>
             </div>
@@ -443,24 +447,25 @@ export default function ProductosPage() {
                 número ES el stock final; en entrada/salida/devolución es
                 cuánto se suma o resta al stock que ya había. */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-                {tipoMov === "ajuste" ? "Nuevo stock actual" : "Cantidad"}
+              <label className="form-label">
+                {tipoMov === "ajuste" ? "Nuevo stock actual" : "Cantidad"} <span className="text-red-500">*</span>
               </label>
               <input
                 type="number" min={0} required value={cantidadMov}
                 onChange={(e) => setCantidadMov(Number(e.target.value))}
-                className="input mt-1 w-full text-sm"
+                className="input h-11 w-full sm:h-auto"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Motivo (opcional)</label>
+              <label className="form-label">Motivo</label>
               <input
                 value={motivoMov} onChange={(e) => setMotivoMov(e.target.value)}
                 placeholder="Ej. conteo físico, producto dañado…"
-                className="input mt-1 w-full text-sm"
+                className="input h-11 w-full sm:h-auto"
               />
             </div>
-            <button type="submit" disabled={guardandoMov} className="btn-primary w-full">
+            <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
+            <button type="submit" disabled={guardandoMov} className="btn-primary h-11 w-full sm:h-auto">
               {guardandoMov ? "Guardando…" : "Guardar ajuste"}
             </button>
           </form>

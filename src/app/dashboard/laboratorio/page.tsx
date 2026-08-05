@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, FlaskConical, MessageCircle } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type OrdenLaboratorio, type EstadoOrdenLaboratorio } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -26,7 +27,7 @@ const VACIO: Partial<OrdenLaboratorio> = {};
    propósito: no hay ningún patrón drag-and-drop en el proyecto, un <select>
    de estado (como estado_cotizacion) alcanza para el MVP. */
 export default function LaboratorioPage() {
-  const { ordenesLaboratorio, clientes, ventas, rolesPersonalizados, addOrdenLaboratorio, updateOrdenLaboratorio } = useData();
+  const { ordenesLaboratorio, clientes, ventas, rolesPersonalizados, addOrdenLaboratorio, updateOrdenLaboratorio, ready } = useData();
   const { empleado } = useSession();
   const toast = useToast();
   const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "laboratorio");
@@ -83,15 +84,16 @@ export default function LaboratorioPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
-          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select h-11 sm:h-auto">
             <option value="todos">Todos los estados</option>
             {ESTADOS_ORDEN_LABORATORIO.map((es) => <option key={es} value={es}>{ESTADO_ORDEN_LABORATORIO_LABEL[es]}</option>)}
           </select>
-          <button onClick={nuevo} className="btn-primary ml-auto gap-1.5">
+          <button onClick={nuevo} className="btn-primary ml-auto h-11 gap-1.5 sm:h-auto">
             <Plus size={16} /> Nueva orden
           </button>
         </div>
 
+        <Skeleton name="laboratorio-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -124,7 +126,7 @@ export default function LaboratorioPage() {
                         <select
                           value={o.estado}
                           onChange={(e) => cambiarEstado(o, e.target.value as EstadoOrdenLaboratorio)}
-                          className="select text-xs"
+                          className="select h-11 sm:h-auto"
                         >
                           {opcionesEstado.map((es) => <option key={es} value={es}>{ESTADO_ORDEN_LABORATORIO_LABEL[es]}</option>)}
                         </select>
@@ -160,16 +162,17 @@ export default function LaboratorioPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
       </div>
 
       <SlideOver abierto={abierto} onClose={cerrar} titulo="Nueva orden de laboratorio">
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Cliente</label>
+            <label className="form-label">Cliente <span className="text-red-500">*</span></label>
             <select
               required value={form.clienteId ?? ""}
               onChange={(e) => setForm({ ...form, clienteId: e.target.value || undefined, ventaId: undefined })}
-              className="select mt-1 w-full text-sm"
+              className="select h-11 w-full sm:h-auto"
             >
               <option value="">Selecciona un cliente</option>
               {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
@@ -177,8 +180,8 @@ export default function LaboratorioPage() {
           </div>
           {form.clienteId && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Venta relacionada (opcional)</label>
-              <select value={form.ventaId ?? ""} onChange={(e) => setForm({ ...form, ventaId: e.target.value || undefined })} className="select mt-1 w-full text-sm">
+              <label className="form-label">Venta relacionada</label>
+              <select value={form.ventaId ?? ""} onChange={(e) => setForm({ ...form, ventaId: e.target.value || undefined })} className="select h-11 w-full sm:h-auto">
                 <option value="">Sin venta asociada</option>
                 {ventasDelCliente.map((v) => (
                   <option key={v.id} value={v.id}>{formatearFecha(v.fecha)} — S/ {v.total.toFixed(2)}</option>
@@ -187,13 +190,14 @@ export default function LaboratorioPage() {
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Laboratorio / taller (opcional)</label>
-            <input value={form.laboratorioNombre ?? ""} onChange={(e) => setForm({ ...form, laboratorioNombre: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+            <label className="form-label">Laboratorio / taller</label>
+            <input placeholder="Ej. Óptica Central Lab" value={form.laboratorioNombre ?? ""} onChange={(e) => setForm({ ...form, laboratorioNombre: e.target.value || undefined })} className="input h-11 w-full sm:h-auto" />
           </div>
           {/* Antes era un <input type="date"> nativo — el calendario propio del
               proyecto (mismo componente que usan citas/cotizaciones/gastos)
               faltaba acá, sin razón real para la inconsistencia. */}
-          <div className="mt-1">
+          <div>
+            <label className="form-label">Fecha estimada de entrega</label>
             <DatePicker
               etiqueta="Fecha estimada de entrega"
               placeholder="Sin fecha estimada"
@@ -202,10 +206,11 @@ export default function LaboratorioPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Notas (opcional)</label>
-            <textarea rows={2} value={form.notas ?? ""} onChange={(e) => setForm({ ...form, notas: e.target.value || undefined })} className="input mt-1 w-full text-sm" />
+            <label className="form-label">Notas</label>
+            <textarea placeholder="Cualquier detalle adicional" rows={2} value={form.notas ?? ""} onChange={(e) => setForm({ ...form, notas: e.target.value || undefined })} className="input w-full" />
           </div>
-          <button type="submit" disabled={guardando} className="btn-primary w-full">
+          <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
+          <button type="submit" disabled={guardando} className="btn-primary h-11 w-full sm:h-auto">
             {guardando ? "Guardando…" : "Crear orden"}
           </button>
         </form>

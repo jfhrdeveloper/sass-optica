@@ -18,7 +18,7 @@ export function MrrBarChart({ puntos }: { puntos: PuntoMrr[] }) {
   const max = Math.max(1, ...puntos.map((p) => p.monto));
 
   if (puntos.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Sin pagos todavía para graficar.</p>;
+    return <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-500">Sin pagos todavía para graficar.</p>;
   }
 
   return (
@@ -35,7 +35,7 @@ export function MrrBarChart({ puntos }: { puntos: PuntoMrr[] }) {
               className="w-full rounded-t bg-primary transition-colors group-hover:bg-primary-dark"
               style={{ height: `${alturaPx}px` }}
             />
-            <span className="mt-2 text-xs text-slate-400 dark:text-slate-500">{p.label}</span>
+            <span className="mt-2 text-xs text-slate-500 dark:text-slate-500">{p.label}</span>
           </div>
         );
       })}

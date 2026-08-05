@@ -3,8 +3,13 @@ import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { PageTransitionProvider } from "@/components/landing/PageTransition";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
+import { ThemeScheduler } from "@/components/providers/ThemeScheduler";
 import { RAZON_SOCIAL } from "@/lib/contacto";
 import "./globals.css";
+// Registro de skeletons de boneyard-js (ver boneyard.config.json) — se
+// regenera con `npx boneyard-js build ... --cookie "mock_session=mock-empleado-1"`
+// cada vez que se agregue/cambie un <Skeleton name="..."> en el proyecto.
+import "@/bones/registry";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const TITULO = `${RAZON_SOCIAL} — Software de gestión para ópticas en Perú`;
@@ -78,13 +83,23 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Aplica el tema ANTES del primer paint — evita el flash de tema
-            incorrecto (FOUC) que tendríamos si esto se hiciera en un efecto
-            de React. Es el único lugar del proyecto donde se justifica un
-            script inline: no hay forma de leer localStorage en el server. */}
+        {/* Aplica el tema Y el colapso del sidebar ANTES del primer paint —
+            evita el flash de tema incorrecto y el flash de sidebar expandido
+            (DashboardShell.tsx arranca `colapsado=false` porque no puede leer
+            localStorage en el render de servidor, y recién lo corrige en un
+            efecto que corre DESPUÉS del primer paint) que tendríamos si esto
+            se hiciera en un efecto de React. Es el único lugar del proyecto
+            donde se justifica un script inline: no hay forma de leer
+            localStorage en el server. Tema: default por horario (7am-6pm
+            claro, resto oscuro — ver lib/theme-schedule.ts) cuando el usuario
+            no eligió manual con ThemeToggle.tsx; ThemeScheduler.tsx mantiene
+            esto vivo mientras la pestaña sigue abierta a través de un cambio
+            de franja. Sidebar: la clase `sidebar-colapsado` en <html> la lee
+            la regla CSS sin `@layer` de globals.css (ver comentario ahí) para
+            forzar el ancho final ya en este primer paint. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('tema');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`,
+            __html: `try{var t=localStorage.getItem('tema');var o=t?t==='dark':(function(h){return h>=18||h<7})(new Date().getHours());if(o)document.documentElement.classList.add('dark');if(localStorage.getItem('sidebar-colapsado')==='1')document.documentElement.classList.add('sidebar-colapsado')}catch(e){}`,
           }}
         />
       </head>
@@ -94,6 +109,7 @@ export default function RootLayout({
             requiere el consentimiento de AnalyticsProvider (ver bitácora). */}
         <Analytics />
         <AnalyticsProvider />
+        <ThemeScheduler />
       </body>
     </html>
   );

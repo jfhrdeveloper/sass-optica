@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
      Wildcard porque cloudflared genera un subdominio *.trycloudflare.com
      nuevo cada vez que se abre el túnel. Solo afecta `next dev`, no aplica
      en producción (`next build`/`next start`). */
-  allowedDevOrigins: ["*.trycloudflare.com", "192.168.1.36"],
+  allowedDevOrigins: ["*.trycloudflare.com", "192.168.1.5"],
   async headers() {
     return [
       {

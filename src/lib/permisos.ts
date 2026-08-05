@@ -32,6 +32,12 @@ export const MODULOS_DELEGABLES = [
   { clave: "caja", label: "Caja (abrir/cerrar)", operativo: true },
   { clave: "gastos", label: "Gastos, informes y comisiones", operativo: false },
   { clave: "descuentos", label: "Descuentos y cupones", operativo: false },
+  /* 'asistencia' acá es SOLO para ver/gestionar la del EQUIPO (las de otros
+     empleados) — marcar la PROPIA no pasa por este permiso, es self-registro
+     siempre permitido (ver policy asistencias_self en supabase-schema.sql,
+     y /dashboard/asistencia.tsx). */
+  { clave: "asistencia", label: "Asistencia del equipo", operativo: true },
+  { clave: "sueldos", label: "Sueldos", operativo: false },
 ] as const;
 
 export type ClaveModuloDelegable = (typeof MODULOS_DELEGABLES)[number]["clave"];

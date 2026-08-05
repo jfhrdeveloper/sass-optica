@@ -24,7 +24,7 @@ export function AdminMobileHeader() {
           type="button"
           onClick={signOut}
           aria-label="Cerrar sesión"
-          className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
         >
           <LogOut size={18} />
         </button>

@@ -180,12 +180,12 @@ export function LandingHeader() {
         >
           <Link href="/" className="flex-1 font-display text-slate-900 dark:text-slate-100">SaaS Óptica</Link>
           <div className={`flex items-center gap-1 transition-all duration-500 ${scrolleado ? "h-14" : "h-16"}`}>
-            <div className="scale-90"><ThemeToggle /></div>
+            <ThemeToggle />
             <button
               onClick={() => setMenuAbierto((v) => !v)}
               aria-label={menuAbierto ? "Cerrar menú" : "Abrir menú"}
               aria-expanded={menuAbierto}
-              className="p-2 text-slate-700 dark:text-slate-200"
+              className="flex h-11 w-11 items-center justify-center text-slate-700 dark:text-slate-200"
             >
               {menuAbierto ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -211,7 +211,7 @@ export function LandingHeader() {
           <button
             onClick={cerrar}
             aria-label="Cerrar menú"
-            className="rounded-full bg-slate-100 p-2 text-slate-500 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
           >
             <X size={18} />
           </button>

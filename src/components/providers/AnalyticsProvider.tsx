@@ -53,7 +53,7 @@ export function AnalyticsProvider() {
     <div
       role="region"
       aria-label="Aviso de cookies"
-      className="page-enter fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-8"
+      className="page-enter fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-8"
     >
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
         <p className="text-sm text-slate-600 dark:text-slate-300">

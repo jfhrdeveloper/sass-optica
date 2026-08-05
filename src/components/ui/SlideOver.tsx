@@ -24,6 +24,15 @@ export function SlideOver({ abierto, onClose, titulo, children }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [abierto, onClose]);
 
+  /* Panel abierto → bloquea el scroll de fondo (si no, se scrollea la página
+     por detrás del panel, en desktop y sobre todo en mobile con el dedo). */
+  useEffect(() => {
+    if (!abierto) return;
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previo; };
+  }, [abierto]);
+
   return (
     <div className={`fixed inset-0 z-40 ${abierto ? "" : "pointer-events-none"}`} aria-hidden={!abierto}>
       <div
@@ -40,7 +49,7 @@ export function SlideOver({ abierto, onClose, titulo, children }: Props) {
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300"
           >
             <X size={18} />
           </button>

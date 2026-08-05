@@ -109,10 +109,10 @@ export default function LandingPage() {
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">¿Se te pierde el control de stock?</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Sabe al instante cuántas lunas y armazones te quedan, con aviso antes de que se agoten.</p>
           </div>
-          <div className="card bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-400 dark:text-slate-500">[ captura: inventario ]</div>
+          <div className="card bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-500 dark:text-slate-500">[ captura: inventario ]</div>
         </Reveal>
         <Reveal delay={0.1} className="grid items-center gap-4 sm:grid-cols-2">
-          <div className="card order-2 bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-400 dark:text-slate-500 sm:order-1">[ captura: agenda ]</div>
+          <div className="card order-2 bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-500 dark:text-slate-500 sm:order-1">[ captura: agenda ]</div>
           <div className="order-1 sm:order-2">
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">¿Turnos desordenados o por WhatsApp?</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Agenda todas las citas en un calendario simple, con la receta del paciente a la mano.</p>
@@ -123,7 +123,7 @@ export default function LandingPage() {
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">¿No sabes cuánto ganaste este mes?</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Ventas y gastos en un solo lugar, con el total del mes siempre a la vista.</p>
           </div>
-          <div className="card bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-400 dark:text-slate-500">[ captura: caja/gastos ]</div>
+          <div className="card bg-slate-50 dark:bg-slate-900 p-6 text-center text-xs text-slate-500 dark:text-slate-500">[ captura: caja/gastos ]</div>
         </Reveal>
       </section>
 
@@ -293,7 +293,7 @@ export default function LandingPage() {
 
           <hr className="my-8 border-slate-200 dark:border-slate-800" />
 
-          <div className="flex flex-col items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500 sm:flex-row sm:justify-between">
+          <div className="flex flex-col items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-500 sm:flex-row sm:justify-between">
             <p>© {new Date().getFullYear()} SaaS Óptica</p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link href="/legal?tab=terminos" className="link-underline transition-colors hover:text-primary">Términos y condiciones</Link>

@@ -7,18 +7,24 @@ import { BottomTabBar } from "@/components/dashboard/BottomTabBar";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { WelcomePlanModal } from "@/components/dashboard/WelcomePlanModal";
 import { VistaSimuladaBanner } from "@/components/dashboard/VistaSimuladaBanner";
+import { AsistenciaPrompt } from "@/components/dashboard/AsistenciaPrompt";
 
 const CLAVE_COLAPSADO = "sidebar-colapsado";
 
 /* Dueño del estado de colapso del sidebar — vive separado de DashboardNav
-   para que el margen del contenido (`ml-60`/`ml-16`) nunca se desincronice
+   para que el margen del contenido (`ml-64`/`ml-16`) nunca se desincronice
    del ancho real del `<aside>` fijo: un solo lugar decide ambos.
 
    Mismo patrón anti-flash-de-SSR que ThemeToggle.tsx: no se puede leer
-   localStorage en el initializer de useState (no existe en el servidor),
-   así que arranca expandido y se sincroniza en un efecto. El "flash" de un
-   sidebar expandido por una fracción de segundo es aceptable (a diferencia
-   del tema oscuro, no hay parpadeo de color en toda la pantalla). */
+   localStorage en el initializer de useState (no existe en el servidor), así
+   que este estado de React arranca expandido y se sincroniza recién en un
+   efecto (después del primer paint). Eso SÍ dejaría ver un flash de sidebar
+   expandido en cada F5 — se evita aparte, a nivel CSS: el script inline de
+   layout.tsx marca <html> con la clase `sidebar-colapsado` antes de que React
+   monte, y la regla sin `@layer` de globals.css fuerza el ancho de
+   `.dashboard-aside`/`.dashboard-content` ya en ese primer paint, sin esperar
+   a este efecto. Por eso el `<aside>` y este div llevan esas clases fijas
+   además de las condicionales de abajo. */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [colapsado, setColapsado] = useState(false);
 
@@ -36,7 +42,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <DashboardNav colapsado={colapsado} onToggle={alternar} />
-      <div className={`min-h-screen transition-[margin-left] duration-200 ${colapsado ? "md:ml-16" : "md:ml-60"}`}>
+      <div className={`dashboard-content min-h-screen transition-[margin-left] duration-200 ${colapsado ? "md:ml-16" : "md:ml-64"}`}>
         <VistaSimuladaBanner />
         <DashboardTopbar />
         {/* `.page-enter` acá y no en cada page.tsx: un solo punto de
@@ -49,6 +55,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <BottomTabBar />
       <CommandPalette />
       <WelcomePlanModal />
+      <AsistenciaPrompt />
     </div>
   );
 }

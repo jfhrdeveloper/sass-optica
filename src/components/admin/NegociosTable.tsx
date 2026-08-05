@@ -87,10 +87,10 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             placeholder="Buscar por nombre o subdominio…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-            className="input w-full pl-9 text-sm"
+            className="input w-full pl-9"
           />
         </div>
-        <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} className="select text-sm">
+        <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} className="select">
           <option value="todos">Todos</option>
           <option value="por_vencer">Por vencer (≤{DIAS_POR_VENCER}d)</option>
           <option value="trial">En trial</option>
@@ -126,7 +126,7 @@ export function NegociosTable({ negocios }: { negocios: NegocioFila[] }) {
                         <span className="block font-medium text-slate-900 transition-colors hover:text-primary dark:text-slate-100">
                           {n.nombre}
                         </span>
-                        <span className="block text-xs text-slate-400 dark:text-slate-500">{n.subdominio}</span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-500">{n.subdominio}</span>
                       </span>
                     </Link>
                   </td>

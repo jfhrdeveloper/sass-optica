@@ -26,44 +26,70 @@ export function ClienteFormSlideOver({ estado }: { estado: ClienteFormState }) {
       <Stepper paso={paso} total={2} />
       {/* noValidate: la validación de email es propia (mensaje inline con el
           resto del design system), no el tooltip nativo del navegador. */}
-      <form onSubmit={onSubmitValidado} noValidate className="flex h-full flex-col">
+      <form onSubmit={onSubmitValidado} noValidate>
         {paso === 1 ? (
           <div className="space-y-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Datos básicos</p>
-            <input placeholder="Nombres" required value={form.nombres ?? ""} onChange={(e) => setForm({ ...form, nombres: e.target.value })} className="input w-full text-sm" />
-            <input placeholder="Apellidos" value={form.apellidos ?? ""} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className="input w-full text-sm" />
-            <div className="grid grid-cols-2 gap-2">
-              <select value={form.documentoTipo ?? "DNI"} onChange={(e) => setForm({ ...form, documentoTipo: e.target.value })} className="select text-sm">
-                <option value="DNI">DNI</option>
-                <option value="CE">CE</option>
-                <option value="RUC">RUC</option>
-                <option value="PASAPORTE">Pasaporte</option>
-              </select>
-              <input placeholder="N.º de documento" value={form.documentoNumero ?? ""} onChange={(e) => setForm({ ...form, documentoNumero: e.target.value })} className="input text-sm" />
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Datos básicos</p>
+            <div>
+              <label className="form-label">Nombres <span className="text-red-500">*</span></label>
+              <input placeholder="Ej. María" required value={form.nombres ?? ""} onChange={(e) => setForm({ ...form, nombres: e.target.value })} className="input h-11 w-full sm:h-auto" />
             </div>
-            <button type="button" disabled={!form.nombres} onClick={() => setPaso(2)} className="btn-primary mt-2 w-full">
+            <div>
+              <label className="form-label">Apellidos</label>
+              <input placeholder="Ej. Gonzáles" value={form.apellidos ?? ""} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className="input h-11 w-full sm:h-auto" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="form-label">Tipo de documento</label>
+                <select value={form.documentoTipo ?? "DNI"} onChange={(e) => setForm({ ...form, documentoTipo: e.target.value })} className="select h-11 w-full sm:h-auto">
+                  <option value="DNI">DNI</option>
+                  <option value="CE">CE</option>
+                  <option value="RUC">RUC</option>
+                  <option value="PASAPORTE">Pasaporte</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">N.º de documento</label>
+                <input placeholder="Ej. 12345678" value={form.documentoNumero ?? ""} onChange={(e) => setForm({ ...form, documentoNumero: e.target.value })} className="input h-11 w-full sm:h-auto" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
+            <button type="button" disabled={!form.nombres} onClick={() => setPaso(2)} className="btn-primary mt-2 h-11 w-full sm:h-auto">
               Siguiente
             </button>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Contacto y notas</p>
-            <input placeholder="Teléfono" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input w-full text-sm" />
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Contacto y notas</p>
             <div>
+              <label className="form-label">Teléfono</label>
+              <input placeholder="Ej. 987654321" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input h-11 w-full sm:h-auto" />
+            </div>
+            <div>
+              <label className="form-label">Email</label>
               <input
-                placeholder="Email" type="email" value={form.email ?? ""}
+                placeholder="Ej. maria@correo.com" type="email" value={form.email ?? ""}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 aria-invalid={emailInvalido}
-                className={`input w-full text-sm ${emailInvalido ? "border-red-400 dark:border-red-500/60" : ""}`}
+                className={`input h-11 w-full sm:h-auto ${emailInvalido ? "border-red-400 dark:border-red-500/60" : ""}`}
               />
               {emailInvalido && <p className="mt-1 text-xs text-red-600 dark:text-red-400">Ese correo no parece válido.</p>}
             </div>
-            <DatePicker etiqueta="Fecha de nacimiento" placeholder="Fecha de nacimiento" valor={form.fechaNacimiento ?? ""} onChange={(v) => setForm({ ...form, fechaNacimiento: v || undefined })} />
-            <input placeholder="Dirección" value={form.direccion ?? ""} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input w-full text-sm" />
-            <textarea placeholder="Notas" value={form.notas ?? ""} onChange={(e) => setForm({ ...form, notas: e.target.value })} className="input w-full text-sm" rows={3} />
+            <div>
+              <label className="form-label">Fecha de nacimiento</label>
+              <DatePicker etiqueta="Fecha de nacimiento" placeholder="Elegir fecha" valor={form.fechaNacimiento ?? ""} onChange={(v) => setForm({ ...form, fechaNacimiento: v || undefined })} />
+            </div>
+            <div>
+              <label className="form-label">Dirección</label>
+              <input placeholder="Ej. Av. Los Álamos 123" value={form.direccion ?? ""} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input h-11 w-full sm:h-auto" />
+            </div>
+            <div>
+              <label className="form-label">Notas</label>
+              <textarea placeholder="Cualquier detalle adicional" value={form.notas ?? ""} onChange={(e) => setForm({ ...form, notas: e.target.value })} className="input w-full" rows={3} />
+            </div>
             <div className="mt-2 flex gap-2">
-              <button type="button" onClick={() => setPaso(1)} className="btn-outline flex-1">Atrás</button>
-              <button type="submit" disabled={guardando || emailInvalido} className="btn-primary flex-1">
+              <button type="button" onClick={() => setPaso(1)} className="btn-outline h-11 flex-1 sm:h-auto">Atrás</button>
+              <button type="submit" disabled={guardando || emailInvalido} className="btn-primary h-11 flex-1 sm:h-auto">
                 {editandoId ? "Guardar cambios" : "Agregar cliente"}
               </button>
             </div>

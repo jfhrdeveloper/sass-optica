@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, CalendarDays, PackageX, ShoppingCart, Pencil, Check, Contact } from "lucide-react";
+import { Users, CalendarDays, PackageX, ShoppingCart, Pencil, Check, Contact, X } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
@@ -51,11 +52,34 @@ function useAccesosRapidos(negocioId?: string): [string[], (hrefs: string[]) => 
   return [valor, guardar];
 }
 
+/* Descarte de un aviso (stock bajo / seguimientos) persistido por
+   negocio+"firma" del contenido — mismo patrón que ChangelogBanner.tsx, pero
+   la firma es el listado de ids afectados (no una versión fija): si mañana
+   cambia QUIÉN aparece en la lista (un producto nuevo con stock bajo, un
+   seguimiento nuevo), la firma ya no calza con la guardada y el aviso vuelve
+   a aparecer solo. Cerrar solo esconde la lista de HOY, no apaga el aviso
+   para siempre — el usuario pidió que se pudieran quitar, no que dejen de
+   avisar cuando de verdad cambia algo. */
+function useAvisoDescartable(negocioId: string | undefined, clave: string, firma: string): [boolean, () => void] {
+  const key = negocioId ? `aviso_${clave}_${negocioId}` : null;
+  const [firmaCerrada, setFirmaCerrada] = useState<string | null>(null);
+  useEffect(() => {
+    if (!key) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage no existe en SSR
+    setFirmaCerrada(window.localStorage.getItem(key));
+  }, [key]);
+  function cerrar() {
+    if (key) window.localStorage.setItem(key, firma);
+    setFirmaCerrada(firma);
+  }
+  return [firmaCerrada === firma, cerrar];
+}
+
 /* Resumen del dashboard: confirma que auth + tenant + roles + módulos de
    dominio funcionan de punta a punta, con accesos rápidos a cada módulo. */
 export default function DashboardPage() {
   const { empleado } = useSession();
-  const { negocio, suscripcion, clientes, citas, productos, ventas, ventaItems, recetas, examenesOptometricos, rolesPersonalizados } = useData();
+  const { negocio, suscripcion, clientes, citas, productos, ventas, ventaItems, recetas, examenesOptometricos, rolesPersonalizados, ready } = useData();
   const esAdmin = empleado?.rol === "administrador";
   const tienePermiso = (clave?: string) => !clave || puedeLeerModulo(empleado, rolesPersonalizados, clave);
 
@@ -95,6 +119,11 @@ export default function DashboardPage() {
   ]);
   const nombrePorCliente = new Map(clientes.map((c) => [c.id, `${c.nombres} ${c.apellidos}`]));
 
+  const firmaStockBajo = stockBajo.map((p) => p.id).sort().join(",");
+  const [stockBajoDescartado, descartarStockBajo] = useAvisoDescartable(negocio?.id, "stockbajo", firmaStockBajo);
+  const firmaSeguimientos = seguimientos.map((s) => `${s.clienteId}:${s.tipo}`).sort().join(",");
+  const [seguimientosDescartado, descartarSeguimientos] = useAvisoDescartable(negocio?.id, "seguimientos", firmaSeguimientos);
+
   return (
     <main>
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Hola, {empleado?.nombres || "—"}</h1>
@@ -116,18 +145,24 @@ export default function DashboardPage() {
          que "Clientes" o "Ventas totales" pasa desapercibido. Este banner
          nombra los productos afectados, igual que las alertas de
          trial/vencido de arriba. */}
-      {stockBajo.length > 0 && (
-        <Link
-          href="/dashboard/productos"
-          className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
-        >
-          <PackageX size={16} className="mt-0.5 shrink-0" />
-          <span>
-            <strong>{stockBajo.length}</strong> {stockBajo.length === 1 ? "producto está" : "productos están"} con stock bajo:{" "}
-            {stockBajo.slice(0, 3).map((p) => p.nombre).join(", ")}
-            {stockBajo.length > 3 ? ` y ${stockBajo.length - 3} más` : ""}.
-          </span>
-        </Link>
+      {stockBajo.length > 0 && !stockBajoDescartado && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+          <Link href="/dashboard/productos" className="flex flex-1 items-start gap-2 transition-colors hover:text-amber-950 dark:hover:text-amber-200">
+            <PackageX size={16} className="mt-0.5 shrink-0" />
+            <span>
+              <strong>{stockBajo.length}</strong> {stockBajo.length === 1 ? "producto está" : "productos están"} con stock bajo:{" "}
+              {stockBajo.slice(0, 3).map((p) => p.nombre).join(", ")}
+              {stockBajo.length > 3 ? ` y ${stockBajo.length - 3} más` : ""}.
+            </span>
+          </Link>
+          <button
+            onClick={descartarStockBajo}
+            aria-label="Descartar aviso"
+            className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded text-amber-700/70 transition-colors hover:bg-amber-100 dark:text-amber-400/70 dark:hover:bg-amber-900/30"
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
 
       {/* Reposición de lentes de contacto + garantías por vencer + recall de
@@ -138,25 +173,32 @@ export default function DashboardPage() {
          del recordatorio por WhatsApp sigue siendo manual (un clic desde la
          ficha del cliente) — automatizarlo del todo necesita la API real de
          WhatsApp Business, fuera de alcance de este MVP (ver citas). */}
-      {seguimientos.length > 0 && (
-        <Link
-          href="/dashboard/clientes"
-          className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
-        >
-          <Contact size={16} className="mt-0.5 shrink-0" />
-          <span>
-            <strong>{seguimientos.length}</strong> {seguimientos.length === 1 ? "seguimiento" : "seguimientos"} de clientes{" "}
-            {seguimientos.some((s) => estaVencido(s.fecha)) ? "vencidos o próximos" : "próximos"}:{" "}
-            {seguimientos.slice(0, 3).map((s) => `${nombrePorCliente.get(s.clienteId) ?? "Cliente"} (${TIPO_SEGUIMIENTO_LABEL[s.tipo]})`).join(", ")}
-            {seguimientos.length > 3 ? ` y ${seguimientos.length - 3} más` : ""}.
-          </span>
-        </Link>
+      {seguimientos.length > 0 && !seguimientosDescartado && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+          <Link href="/dashboard/clientes" className="flex flex-1 items-start gap-2 transition-colors hover:text-sky-950 dark:hover:text-sky-200">
+            <Contact size={16} className="mt-0.5 shrink-0" />
+            <span>
+              <strong>{seguimientos.length}</strong> {seguimientos.length === 1 ? "seguimiento" : "seguimientos"} de clientes{" "}
+              {seguimientos.some((s) => estaVencido(s.fecha)) ? "vencidos o próximos" : "próximos"}:{" "}
+              {seguimientos.slice(0, 3).map((s) => `${nombrePorCliente.get(s.clienteId) ?? "Cliente"} (${TIPO_SEGUIMIENTO_LABEL[s.tipo]})`).join(", ")}
+              {seguimientos.length > 3 ? ` y ${seguimientos.length - 3} más` : ""}.
+            </span>
+          </Link>
+          <button
+            onClick={descartarSeguimientos}
+            aria-label="Descartar aviso"
+            className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded text-sky-700/70 transition-colors hover:bg-sky-100 dark:text-sky-400/70 dark:hover:bg-sky-900/30"
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
 
       <ChangelogBanner negocioId={negocio?.id} />
       <OnboardingChecklist />
       <CoachTooltip />
 
+      <Skeleton name="dashboard-stats" loading={!ready}>
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {STATS.map((s, i) => {
           const Icon = s.icon;
@@ -171,6 +213,7 @@ export default function DashboardPage() {
           );
         })}
       </div>
+      </Skeleton>
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Accesos rápidos</h2>
@@ -178,8 +221,9 @@ export default function DashboardPage() {
           <Pencil size={14} />
         </button>
       </div>
+      <Skeleton name="dashboard-accesos-rapidos" loading={!ready}>
       {accesosVisibles.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-500">
           Sin accesos elegidos.{" "}
           <button onClick={abrirEditorAccesos} className="link font-medium">Elegir accesos rápidos</button>
         </p>
@@ -201,6 +245,7 @@ export default function DashboardPage() {
           })}
         </div>
       )}
+      </Skeleton>
 
       <SlideOver abierto={editandoAccesos} onClose={() => setEditandoAccesos(false)} titulo="Personalizar accesos rápidos">
         <p className="text-sm text-slate-500 dark:text-slate-400">Elige qué secciones aparecen como accesos rápidos en Inicio.</p>
@@ -214,13 +259,13 @@ export default function DashboardPage() {
                   <input type="checkbox" checked={marcado} onChange={() => alternarAccesoBorrador(item.href)} className="checkbox" />
                   <Icon size={16} className="text-slate-400" />
                   {item.label}
-                  {item.grupo && <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{item.grupo}</span>}
+                  {item.grupo && <span className="ml-auto text-xs text-slate-500 dark:text-slate-500">{item.grupo}</span>}
                 </label>
               </li>
             );
           })}
         </ul>
-        <button onClick={guardarEditorAccesos} className="btn-primary mt-4 w-full gap-1.5">
+        <button onClick={guardarEditorAccesos} className="btn-primary mt-4 h-11 w-full gap-1.5 sm:h-auto">
           <Check size={15} /> Guardar
         </button>
       </SlideOver>

@@ -26,7 +26,7 @@ export function AdminNav() {
       <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-4 py-4 dark:border-slate-800">
         <div className="min-w-0">
           <p className="truncate font-display text-base text-slate-900 dark:text-slate-100">Panel del SaaS</p>
-          <p className="truncate text-xs text-slate-400 dark:text-slate-500">Administración</p>
+          <p className="truncate text-xs text-slate-500 dark:text-slate-500">Administración</p>
         </div>
         <ThemeToggle />
       </div>

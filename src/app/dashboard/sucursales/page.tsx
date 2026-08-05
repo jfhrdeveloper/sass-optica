@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Store, Pencil } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Sucursal } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
@@ -25,7 +26,7 @@ const VACIO: Partial<Sucursal> = { nombre: "", activo: true };
    sigue ahí, visible), solo con los controles de escritura deshabilitados
    si el plan actual no es Premium. */
 export default function SucursalesPage() {
-  const { sucursales, productos, suscripcion, addSucursal, updateSucursal, repartirStockInicial } = useData();
+  const { sucursales, productos, suscripcion, addSucursal, updateSucursal, repartirStockInicial, ready } = useData();
   const toast = useToast();
   const esPremium = suscripcion?.plan === "premium";
   const [form, setForm] = useState<Partial<Sucursal>>(VACIO);
@@ -109,11 +110,12 @@ export default function SucursalesPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar justify-end">
-          <button onClick={nuevo} disabled={!esPremium} className="btn-primary gap-1.5">
+          <button onClick={nuevo} disabled={!esPremium} className="btn-primary h-11 gap-1.5 sm:h-auto">
             <Plus size={16} /> Nueva sucursal
           </button>
         </div>
 
+        <Skeleton name="sucursales-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -175,20 +177,31 @@ export default function SucursalesPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
       </div>
 
       <SlideOver abierto={abierto} onClose={cerrar} titulo={editandoId ? "Editar sucursal" : "Nueva sucursal"}>
         <form onSubmit={onSubmit} className="space-y-3">
-          <input placeholder="Nombre (ej. Puente Piedra)" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input w-full text-sm" />
-          <input placeholder="Dirección" value={form.direccion ?? ""} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input w-full text-sm" />
-          <input placeholder="Teléfono" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input w-full text-sm" />
+          <div>
+            <label className="form-label">Nombre <span className="text-red-500">*</span></label>
+            <input placeholder="Ej. Puente Piedra" required value={form.nombre ?? ""} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Dirección</label>
+            <input placeholder="Ej. Av. Universitaria 456" value={form.direccion ?? ""} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Teléfono</label>
+            <input placeholder="Ej. 987654321" value={form.telefono ?? ""} onChange={(e) => setForm({ ...form, telefono: e.target.value })} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
           {editandoId && (
             <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <input type="checkbox" checked={form.activo ?? true} onChange={(e) => setForm({ ...form, activo: e.target.checked })} className="checkbox" />
               Activa
             </label>
           )}
-          <button type="submit" disabled={guardando} className="btn-primary w-full">
+          <button type="submit" disabled={guardando} className="btn-primary h-11 w-full sm:h-auto">
             {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Crear sucursal"}
           </button>
         </form>
@@ -209,18 +222,18 @@ export default function SucursalesPage() {
                   type="number" min={0} max={p.stockActual}
                   value={cantidades[p.id] ?? 0}
                   onChange={(e) => setCantidades({ ...cantidades, [p.id]: Math.max(0, Math.min(p.stockActual, Number(e.target.value))) })}
-                  className="input w-20 text-sm"
+                  className="input h-11 w-20 sm:h-auto"
                 />
-                <span className="text-xs text-slate-400 dark:text-slate-500">/ {p.stockActual}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-500">/ {p.stockActual}</span>
               </span>
             </div>
           ))}
         </div>
         <div className="mt-4 flex gap-2">
-          <button type="button" onClick={cerrarReparto} className="btn-outline flex-1">
+          <button type="button" onClick={cerrarReparto} className="btn-outline h-11 flex-1 sm:h-auto">
             Omitir por ahora
           </button>
-          <button type="button" onClick={guardarReparto} disabled={repartiendo} className="btn-primary flex-1">
+          <button type="button" onClick={guardarReparto} disabled={repartiendo} className="btn-primary h-11 flex-1 sm:h-auto">
             {repartiendo ? "Guardando…" : "Guardar reparto"}
           </button>
         </div>

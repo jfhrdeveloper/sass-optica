@@ -14,6 +14,7 @@
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "@vercel/analytics": "^2.0.1",
+    "boneyard-js": "^1.9.0",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.26.0",

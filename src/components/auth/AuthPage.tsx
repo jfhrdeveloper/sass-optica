@@ -258,7 +258,7 @@ function LoginForm({ mock, onIrARegistro }: { mock: boolean; onIrARegistro: () =
           {/* Selector rápido de perfil — entra directo sin pasar por el
               formulario, para probar los 3 roles sin mantener 3 cuentas. */}
           <div className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">
               Entrar rápido como…
             </p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -521,7 +521,7 @@ function RegistroForm({ onIrALogin, planInicial }: { onIrALogin: () => void; pla
                gratis") también puede cambiar de opinión antes de crear la
                cuenta. */}
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu plan</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Tu plan</p>
               <SegmentedControl
                 aria-label="Elige tu plan"
                 variante="opciones"
@@ -530,14 +530,14 @@ function RegistroForm({ onIrALogin, planInicial }: { onIrALogin: () => void; pla
                 opciones={OPCIONES_PLAN}
                 className="mt-2"
               />
-              <p className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+              <p className="mt-2 text-center text-xs text-slate-500 dark:text-slate-500">
                 {plan === "gratis"
                   ? "Gratis para siempre, con límites — sube de plan cuando quieras."
                   : "30 días de prueba sin tarjeta. Si no activas el pago, vuelves solo al plan Gratis."}
               </p>
             </div>
 
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu óptica</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Tu óptica</p>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-negocio">Nombre de tu óptica</label>
               <input
@@ -594,7 +594,7 @@ function RegistroForm({ onIrALogin, planInicial }: { onIrALogin: () => void; pla
           </>
         ) : (
           <>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tus datos</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Tus datos</p>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="reg-nombres">Nombres</label>

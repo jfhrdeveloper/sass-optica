@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Receipt, Trash2 } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Gasto } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -32,7 +33,7 @@ function capitalizar(s: string): string {
    El formulario de alta y "Eliminar" se ocultan si solo tiene lectura —
    mismo patrón que Caja/Laboratorio. */
 export default function GastosPage() {
-  const { gastos, proveedores, rolesPersonalizados, addGasto, deleteGasto } = useData();
+  const { gastos, proveedores, rolesPersonalizados, addGasto, deleteGasto, ready } = useData();
   const { empleado } = useSession();
   const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "gastos");
   const toast = useToast();
@@ -76,18 +77,34 @@ export default function GastosPage() {
 
       {puedeEditar && (
         <form onSubmit={onSubmit} className="card mt-4 grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-          <select value={form.categoria ?? ""} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select min-w-0 text-sm">
-            <option value="" disabled>Elegir categoría…</option>
-            {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
-          </select>
-          <input placeholder="Descripción" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input min-w-0 text-sm" />
-          <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select min-w-0 text-sm">
-            <option value="">Sin proveedor</option>
-            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
-          <input placeholder="Monto (S/)" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input min-w-0 text-sm" />
-          <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
-          <button type="submit" disabled={guardando || !form.monto || !form.fecha || !form.categoria} className="btn-primary col-span-full">
+          <div>
+            <label className="form-label">Categoría <span className="text-red-500">*</span></label>
+            <select value={form.categoria ?? ""} onChange={(e) => setForm({ ...form, categoria: e.target.value })} className="select h-11 w-full min-w-0 sm:h-auto">
+              <option value="" disabled>Elegir categoría…</option>
+              {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Descripción</label>
+            <input placeholder="Ej. Recibo de luz" value={form.descripcion ?? ""} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} className="input h-11 w-full min-w-0 sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Proveedor</label>
+            <select value={form.proveedorId ?? ""} onChange={(e) => setForm({ ...form, proveedorId: e.target.value || undefined })} className="select h-11 w-full min-w-0 sm:h-auto">
+              <option value="">Sin proveedor</option>
+              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Monto (S/) <span className="text-red-500">*</span></label>
+            <input placeholder="Ej. 150.00" type="number" step="0.01" required value={form.monto ?? ""} onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })} className="input h-11 w-full min-w-0 sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Fecha del gasto <span className="text-red-500">*</span></label>
+            <DatePicker etiqueta="Fecha del gasto" placeholder="Fecha" valor={form.fecha ?? ""} onChange={(v) => setForm({ ...form, fecha: v })} />
+          </div>
+          <p className="col-span-full text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campos obligatorios</p>
+          <button type="submit" disabled={guardando || !form.monto || !form.fecha || !form.categoria} className="btn-primary col-span-full h-11 sm:h-auto">
             Registrar gasto
           </button>
         </form>
@@ -95,13 +112,14 @@ export default function GastosPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
-          <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select text-sm">
+          <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="select h-11 sm:h-auto">
             <option value="todas">Todas las categorías</option>
             {CATEGORIAS.map((c) => <option key={c} value={c}>{capitalizar(c)}</option>)}
           </select>
           <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
         </div>
 
+        <Skeleton name="gastos-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -147,6 +165,7 @@ export default function GastosPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
     </main>

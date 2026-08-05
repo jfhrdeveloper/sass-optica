@@ -27,6 +27,7 @@ import {
   rowToCotizacion, cotizacionToRow, rowToCotizacionItem,
   rowToOrdenLaboratorio, ordenLaboratorioToRow,
   rowToCaja, cajaToRow,
+  rowToAsistencia, asistenciaToRow, rowToAsistenciaFoto, asistenciaFotoToRow, rowToPagoSueldo, pagoSueldoToRow,
 } from "@/lib/data/mappers";
 import { isMockMode } from "@/lib/mock/mock-mode";
 import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
@@ -35,8 +36,16 @@ import { calcularCuadreCaja, sumaDesglose, efectivoDeDesglose } from "@/lib/caja
 import {
   MOCK_NEGOCIO, MOCK_EMPLEADOS, MOCK_ROLES_PERSONALIZADOS, MOCK_SUSCRIPCION, MOCK_SUCURSALES, MOCK_CLIENTES, MOCK_CITAS,
   MOCK_RECETAS, MOCK_EXAMENES_OPTOMETRICOS, MOCK_PRODUCTOS, MOCK_MOVIMIENTOS_STOCK, MOCK_VENTAS, MOCK_VENTA_ITEMS, MOCK_ORDENES_LABORATORIO, MOCK_CAJAS, MOCK_GASTOS,
-  MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS,
+  MOCK_DESCUENTOS, MOCK_PROVEEDORES, MOCK_COTIZACIONES, MOCK_COTIZACION_ITEMS, MOCK_ASISTENCIAS, MOCK_ASISTENCIA_FOTOS, MOCK_PAGOS_SUELDO,
 } from "@/lib/mock/mock-data";
+
+/* Mismo formato que `to_char(fecha, 'DD/MM/YYYY')` del trigger SQL
+   fn_pago_sueldo_sync_gasto() — la rama mock replica esa descripción a mano
+   (no hay triggers de DB en modo mock). */
+function fechaCorta(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 /* ================= TIPOS: capa de auth/tenant ================= */
 export type Rol = "administrador" | "encargado" | "trabajador";
@@ -66,8 +75,22 @@ export interface Empleado {
   comisionPct:   number;
   // NULL = ve/gestiona todas las sedes del negocio (caso común). Ver current_sucursal() en el schema.
   sucursalId?:   string;
+  /* Asistencia/sueldos — config por empleado (no por negocio, cada uno puede
+     tener un turno distinto). Editable SOLO por administrador — ver el
+     trigger bloquear_autoescalada_empleado() en supabase-schema.sql, que
+     bloquea el auto-edit de estos campos igual que ya hacía con rol/permisos. */
+  horaEntradaEsperada?: string; // "HH:mm"
+  horaSalidaEsperada?:  string; // "HH:mm"
+  toleranciaTardanzaMin: number; // minutos de gracia antes de "tarde", default 10
+  tipoPago?:      TipoPeriodoPago;
+  montoPagoBase?: number;
   activo:        boolean;
 }
+
+/* Frecuencia de pago de sueldo — compartida por Empleado.tipoPago (el
+   default que se pre-llena al registrar un pago) y PagoSueldo.tipoPeriodo
+   (el valor real de cada pago, editable caso por caso). */
+export type TipoPeriodoPago = "diario" | "semanal" | "quincenal" | "mensual";
 
 /* Preset de permisos delegables reutilizable, aplicable a varios empleados
    de una vez — ver public.roles_personalizados en supabase-schema.sql. Sin
@@ -259,6 +282,60 @@ export interface Descuento {
   limiteUsos?: number; usos: number; activo: boolean;
 }
 
+export type EstadoAsistencia = "presente" | "tarde" | "falta" | "permiso";
+
+/* 1 fila por empleado por día — ver comentario largo de la tabla en
+   supabase-schema.sql. El estado se SUGIERE en el cliente (lib/asistencia.ts)
+   comparando horaEntrada contra el horario esperado del empleado, pero
+   siempre queda editable a mano después ("todo debe ser modificable",
+   pedido explícito) — por eso viaja como campo propio, no derivado. */
+export interface Asistencia {
+  id: string; negocioId: string; empleadoId: string;
+  // Sede del día — se fija al marcar ENTRADA (solo si es distinta a la
+  // habitual del empleado); la salida la hereda, no se vuelve a preguntar.
+  sucursalId?: string;
+  fecha: string; // "YYYY-MM-DD"
+  horaEntrada?: string; // "HH:mm"
+  horaSalida?:  string; // "HH:mm"
+  estado: EstadoAsistencia;
+  marcadoPor: "empleado" | "admin";
+  // Flags baratos (la foto en sí vive en AsistenciaFoto, aparte).
+  fotoEntrada: boolean;
+  fotoSalida:  boolean;
+  // Verificación SEPARADA por evento — cada marca se aprueba independiente,
+  // no un solo booleano para el día (mismo criterio que tramys-rrhh).
+  verificadoEntradaPor?: string;
+  verificadoEntradaAt?:  string;
+  verificadoSalidaPor?:  string;
+  verificadoSalidaAt?:   string;
+  notas?: string;
+}
+
+/** Foto de evidencia opcional de una marca — separada de Asistencia a
+ *  propósito (el base64 no debe viajar en cada fetch de la lista, solo
+ *  cuando se pide ver la foto puntual). Retención 15 días en el servidor
+ *  real (pg_cron); en mock no se purga sola. */
+export interface AsistenciaFoto {
+  id: string; asistenciaId: string; tipo: "entrada" | "salida"; fotoBase64: string;
+}
+
+/* Registro de pago (NO planilla peruana completa, sin AFP/ONP/gratificación/
+   CTS — ver comentario de la tabla en supabase-schema.sql). `gastoId` lo
+   mantiene el propio `addPagoSueldo`/`deletePagoSueldo` en modo mock (en
+   Supabase real lo hacen los triggers `fn_pago_sueldo_sync_gasto`/
+   `fn_pago_sueldo_borra_gasto`) — nunca se escribe a mano desde la UI. */
+export interface PagoSueldo {
+  id: string; negocioId: string; empleadoId: string;
+  tipoPeriodo: TipoPeriodoPago;
+  periodoDesde: string; periodoHasta: string;
+  fechaPago: string;
+  monto: number;
+  metodoPago: string;
+  notas?: string;
+  gastoId?: string;
+  registradoPor?: string;
+}
+
 interface DataCtx {
   empleados:        Empleado[];
   rolesPersonalizados: RolPersonalizado[];
@@ -276,6 +353,9 @@ interface DataCtx {
   ordenesLaboratorio: OrdenLaboratorio[];
   cajas:            Caja[];
   gastos:           Gasto[];
+  asistencias:      Asistencia[];
+  asistenciaFotos:  AsistenciaFoto[];
+  pagosSueldo:      PagoSueldo[];
   descuentos:       Descuento[];
   proveedores:      Proveedor[];
   cotizaciones:     Cotizacion[];
@@ -327,6 +407,19 @@ interface DataCtx {
   cerrarCaja:     (id: string, montoContado: number, empleadoId?: string) => Promise<void>;
   addGasto:       (g: Partial<Gasto>) => Promise<void>;
   deleteGasto:    (id: string) => Promise<void>;
+  /* Upsert de "mi propia asistencia de hoy" (self-registro, cualquier
+     empleado) — inserta si no marcó nada todavía en `patch.fecha` (default
+     hoy), actualiza si ya existe. `updateAsistencia` es la corrección de
+     admin/encargado sobre la fila de OTRO empleado. */
+  marcarAsistencia: (patch: Partial<Asistencia> & { fotoBase64?: string }) => Promise<void>;
+  updateAsistencia: (id: string, patch: Partial<Asistencia>) => Promise<void>;
+  /* Aprueba UN evento (entrada o salida) por separado — nunca "el día
+     completo" (mismo criterio que tramys-rrhh). `verificadorId` lo pasa el
+     caller (la página ya conoce al empleado de la sesión vía useSession();
+     DataProvider no depende de ese provider). */
+  verificarAsistencia: (id: string, evento: "entrada" | "salida", verificadorId: string) => Promise<void>;
+  addPagoSueldo:    (p: Partial<PagoSueldo>) => Promise<string | null>;
+  deletePagoSueldo: (id: string) => Promise<void>;
   addDescuento:    (d: Partial<Descuento>) => Promise<void>;
   updateDescuento: (id: string, patch: Partial<Descuento>) => Promise<void>;
   deleteDescuento: (id: string) => Promise<void>;
@@ -346,7 +439,10 @@ const TABLAS_DOMINIO = [
   "sucursales", "clientes", "citas", "recetas", "examenes_optometricos", "productos", "inventario", "stock_sucursal",
   "movimientos_stock", "ventas", "venta_items", "ordenes_laboratorio", "cajas", "gastos",
   "descuentos", "roles_personalizados",
-  "proveedores", "cotizaciones", "cotizacion_items",
+  "proveedores", "cotizaciones", "cotizacion_items", "asistencias", "pagos_sueldo",
+  // asistencia_fotos NO lleva Realtime a propósito (mismo criterio que
+  // tramys-rrhh: la foto se carga bajo demanda, no vale la pena suscribirse
+  // a sus cambios) — igual se trae una vez en el Promise.all de `cargar()`.
 ] as const;
 
 /* ================= PROVIDER ================= */
@@ -385,6 +481,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [ordenesLaboratorio, setOrdenesLaboratorio] = useState<OrdenLaboratorio[]>(mock ? MOCK_ORDENES_LABORATORIO : []);
   const [cajas, setCajas]             = useState<Caja[]>(mock ? MOCK_CAJAS : []);
   const [gastos, setGastos]           = useState<Gasto[]>(mock ? MOCK_GASTOS : []);
+  const [asistencias, setAsistencias] = useState<Asistencia[]>(mock ? MOCK_ASISTENCIAS : []);
+  /* Cargada de punta a punta igual que el resto (mismo Promise.all de abajo)
+     por simplicidad/consistencia con el resto del provider — a diferencia
+     de tramys-rrhh, que carga esto bajo demanda solo al ver una foto
+     puntual. Si el volumen de fotos crece en un negocio real, vale la pena
+     revisar esto (traer solo metadata + un fetch aparte por foto), pero hoy
+     no hay Supabase real conectado y esto no complica el modo mock. */
+  const [asistenciaFotos, setAsistenciaFotos] = useState<AsistenciaFoto[]>(mock ? MOCK_ASISTENCIA_FOTOS : []);
+  const [pagosSueldo, setPagosSueldo] = useState<PagoSueldo[]>(mock ? MOCK_PAGOS_SUELDO : []);
   const [descuentos, setDescuentos]   = useState<Descuento[]>(mock ? MOCK_DESCUENTOS : []);
   const [proveedores, setProveedores] = useState<Proveedor[]>(mock ? MOCK_PROVEEDORES : []);
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>(mock ? MOCK_COTIZACIONES : []);
@@ -404,7 +509,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let activo = true;
 
     async function cargar() {
-      const [e, rp, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi] = await Promise.all([
+      const [e, rp, n, s, su, cl, ci, re, eo, pr, inv, ss, ms, ve, vi, ol, caj, ga, de, pv, co, coi, asi, asf, ps] = await Promise.all([
         supabase.from("empleados").select("*"),
         supabase.from("roles_personalizados").select("*"),
         supabase.from("negocios").select("*"),
@@ -427,6 +532,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabase.from("proveedores").select("*"),
         supabase.from("cotizaciones").select("*"),
         supabase.from("cotizacion_items").select("*"),
+        supabase.from("asistencias").select("*"),
+        supabase.from("asistencia_fotos").select("*"),
+        supabase.from("pagos_sueldo").select("*"),
       ]);
       if (!activo) return;
 
@@ -483,6 +591,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setProveedores((pv.data ?? []).map(rowToProveedor));
       setCotizaciones((co.data ?? []).map(rowToCotizacion));
       setCotizacionItems((coi.data ?? []).map(rowToCotizacionItem));
+      setAsistencias((asi.data ?? []).map(rowToAsistencia));
+      setAsistenciaFotos((asf.data ?? []).map(rowToAsistenciaFoto));
+      setPagosSueldo((ps.data ?? []).map(rowToPagoSueldo));
       setReady(true);
     }
 
@@ -881,6 +992,126 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await supabase.from("gastos").delete().eq("id", id);
   }, [supabase, mock]);
 
+  /* Self-registro de asistencia: upsert sobre (empleadoId, fecha) — 1 fila
+     por día por el unique de la tabla. `patch.fecha` default hoy porque el
+     caller típico es "marcar mi entrada/salida de hoy", no una fecha
+     arbitraria (eso lo cubre `updateAsistencia` para corregir un día
+     pasado). */
+  const marcarAsistencia = useCallback(async (patch: Partial<Asistencia> & { fotoBase64?: string }) => {
+    if (!negocio || !patch.empleadoId) return;
+    const { fotoBase64, ...resto } = patch;
+    const fecha = resto.fecha ?? new Date().toISOString().slice(0, 10);
+    const existente = asistencias.find((a) => a.empleadoId === resto.empleadoId && a.fecha === fecha);
+    /* El evento se infiere de qué campo de hora trae el patch — el caller
+       (marcar entrada vs. marcar salida) siempre manda uno u otro, nunca
+       ambos a la vez. Solo importa para saber en qué flag/foto aplicar. */
+    const evento: "entrada" | "salida" | null =
+      resto.horaEntrada !== undefined ? "entrada" : resto.horaSalida !== undefined ? "salida" : null;
+    const conFoto: Partial<Asistencia> = {
+      ...resto,
+      ...(fotoBase64 && evento === "entrada" ? { fotoEntrada: true } : {}),
+      ...(fotoBase64 && evento === "salida" ? { fotoSalida: true } : {}),
+    };
+
+    if (mock) {
+      const asistenciaId = existente?.id ?? crypto.randomUUID();
+      if (existente) {
+        setAsistencias((prev) => prev.map((a) => (a.id === existente.id ? { ...a, ...conFoto, fecha } : a)));
+      } else {
+        setAsistencias((prev) => [...prev, {
+          id: asistenciaId, negocioId: negocio.id, sucursalId: undefined,
+          estado: "presente", marcadoPor: "empleado", fotoEntrada: false, fotoSalida: false,
+          ...conFoto, empleadoId: resto.empleadoId!, fecha,
+        }]);
+      }
+      if (fotoBase64 && evento) {
+        setAsistenciaFotos((prev) => [
+          ...prev.filter((f) => !(f.asistenciaId === asistenciaId && f.tipo === evento)),
+          { id: crypto.randomUUID(), asistenciaId, tipo: evento, fotoBase64 },
+        ]);
+      }
+      return;
+    }
+
+    let asistenciaId = existente?.id;
+    if (existente) {
+      await supabase.from("asistencias").update(asistenciaToRow(conFoto)).eq("id", existente.id);
+    } else {
+      const { data } = await supabase.from("asistencias").insert({
+        ...asistenciaToRow({ ...conFoto, fecha }), negocio_id: negocio.id, empleado_id: resto.empleadoId,
+      }).select("id").single();
+      asistenciaId = data ? String(data.id) : undefined;
+    }
+    /* upsert (no insert): si el empleado reemplaza una marca ya hecha hoy
+       (mismo criterio que tramys — "sobrescribe"), la foto anterior de ese
+       mismo evento se reemplaza en vez de acumular filas. */
+    if (fotoBase64 && evento && asistenciaId) {
+      await supabase.from("asistencia_fotos").upsert(
+        asistenciaFotoToRow({ asistenciaId, tipo: evento, fotoBase64 }),
+        { onConflict: "asistencia_id,tipo" },
+      );
+    }
+  }, [supabase, negocio, mock, asistencias]);
+
+  /* Corrección por admin/encargado sobre la fila de OTRO empleado (o la
+     propia) — a diferencia de marcarAsistencia, acá el id YA se conoce
+     (viene de la tabla del equipo), no hay que buscar/upsert por fecha. */
+  const updateAsistencia = useCallback(async (id: string, patch: Partial<Asistencia>) => {
+    if (mock) { setAsistencias((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a))); return; }
+    await supabase.from("asistencias").update(asistenciaToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+
+  /* Aprueba UN evento (entrada o salida) por separado — nunca "el día
+     completo" (mismo criterio que tramys-rrhh: cada marca se aprueba
+     independiente, puede llegar en momentos distintos). `verificadorId` lo
+     manda el caller porque DataProvider no depende de SessionProvider. */
+  const verificarAsistencia = useCallback(async (id: string, evento: "entrada" | "salida", verificadorId: string) => {
+    const ahora = new Date().toISOString();
+    const patch: Partial<Asistencia> = evento === "entrada"
+      ? { verificadoEntradaPor: verificadorId, verificadoEntradaAt: ahora }
+      : { verificadoSalidaPor: verificadorId, verificadoSalidaAt: ahora };
+    if (mock) { setAsistencias((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a))); return; }
+    await supabase.from("asistencias").update(asistenciaToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+
+  /* En Supabase real, los triggers fn_pago_sueldo_sync_gasto()/
+     fn_pago_sueldo_borra_gasto() crean/borran el Gasto espejo (categoría
+     'sueldos') solos — acá en mock no hay triggers de DB, así que se
+     replica esa misma lógica a mano en el cliente. */
+  const addPagoSueldo = useCallback(async (p: Partial<PagoSueldo>): Promise<string | null> => {
+    if (!negocio || !p.empleadoId) return null;
+    if (mock) {
+      const id = crypto.randomUUID();
+      const empleado = empleados.find((e) => e.id === p.empleadoId);
+      const tipoPeriodo = p.tipoPeriodo ?? "mensual";
+      const periodoDesde = p.periodoDesde ?? new Date().toISOString().slice(0, 10);
+      const periodoHasta = p.periodoHasta ?? periodoDesde;
+      const fechaPago = p.fechaPago ?? new Date().toISOString().slice(0, 10);
+      const monto = p.monto ?? 0;
+      const gastoId = crypto.randomUUID();
+      const descripcion = `Pago de sueldo (${tipoPeriodo}) del ${fechaCorta(periodoDesde)} al ${fechaCorta(periodoHasta)}`
+        + (empleado ? ` — ${empleado.nombres} ${empleado.apellidos}` : "");
+      setGastos((prev) => [...prev, { id: gastoId, negocioId: negocio.id, categoria: "sueldos", descripcion, monto, fecha: fechaPago }]);
+      setPagosSueldo((prev) => [...prev, {
+        id, negocioId: negocio.id, tipoPeriodo, periodoDesde, periodoHasta, fechaPago, monto, metodoPago: "efectivo",
+        ...p, empleadoId: p.empleadoId!, gastoId,
+      }]);
+      return id;
+    }
+    const { data } = await supabase.from("pagos_sueldo").insert({ ...pagoSueldoToRow(p), negocio_id: negocio.id, empleado_id: p.empleadoId }).select("id").single();
+    return data ? String(data.id) : null;
+  }, [supabase, negocio, mock, empleados]);
+
+  const deletePagoSueldo = useCallback(async (id: string) => {
+    if (mock) {
+      const pago = pagosSueldo.find((p) => p.id === id);
+      setPagosSueldo((prev) => prev.filter((p) => p.id !== id));
+      if (pago?.gastoId) setGastos((prev) => prev.filter((g) => g.id !== pago.gastoId));
+      return;
+    }
+    await supabase.from("pagos_sueldo").delete().eq("id", id);
+  }, [supabase, mock, pagosSueldo]);
+
   const addDescuento = useCallback(async (d: Partial<Descuento>) => {
     if (!negocio) return;
     if (mock) {
@@ -986,7 +1217,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const value: DataCtx = {
     empleados, rolesPersonalizados, negocio, suscripcion, sucursales, clientes, citas, recetas, examenesOptometricos, productos,
-    movimientosStock, ventas, ventaItems, ordenesLaboratorio, cajas, gastos, descuentos,
+    movimientosStock, ventas, ventaItems, ordenesLaboratorio, cajas, gastos, asistencias, asistenciaFotos, pagosSueldo, descuentos,
     proveedores, cotizaciones, cotizacionItems, ready,
     sucursalFiltro, setSucursalFiltro,
     updateEmpleado, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado, updateNegocio, addSucursal, updateSucursal, repartirStockInicial,
@@ -994,6 +1225,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     addCita, updateCita, deleteCita,
     addReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,
     addVenta, anularVenta, addOrdenLaboratorio, updateOrdenLaboratorio, abrirCaja, cerrarCaja, addGasto, deleteGasto,
+    marcarAsistencia, updateAsistencia, verificarAsistencia, addPagoSueldo, deletePagoSueldo,
     addDescuento, updateDescuento, deleteDescuento,
     addProveedor, updateProveedor, deleteProveedor,
     addCotizacion, updateCotizacion, deleteCotizacion, convertirCotizacionAVenta,

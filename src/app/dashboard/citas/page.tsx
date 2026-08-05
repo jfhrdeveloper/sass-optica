@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, User, FileText, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, User, FileText, Pencil, Trash2, ChevronDown, Check } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Cita } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -55,9 +56,27 @@ function sumarDias(fecha: Date, n: number): Date {
 
 type Vista = "dia" | "3dias" | "5dias" | "semana" | "mes" | "lista";
 const DIAS_POR_VISTA: Record<string, number> = { dia: 1, "3dias": 3, "5dias": 5, semana: 7 };
+/* Las 6 opciones no tienen una agrupación de 3+3 que tenga sentido (Semana
+   es una vista de grilla como Día/3/5 días, no un tipo distinto como
+   Mes/Lista) — en mobile, en vez de forzar 2 filas de píldoras compitiendo
+   por espacio, se resuelve como un solo menú desplegable (mismo patrón que
+   el selector de vista de Google Calendar en su app mobile). Desktop se
+   queda con el SegmentedControl de 6 píldoras de siempre, ahí sí hay
+   espacio de sobra. */
+const VISTAS_MENU: { valor: Vista; label: string }[] = [
+  { valor: "dia", label: "Día" },
+  { valor: "3dias", label: "3 días" },
+  { valor: "5dias", label: "5 días" },
+  { valor: "semana", label: "Semana" },
+  { valor: "mes", label: "Mes" },
+  { valor: "lista", label: "Lista" },
+];
+const VISTA_LABEL: Record<Vista, string> = {
+  dia: "Día", "3dias": "3 días", "5dias": "5 días", semana: "Semana", mes: "Mes", lista: "Lista",
+};
 
 export default function CitasPage() {
-  const { citas, clientes, recetas, negocio, sucursales, sucursalFiltro, addCita, updateCita, deleteCita, addReceta } = useData();
+  const { citas, clientes, recetas, negocio, sucursales, sucursalFiltro, addCita, updateCita, deleteCita, addReceta, ready } = useData();
   const { empleado } = useSession();
   const toast = useToast();
   const [form, setForm] = useState<Partial<Cita>>(VACIO);
@@ -110,6 +129,16 @@ export default function CitasPage() {
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
+
+  const [menuVistaAbierto, setMenuVistaAbierto] = useState(false);
+  const menuVistaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function onClickFuera(e: MouseEvent) {
+      if (menuVistaRef.current && !menuVistaRef.current.contains(e.target as Node)) setMenuVistaAbierto(false);
+    }
+    document.addEventListener("mousedown", onClickFuera);
+    return () => document.removeEventListener("mousedown", onClickFuera);
+  }, []);
 
   const nombreCliente = (id: string) => {
     const c = clientes.find((c) => c.id === id);
@@ -247,9 +276,12 @@ export default function CitasPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Citas</h1>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* Desktop: el control original de 6 opciones en un solo track, sin cambios.
-            Mobile (oculto acá, sm:hidden abajo): partido en 2 filas de 3, un track
-            angosto de 6 no entra bien en pantalla chica. */}
+        {/* Desktop: el control original de 6 opciones en un solo track, sin cambios,
+            pero sin forzar el ancho completo — así queda junto al botón "Agendar
+            cita" (empujado a la derecha con `sm:ml-auto`) en vez de ocupar toda
+            la fila y mandarlo a la línea de abajo. Mobile (oculto acá, sm:hidden
+            abajo): partido en 2 filas de 3, un track angosto de 6 no entra bien
+            en pantalla chica. */}
         <SegmentedControl
           aria-label="Vista de citas"
           variante="opciones"
@@ -265,34 +297,45 @@ export default function CitasPage() {
             { valor: "lista", label: "Lista" },
           ]}
         />
-        <div className="flex flex-col gap-2 sm:hidden">
-          <SegmentedControl
-            aria-label="Vista de citas (rango)"
-            variante="opciones"
-            valor={vista}
-            onChange={(v) => setVista(v as Vista)}
-            opciones={[
-              { valor: "dia", label: "Día" },
-              { valor: "3dias", label: "3 días" },
-              { valor: "5dias", label: "5 días" },
-            ]}
-          />
-          <SegmentedControl
-            aria-label="Vista de citas (calendario/lista)"
-            variante="opciones"
-            valor={vista}
-            onChange={(v) => setVista(v as Vista)}
-            opciones={[
-              { valor: "semana", label: "Semana" },
-              { valor: "mes", label: "Mes" },
-              { valor: "lista", label: "Lista" },
-            ]}
-          />
+        <div ref={menuVistaRef} className="relative flex-1 basis-0 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setMenuVistaAbierto((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={menuVistaAbierto}
+            className="input flex h-11 w-full items-center justify-between"
+          >
+            <span className="text-slate-900 dark:text-slate-100">{VISTA_LABEL[vista]}</span>
+            <ChevronDown size={16} className={`text-slate-400 transition-transform ${menuVistaAbierto ? "rotate-180" : ""}`} />
+          </button>
+          {menuVistaAbierto && (
+            <div
+              role="listbox"
+              aria-label="Vista de citas"
+              className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg shadow-black/[0.08] dark:border-slate-800 dark:bg-slate-900"
+            >
+              {VISTAS_MENU.map((o) => (
+                <button
+                  key={o.valor}
+                  type="button"
+                  role="option"
+                  aria-selected={vista === o.valor}
+                  onClick={() => { setVista(o.valor); setMenuVistaAbierto(false); }}
+                  className={`flex w-full items-center justify-between px-3 py-3 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                    vista === o.valor ? "font-medium text-primary" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  {o.label}
+                  {vista === o.valor && <Check size={15} />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {vista === "lista" && (
           <div className="grid w-full grid-cols-2 gap-2 sm:contents">
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="select w-full text-sm sm:w-auto">
+            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="select h-11 w-full sm:h-auto sm:w-auto">
               <option value="todos">Todos los estados</option>
               {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
             </select>
@@ -301,7 +344,7 @@ export default function CitasPage() {
             </div>
           </div>
         )}
-        <button onClick={() => nueva()} className="btn-primary w-full justify-center gap-1.5 sm:ml-auto sm:w-auto">
+        <button onClick={() => nueva()} className="btn-primary h-11 flex-1 basis-0 justify-center gap-1.5 sm:ml-auto sm:h-auto sm:w-auto sm:flex-none sm:basis-auto">
           <Plus size={16} /> Agendar cita
         </button>
       </div>
@@ -333,6 +376,7 @@ export default function CitasPage() {
         </div>
       ) : (
         <div className="mt-4 space-y-2">
+        <Skeleton name="citas-lista" loading={!ready}>
           {visibles.map((c) => (
             <div key={c.id} className="card p-3 text-sm transition-shadow hover:shadow-md">
               <div className="flex items-center justify-between gap-2">
@@ -400,17 +444,17 @@ export default function CitasPage() {
                   })()}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <span className="col-span-full font-medium">OD (ojo derecho)</span>
-                    <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, odEsfera: e.target.value })} className="input text-sm" />
-                    <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, odCilindro: e.target.value })} className="input text-sm" />
-                    <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, odEje: e.target.value })} className="input text-sm" />
-                    <input placeholder="Adición" onChange={(e) => setReceta({ ...receta, odAdicion: e.target.value })} className="input text-sm" />
+                    <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, odEsfera: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, odCilindro: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, odEje: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="Adición" onChange={(e) => setReceta({ ...receta, odAdicion: e.target.value })} className="input h-11 sm:h-auto" />
                     <span className="col-span-full mt-1 font-medium">OI (ojo izquierdo)</span>
-                    <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, oiEsfera: e.target.value })} className="input text-sm" />
-                    <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, oiCilindro: e.target.value })} className="input text-sm" />
-                    <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, oiEje: e.target.value })} className="input text-sm" />
-                    <input placeholder="Adición" onChange={(e) => setReceta({ ...receta, oiAdicion: e.target.value })} className="input text-sm" />
-                    <input placeholder="DIP (mm)" onChange={(e) => setReceta({ ...receta, dip: e.target.value })} className="input text-sm col-span-2" />
-                    <button onClick={() => guardarReceta(c.id, c.clienteId)} className="btn-primary col-span-full text-sm">
+                    <input placeholder="Esfera" onChange={(e) => setReceta({ ...receta, oiEsfera: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="Cilindro" onChange={(e) => setReceta({ ...receta, oiCilindro: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="Eje" onChange={(e) => setReceta({ ...receta, oiEje: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="Adición" onChange={(e) => setReceta({ ...receta, oiAdicion: e.target.value })} className="input h-11 sm:h-auto" />
+                    <input placeholder="DIP (mm)" onChange={(e) => setReceta({ ...receta, dip: e.target.value })} className="input h-11 col-span-2 sm:h-auto" />
+                    <button onClick={() => guardarReceta(c.id, c.clienteId)} className="btn-primary col-span-full h-11 text-sm sm:h-auto">
                       Guardar receta
                     </button>
                   </div>
@@ -418,51 +462,70 @@ export default function CitasPage() {
               )}
             </div>
           ))}
-          {filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">Sin citas para este filtro.</p>}
+          {filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-500">Sin citas para este filtro.</p>}
+          </Skeleton>
           <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
         </div>
       )}
 
       <SlideOver abierto={abierto} onClose={cerrar} titulo={editandoId ? "Editar cita" : "Agendar cita"}>
         <form onSubmit={onSubmit} className="space-y-3">
-          <ClienteCombobox
-            clientes={clientes}
-            clienteId={form.clienteId ?? ""}
-            onChange={(id) => setForm({ ...form, clienteId: id })}
-            esNuevo={esClienteNuevo}
-          />
-          <DatePicker etiqueta="Fecha de la cita" placeholder="Fecha" valor={fechaCita} onChange={setFechaCita} />
+          <div>
+            <label className="form-label">Cliente <span className="text-red-500">*</span></label>
+            <ClienteCombobox
+              clientes={clientes}
+              clienteId={form.clienteId ?? ""}
+              onChange={(id) => setForm({ ...form, clienteId: id })}
+              esNuevo={esClienteNuevo}
+            />
+          </div>
+          <div>
+            <label className="form-label">Fecha de la cita <span className="text-red-500">*</span></label>
+            <DatePicker etiqueta="Fecha de la cita" placeholder="Elegir fecha" valor={fechaCita} onChange={setFechaCita} />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="min-w-0">
-              <TimePicker etiqueta="Hora de inicio" placeholder="Hora de inicio" valor={horaCita} onChange={cambiarHoraInicio} />
+              <label className="form-label">Hora de inicio <span className="text-red-500">*</span></label>
+              <TimePicker etiqueta="Hora de inicio" placeholder="Elegir hora" valor={horaCita} onChange={cambiarHoraInicio} />
             </div>
             <div className="min-w-0">
-              <TimePicker etiqueta="Hora de fin" placeholder="Hora de fin" valor={horaFinCita} onChange={setHoraFinCita} />
+              <label className="form-label">Hora de fin <span className="text-red-500">*</span></label>
+              <TimePicker etiqueta="Hora de fin" placeholder="Elegir hora" valor={horaFinCita} onChange={setHoraFinCita} />
             </div>
           </div>
           {horaCita && horaFinCita && diferenciaMinutos(horaCita, horaFinCita) <= 0 && (
             <p className="text-xs text-red-600 dark:text-red-400">La hora de fin debe ser posterior a la de inicio.</p>
           )}
-          <input placeholder="Motivo" value={form.motivo ?? ""} onChange={(e) => setForm({ ...form, motivo: e.target.value })} className="input w-full text-sm" />
-          <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="select w-full text-sm">
-            {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
-          </select>
-          {sucursales.length > 0 && (
-            <select
-              value={form.sucursalId ?? ""}
-              onChange={(e) => setForm({ ...form, sucursalId: e.target.value || undefined })}
-              disabled={!!empleado?.sucursalId}
-              aria-label="Sede"
-              className="select w-full text-sm"
-            >
-              <option value="">Sin sede asignada</option>
-              {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          <div>
+            <label className="form-label">Motivo</label>
+            <input placeholder="Ej. Control anual" value={form.motivo ?? ""} onChange={(e) => setForm({ ...form, motivo: e.target.value })} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Estado</label>
+            <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="select h-11 w-full sm:h-auto">
+              {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
             </select>
+          </div>
+          {sucursales.length > 0 && (
+            <div>
+              <label className="form-label">Sede</label>
+              <select
+                value={form.sucursalId ?? ""}
+                onChange={(e) => setForm({ ...form, sucursalId: e.target.value || undefined })}
+                disabled={!!empleado?.sucursalId}
+                aria-label="Sede"
+                className="select h-11 w-full sm:h-auto"
+              >
+                <option value="">Sin sede asignada</option>
+                {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            </div>
           )}
+          <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campos obligatorios</p>
           <button
             type="submit"
             disabled={guardando || !form.clienteId || !fechaCita || !horaCita || !horaFinCita || diferenciaMinutos(horaCita, horaFinCita) <= 0}
-            className="btn-primary w-full"
+            className="btn-primary h-11 w-full sm:h-auto"
           >
             {editandoId ? "Guardar cambios" : "Agendar cita"}
           </button>

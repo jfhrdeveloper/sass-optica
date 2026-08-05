@@ -39,15 +39,20 @@ export function OnboardingChecklist() {
 
   return (
     <div className="card mt-4 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3">
-        <button onClick={() => setColapsado((v) => !v)} className="flex flex-1 items-center gap-2 text-left">
+      {/* El padding vertical vive en cada <button> (no en esta fila) — si no,
+          la fila se ve de 44px por su propio `py`, pero el hit-box real del
+          <button> (sin padding propio) queda mucho más chico que eso, y
+          tocar el espacio "vacío" arriba/abajo del texto no registra el
+          click aunque visualmente parezca parte del botón. */}
+      <div className="flex items-center justify-between px-3">
+        <button onClick={() => setColapsado((v) => !v)} className="flex flex-1 items-center gap-2 py-3 pl-1 text-left">
           {colapsado ? <ChevronDown size={16} className="text-slate-400 dark:text-slate-500" /> : <ChevronUp size={16} className="text-slate-400 dark:text-slate-500" />}
           <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Guía de configuración</span>
           <span className="badge badge-neutral">{hechas} de {total} tareas</span>
         </button>
         <button
           onClick={() => setCerrado(true)}
-          className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-500"
+          className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-500"
           aria-label="Cerrar guía"
         >
           <X size={16} />
@@ -70,7 +75,7 @@ export function OnboardingChecklist() {
                   >
                     {hecha && <Check size={12} strokeWidth={3} />}
                   </span>
-                  <span className={hecha ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-700 dark:text-slate-200"}>{t.label}</span>
+                  <span className={hecha ? "text-slate-500 dark:text-slate-500 line-through" : "text-slate-700 dark:text-slate-200"}>{t.label}</span>
                 </Link>
               </li>
             );

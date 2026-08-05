@@ -8,7 +8,7 @@ export function Stepper({ paso, total }: { paso: number; total: number }) {
         <div key={n} className="flex items-center">
           <div
             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-              n <= paso ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
+              n <= paso ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500"
             }`}
           >
             {n}

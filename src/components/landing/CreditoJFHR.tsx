@@ -33,7 +33,7 @@ export function CreditoJFHR({
   variant?: "default" | "brand";
   align?: "center" | "left";
 }) {
-  const colorPrefijo = variant === "brand" ? "text-white/50" : "text-slate-400 dark:text-slate-500";
+  const colorPrefijo = variant === "brand" ? "text-white/50" : "text-slate-500 dark:text-slate-500";
   const colorLink = variant === "brand"
     ? "text-white/85 hover:text-white"
     : "text-slate-600 hover:text-primary dark:text-slate-200";

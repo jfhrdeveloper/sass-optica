@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CheckCheck, Eye, Plus, Settings2, ShieldCheck, Trash2 } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type RolPersonalizado } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -37,7 +38,7 @@ function etiquetaNivel(nivel: NivelPermiso): string {
    dentro de cada fila de Empleados) — a pedido del usuario, todo lo que es
    "definir qué ve cada rol" vive en un solo lugar. */
 export default function RolesPage() {
-  const { empleados, rolesPersonalizados, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado } = useData();
+  const { empleados, rolesPersonalizados, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado, ready } = useData();
   const { rolSimulado, iniciarSimulacion } = useSession();
   const toast = useToast();
 
@@ -123,7 +124,7 @@ export default function RolesPage() {
                 key={rol}
                 type="button"
                 onClick={() => iniciarSimulacion(rol)}
-                className="btn-outline gap-1.5 text-sm"
+                className="btn-outline h-11 gap-1.5 text-sm sm:h-auto"
               >
                 <Eye size={15} /> Ver como {nombreRol(rol)}
               </button>
@@ -177,7 +178,7 @@ export default function RolesPage() {
         <h2 className="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
           <Settings2 size={16} /> Roles personalizados
         </h2>
-        <button onClick={abrirNueva} className="btn-primary gap-1.5 text-sm">
+        <button onClick={abrirNueva} className="btn-primary h-11 gap-1.5 text-sm sm:h-auto">
           <Plus size={16} /> Nuevo rol
         </button>
       </div>
@@ -188,6 +189,7 @@ export default function RolesPage() {
       </p>
 
       <div className="table-card mt-3">
+        <Skeleton name="roles-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -246,18 +248,20 @@ export default function RolesPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
       </div>
 
       <SlideOver abierto={abierto} onClose={() => setAbierto(false)} titulo={editando ? "Editar rol" : "Nuevo rol"}>
         <form onSubmit={guardar} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Nombre</label>
+            <label className="form-label">Nombre <span className="text-red-500">*</span></label>
             <input
               required placeholder="Ej. Cajero, Recepción"
               value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              className="input mt-1 w-full text-sm"
+              className="input h-11 w-full sm:h-auto"
             />
           </div>
+          <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
           <div>
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Acceso por módulo</p>
@@ -269,7 +273,7 @@ export default function RolesPage() {
                 <CheckCheck size={13} /> Marcar todos con escritura
               </button>
             </div>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
               Un módulo en &quot;Ninguno&quot; queda oculto para quien tenga este rol, aunque por su rol principal
               (Encargado) le tocara gratis — este rol define su acceso por completo, no solo lo suma.
             </p>
@@ -288,7 +292,7 @@ export default function RolesPage() {
               ))}
             </div>
           </div>
-          <button type="submit" disabled={guardando || !form.nombre.trim()} className="btn-primary w-full">
+          <button type="submit" disabled={guardando || !form.nombre.trim()} className="btn-primary h-11 w-full sm:h-auto">
             {guardando ? "Guardando…" : editando ? "Guardar cambios" : "Crear rol"}
           </button>
         </form>

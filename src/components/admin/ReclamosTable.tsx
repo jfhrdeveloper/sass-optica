@@ -86,7 +86,7 @@ export function ReclamosTable({ reclamos }: { reclamos: ReclamoFila[] }) {
                       <span className="row-avatar"><MessageSquareWarning size={16} /></span>
                       <span>
                         <span className="block font-medium text-slate-900 dark:text-slate-100">{r.consumidorNombres} {r.consumidorApellidos}</span>
-                        <span className="block text-xs text-slate-400 dark:text-slate-500">{r.consumidorEmail}</span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-500">{r.consumidorEmail}</span>
                       </span>
                     </div>
                   </td>
@@ -123,7 +123,7 @@ export function ReclamosTable({ reclamos }: { reclamos: ReclamoFila[] }) {
         {detalle && (
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Consumidor</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Consumidor</p>
               <p className="text-slate-700 dark:text-slate-300">{detalle.consumidorNombres} {detalle.consumidorApellidos}</p>
               <p className="text-slate-500 dark:text-slate-400">{detalle.consumidorDocumentoTipo} {detalle.consumidorDocumentoNumero}</p>
               <p className="text-slate-500 dark:text-slate-400">{detalle.consumidorDomicilio}</p>
@@ -133,23 +133,23 @@ export function ReclamosTable({ reclamos }: { reclamos: ReclamoFila[] }) {
               )}
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Bien contratado</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Bien contratado</p>
               <p className="text-slate-700 dark:text-slate-300 capitalize">{detalle.bienTipo}: {detalle.bienDescripcion}</p>
               {detalle.montoReclamado != null && <p className="text-slate-500 dark:text-slate-400">Monto: S/ {detalle.montoReclamado.toFixed(2)}</p>}
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Detalle</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Detalle</p>
               <p className="text-slate-700 dark:text-slate-300">{detalle.detalle}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pedido</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Pedido</p>
               <p className="text-slate-700 dark:text-slate-300">{detalle.pedido}</p>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">
                 Respuesta {detalle.estado === "atendido" && "(ya enviada)"}
               </label>
-              <textarea rows={4} value={respuesta} onChange={(e) => setRespuesta(e.target.value)} className="input w-full text-sm" />
+              <textarea rows={4} value={respuesta} onChange={(e) => setRespuesta(e.target.value)} className="input w-full" />
             </div>
             <button onClick={responder} disabled={enviando || !respuesta.trim()} className="btn-primary w-full">
               {enviando ? "Guardando…" : "Marcar como atendido"}

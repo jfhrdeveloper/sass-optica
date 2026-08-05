@@ -138,7 +138,7 @@ export default async function VistaNegocioPage({ params }: { params: Promise<{ i
                 <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
                   <span>
                     <span className="block font-medium text-slate-900 dark:text-slate-100">{c.cliente_nombre}</span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500">{formatearFechaHora(c.fecha_hora)}{c.motivo ? ` · ${c.motivo}` : ""}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-500">{formatearFechaHora(c.fecha_hora)}{c.motivo ? ` · ${c.motivo}` : ""}</span>
                   </span>
                   <span className={`badge ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>{ESTADO_CITA_LABEL[c.estado] ?? c.estado}</span>
                 </li>
@@ -158,7 +158,7 @@ export default async function VistaNegocioPage({ params }: { params: Promise<{ i
                 <li key={v.id} className="flex items-center justify-between px-4 py-3 text-sm">
                   <span>
                     <span className="block font-medium text-slate-900 dark:text-slate-100">{v.cliente_nombre}</span>
-                    <span className="text-xs capitalize text-slate-400 dark:text-slate-500">{formatearFechaPE(v.fecha)} · {v.metodo_pago}</span>
+                    <span className="text-xs capitalize text-slate-500 dark:text-slate-500">{formatearFechaPE(v.fecha)} · {v.metodo_pago}</span>
                   </span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
                 </li>

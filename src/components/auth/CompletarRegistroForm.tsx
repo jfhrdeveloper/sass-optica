@@ -108,7 +108,7 @@ export function CompletarRegistroForm({ email, planInicial }: { email: string; p
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tu plan</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Tu plan</p>
             <SegmentedControl
               aria-label="Elige tu plan"
               variante="opciones"

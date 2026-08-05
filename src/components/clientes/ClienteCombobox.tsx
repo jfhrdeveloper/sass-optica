@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, User, X } from "lucide-react";
+import { Search, User, UserPlus, X } from "lucide-react";
+import { useData } from "@/components/providers/DataProvider";
 import type { Cliente } from "@/components/providers/DataProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 import { coincideBusqueda } from "@/lib/formato/texto";
 
 interface Props {
@@ -22,8 +24,19 @@ type Filtro = "todos" | "nuevos" | "antiguos";
    (sin buscador, sin forma de distinguir un cliente nuevo de uno con
    historial) por un combobox: buscar por nombre/documento + filtrar por
    Nuevo/Antiguo, mismo patrón visual (botón + popover) que DatePicker/
-   TimePicker. */
+   TimePicker.
+
+   "+ Nuevo cliente": si el paciente todavía no existe en la base, antes
+   había que ir a Clientes, crearlo ahí, y volver a Citas a recién agendar —
+   fricción real (Ventas ya resolvía esto con un "+ Nuevo cliente" inline en
+   su propio <select>). Acá se replica el mismo criterio (alta mínima:
+   nombres/apellidos/teléfono) pero creando el cliente al vuelo con
+   `addCliente` de DataProvider — este combobox ya vive dentro del árbol de
+   providers de /dashboard, así que puede usar el hook directo sin que el
+   padre tenga que pasarle esa función. */
 export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Props) {
+  const { addCliente } = useData();
+  const toast = useToast();
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
@@ -31,6 +44,12 @@ export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Prop
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const buscadorRef = useRef<HTMLInputElement>(null);
+
+  const [creandoNuevo, setCreandoNuevo] = useState(false);
+  const [nuevoNombres, setNuevoNombres] = useState("");
+  const [nuevoApellidos, setNuevoApellidos] = useState("");
+  const [nuevoTelefono, setNuevoTelefono] = useState("");
+  const [creando, setCreando] = useState(false);
 
   const seleccionado = clientes.find((c) => c.id === clienteId) ?? null;
 
@@ -47,7 +66,14 @@ export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Prop
   }
 
   useEffect(() => {
-    if (!abierto) return;
+    if (!abierto) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia el mini-formulario de alta al cerrar el popover por cualquier vía (click afuera, Escape, seleccionar un cliente)
+      setCreandoNuevo(false);
+      setNuevoNombres("");
+      setNuevoApellidos("");
+      setNuevoTelefono("");
+      return;
+    }
     ubicar();
     buscadorRef.current?.focus();
     function onFuera(e: MouseEvent) {
@@ -82,6 +108,23 @@ export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Prop
     setBusqueda("");
   }
 
+  async function crearNuevo() {
+    if (!nuevoNombres.trim()) return;
+    setCreando(true);
+    const id = await addCliente({
+      nombres: nuevoNombres.trim(),
+      apellidos: nuevoApellidos.trim() || undefined,
+      telefono: nuevoTelefono.trim() || undefined,
+    });
+    setCreando(false);
+    if (!id) {
+      toast("No se pudo crear el cliente nuevo.", "error");
+      return;
+    }
+    onChange(id);
+    setAbierto(false);
+  }
+
   return (
     <>
       <button
@@ -91,10 +134,10 @@ export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Prop
         aria-haspopup="dialog"
         aria-expanded={abierto}
         aria-label="Cliente"
-        className="input flex w-full items-center gap-2 text-sm"
+        className="input flex w-full items-center gap-2"
       >
         <User size={15} className="shrink-0 text-slate-400" />
-        <span className={seleccionado ? "flex-1 truncate text-left" : "flex-1 text-left text-slate-400 dark:text-slate-500"}>
+        <span className={seleccionado ? "flex-1 truncate text-left" : "flex-1 text-left text-slate-500 dark:text-slate-500"}>
           {seleccionado ? `${seleccionado.nombres} ${seleccionado.apellidos}` : "Cliente…"}
         </span>
         {seleccionado && (
@@ -109,7 +152,12 @@ export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Prop
             aria-label="Quitar cliente"
             onClick={(e) => { e.stopPropagation(); onChange(""); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onChange(""); } }}
-            className="shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
+            /* -my-[10px]: mismo fix que DatePicker.tsx/TimePicker.tsx — el
+               área táctil sigue midiendo 44px, pero el margen negativo evita
+               que este botón anidado empuje la altura de la fila del
+               `.input` (que naturalmente mide ~40px) cuando aparece (solo
+               con `seleccionado`). */
+            className="-my-[10px] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
           >
             <X size={13} />
           </span>
@@ -124,58 +172,97 @@ export function ClienteCombobox({ clientes, clienteId, onChange, esNuevo }: Prop
           style={{ top: pos.top, left: pos.left, width: pos.ancho }}
           className="card fixed z-50 flex flex-col p-3 shadow-xl"
         >
-          <div className="relative">
-            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              ref={buscadorRef}
-              placeholder="Buscar por nombre o documento…"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="input w-full pl-8 text-sm"
-            />
-          </div>
+          {creandoNuevo ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Nuevo cliente</p>
+              <div>
+                <label className="form-label">Nombres <span className="text-red-500">*</span></label>
+                <input placeholder="Ej. María" value={nuevoNombres} onChange={(e) => setNuevoNombres(e.target.value)} className="input w-full" autoFocus />
+              </div>
+              <div>
+                <label className="form-label">Apellidos</label>
+                <input placeholder="Ej. Gonzáles" value={nuevoApellidos} onChange={(e) => setNuevoApellidos(e.target.value)} className="input w-full" />
+              </div>
+              <div>
+                <label className="form-label">Teléfono</label>
+                <input placeholder="Ej. 987654321" value={nuevoTelefono} onChange={(e) => setNuevoTelefono(e.target.value)} className="input w-full" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setCreandoNuevo(false)} className="btn-outline h-11 flex-1">Cancelar</button>
+                <button type="button" onClick={crearNuevo} disabled={!nuevoNombres.trim() || creando} className="btn-primary h-11 flex-1">
+                  {creando ? "Creando…" : "Crear cliente"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={buscadorRef}
+                  placeholder="Buscar por nombre o documento…"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="input w-full pl-8"
+                />
+              </div>
 
-          <div className="mt-2 flex gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 text-xs dark:border-slate-700 dark:bg-slate-800">
-            {([["todos", "Todos"], ["nuevos", "Nuevos"], ["antiguos", "Antiguos"]] as [Filtro, string][]).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setFiltro(v)}
-                className={`flex-1 rounded-full py-1 font-medium transition-colors ${
-                  filtro === v ? "bg-primary text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-2 max-h-56 overflow-y-auto">
-            {filtrados.length === 0 ? (
-              <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Sin resultados.</p>
-            ) : (
-              filtrados.map((c) => {
-                const nuevo = esNuevo(c.id);
-                return (
+              <div className="mt-2 flex gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+                {([["todos", "Todos"], ["nuevos", "Nuevos"], ["antiguos", "Antiguos"]] as [Filtro, string][]).map(([v, label]) => (
                   <button
-                    key={c.id}
+                    key={v}
                     type="button"
-                    onClick={() => seleccionar(c.id)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
-                      c.id === clienteId ? "bg-primary-light" : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => setFiltro(v)}
+                    className={`flex-1 rounded-full py-1 font-medium transition-colors ${
+                      filtro === v ? "bg-primary text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                     }`}
                   >
-                    <span className="row-avatar h-8 w-8 shrink-0"><User size={14} /></span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-slate-900 dark:text-slate-100">{c.nombres} {c.apellidos}</span>
-                      <span className="block text-xs text-slate-400 dark:text-slate-500">{c.documentoTipo} {c.documentoNumero ?? "—"}</span>
-                    </span>
-                    <span className={`badge shrink-0 ${nuevo ? "badge-warning" : "badge-neutral"}`}>{nuevo ? "Nuevo" : "Antiguo"}</span>
+                    {label}
                   </button>
-                );
-              })
-            )}
-          </div>
+                ))}
+              </div>
+
+              {/* Pin fijo (no adentro de la lista filtrada): siempre disponible
+                  sin importar qué tan angosto sea el resultado de la búsqueda —
+                  antes, si el paciente no existía, no había forma de crearlo sin
+                  salir a /dashboard/clientes y volver (ver comentario largo
+                  arriba del componente). */}
+              <button
+                type="button"
+                onClick={() => setCreandoNuevo(true)}
+                className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 text-sm font-medium text-primary transition-colors hover:bg-primary-light dark:border-slate-700 dark:hover:bg-primary/10"
+              >
+                <UserPlus size={15} /> Nuevo cliente
+              </button>
+
+              <div className="mt-2 max-h-56 overflow-y-auto">
+                {filtrados.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-slate-500 dark:text-slate-500">Sin resultados.</p>
+                ) : (
+                  filtrados.map((c) => {
+                    const nuevo = esNuevo(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => seleccionar(c.id)}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
+                          c.id === clienteId ? "bg-primary-light" : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span className="row-avatar h-8 w-8 shrink-0"><User size={14} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-slate-900 dark:text-slate-100">{c.nombres} {c.apellidos}</span>
+                          <span className="block text-xs text-slate-500 dark:text-slate-500">{c.documentoTipo} {c.documentoNumero ?? "—"}</span>
+                        </span>
+                        <span className={`badge shrink-0 ${nuevo ? "badge-warning" : "badge-neutral"}`}>{nuevo ? "Nuevo" : "Antiguo"}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
         </div>,
         document.body,
       )}

@@ -10,7 +10,7 @@ export function ActividadBarChart({ puntos }: { puntos: PuntoActividad[] }) {
   const max = Math.max(1, ...puntos.map((p) => p.total));
 
   if (puntos.every((p) => p.total === 0)) {
-    return <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Sin actividad registrada en este período.</p>;
+    return <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-500">Sin actividad registrada en este período.</p>;
   }
 
   return (
@@ -28,7 +28,7 @@ export function ActividadBarChart({ puntos }: { puntos: PuntoActividad[] }) {
             />
             {/* Una etiqueta cada 2 días: 14 fechas completas se amontonan y
                 dejan de leerse — selectivo, no "todas" (ver skill dataviz). */}
-            <span className="mt-2 text-[10px] text-slate-400 dark:text-slate-500">{i % 2 === 0 ? p.label : ""}</span>
+            <span className="mt-2 text-[10px] text-slate-500 dark:text-slate-500">{i % 2 === 0 ? p.label : ""}</span>
           </div>
         );
       })}

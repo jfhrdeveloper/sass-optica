@@ -75,7 +75,7 @@ export default function AuditoriaPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar">
-          <select value={filtroTabla} onChange={(e) => setFiltroTabla(e.target.value)} className="select text-sm">
+          <select value={filtroTabla} onChange={(e) => setFiltroTabla(e.target.value)} className="select">
             <option value="todas">Todas las tablas</option>
             {tablas.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>

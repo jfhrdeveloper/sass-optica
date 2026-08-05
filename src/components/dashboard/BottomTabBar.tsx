@@ -36,10 +36,32 @@ export function BottomTabBar() {
 
   const hrefsEnTabs = new Set<string>(TABS.map((t) => t.href));
 
+  /* Mismo criterio que DashboardNav.tsx (el sidebar de escritorio) para
+     decidir si una ruta cuenta como "activa": exacta, sub-ruta de detalle
+     (`/dashboard/clientes/[id]`) o "pestaña hermana" (Facturación vive
+     dentro de Ajustes, Reportes dentro de Informes). Se reusa acá para que
+     el tab "Más" y el ítem correspondiente dentro del panel se resalten con
+     la misma regla, no una aproximación distinta. */
+  const RUTAS_HERMANAS: Record<string, string[]> = {
+    "/dashboard/ajustes": ["/dashboard/facturacion"],
+    "/dashboard/informes": ["/dashboard/informes/reportes"],
+  };
+  const esActivo = (href: string) =>
+    pathname === href ||
+    (href !== "/dashboard" && pathname.startsWith(`${href}/`)) ||
+    (RUTAS_HERMANAS[href]?.includes(pathname) ?? false);
+  /* El tab "Más" en sí también debe verse "seleccionado" cuando la ruta
+     activa es alguna de las que vive DENTRO del panel — si no, al entrar a
+     Stock/Proveedores/etc. ningún tab de la barra queda resaltado y parece
+     que "no hay nada seleccionado". */
+  const masActivo = NAV.some(
+    (grupo) => grupo.kind === "group" && grupo.children.some((h) => !hrefsEnTabs.has(h.href) && esActivo(h.href)),
+  );
+
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-slate-800 dark:bg-slate-900 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 flex items-stretch rounded-t-2xl border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_8px_rgba(0,0,0,0.04)] dark:border-slate-800 dark:bg-slate-900 md:hidden"
         aria-label="Navegación principal"
       >
         {TABS.map((t) => {
@@ -66,13 +88,13 @@ export function BottomTabBar() {
 
                   Ancho fijo (`w-16`, no `px-3` suelto ajustándose al texto): "Clientes"
                   tiene más letras que "Citas"/"Ventas"/"Inicio", así que sin esto cada
-                  píldora salía de un tamaño distinto al cambiar de tab. Y `aspect-square`
-                  (alto = ancho): con solo el ancho fijo la caja quedaba ancha y baja
-                  (rectángulo horizontal) — mismo criterio que Aceptar/Rechazar en el
-                  banner de cookies (AnalyticsProvider.tsx), pero ahí sí basta el ancho
-                  porque son botones de una sola línea, no una píldora cuadrada. */}
+                  píldora salía de un tamaño distinto al cambiar de tab. Alto menor que
+                  el ancho (`h-14` en vez de `aspect-square`): a 64×64 el ícono+texto
+                  (~36px) quedaba flotando con demasiado aire arriba/abajo; 56 de alto
+                  ajusta ese aire sin volverse el rectángulo ancho-y-bajo que se quería
+                  evitar en primer lugar. */}
               <span
-                className={`flex aspect-square w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors ${
+                className={`flex h-14 w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors ${
                   activo ? "bg-primary text-white" : "active:bg-slate-100 dark:active:bg-white/10"
                 }`}
               >
@@ -87,8 +109,17 @@ export function BottomTabBar() {
           onClick={() => setMasAbierto(true)}
           className="flex flex-1 flex-col items-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"
         >
-          <span className="flex aspect-square w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors active:bg-slate-100 dark:active:bg-white/10">
-            <Menu size={20} />
+          {/* Mismo tratamiento "seleccionado" que los otros 4 tabs (fondo
+              primario sólido, ver comentario de arriba) cuando la ruta activa
+              es alguna de las que vive dentro del panel — antes "Más" nunca se
+              resaltaba, así que entrar a Stock/Proveedores/etc. dejaba la
+              barra entera sin ningún tab marcado. */}
+          <span
+            className={`flex h-14 w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors ${
+              masActivo ? "bg-primary text-white" : "active:bg-slate-100 dark:active:bg-white/10"
+            }`}
+          >
+            <Menu size={20} strokeWidth={masActivo ? 2.5 : 2} />
             Más
           </span>
         </button>
@@ -101,7 +132,7 @@ export function BottomTabBar() {
             <button
               onClick={() => setMasAbierto(false)}
               aria-label="Cerrar"
-              className="rounded-full bg-slate-100 p-2 text-slate-500 dark:bg-white/5 dark:text-slate-400"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400"
             >
               <X size={18} />
             </button>
@@ -114,21 +145,28 @@ export function BottomTabBar() {
               if (hijos.length === 0) return null;
               return (
                 <div key={grupo.key}>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">
                     {grupo.label}
                   </p>
                   <div className="space-y-1">
-                    {hijos.map((h) => (
-                      <Link
-                        key={h.href}
-                        href={h.href}
-                        onClick={() => setMasAbierto(false)}
-                        className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        <h.icon size={18} className="text-slate-400" />
-                        {h.label}
-                      </Link>
-                    ))}
+                    {hijos.map((h) => {
+                      const activo = esActivo(h.href);
+                      return (
+                        <Link
+                          key={h.href}
+                          href={h.href}
+                          onClick={() => setMasAbierto(false)}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
+                            activo
+                              ? "bg-primary text-white"
+                              : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <h.icon size={18} className={activo ? "text-white" : "text-slate-400"} />
+                          {h.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               );

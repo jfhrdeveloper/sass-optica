@@ -25,7 +25,7 @@ export function VistaSimuladaBanner() {
       <button
         type="button"
         onClick={salirSimulacion}
-        className="ml-2 flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-white/30"
+        className="ml-2 flex h-11 items-center gap-1 rounded-full bg-white/20 px-3 text-xs font-semibold transition-colors hover:bg-white/30"
       >
         <X size={12} /> Volver a mi vista
       </button>

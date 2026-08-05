@@ -1,14 +1,21 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Plus, Trash2, UserRound } from "lucide-react";
-import { useData, type Empleado } from "@/components/providers/DataProvider";
+import { Plus, Trash2, UserRound, Pencil } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
+import { useData, type Empleado, type TipoPeriodoPago } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
+import { TimePicker } from "@/components/calendario/TimePicker";
 import { nombreRol } from "@/lib/roles";
+
+const TIPOS_PERIODO: TipoPeriodoPago[] = ["diario", "semanal", "quincenal", "mensual"];
+const TIPO_PERIODO_LABEL: Record<TipoPeriodoPago, string> = {
+  diario: "Diario", semanal: "Semanal", quincenal: "Quincenal", mensual: "Mensual",
+};
 
 /* Ruta protegida a nivel de proxy y de RLS. El alta/baja NUNCA llama a
    Supabase directo desde aquí — siempre vía /api/empleados/* con
@@ -48,7 +55,7 @@ import { nombreRol } from "@/lib/roles";
    (antes sí, porque eran columnas independientes) — hay que volver a
    elegirlo después si hace falta. */
 export default function EmpleadosPage() {
-  const { empleados, rolesPersonalizados, updateEmpleado } = useData();
+  const { empleados, rolesPersonalizados, updateEmpleado, ready } = useData();
   const { empleado: yo } = useSession();
   const toast = useToast();
   const { pagina, setPagina, totalPaginas, visibles } = usePaginado(empleados);
@@ -69,6 +76,34 @@ export default function EmpleadosPage() {
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
   const [eliminando, setEliminando] = useState(false);
+
+  /* Config de asistencia/sueldo — editable SOLO por administrador, y NUNCA
+     sobre la propia fila (el trigger bloquear_autoescalada_empleado() en
+     supabase-schema.sql rechaza ese self-edit, igual que ya rechazaba
+     rol/permisos) — por eso el botón "Editar" se oculta en la fila propia,
+     mismo criterio que ya aplica "Eliminar" un poco más abajo. */
+  const [editandoConfig, setEditandoConfig] = useState<Empleado | null>(null);
+  const [formConfig, setFormConfig] = useState<Partial<Empleado>>({});
+  const [guardandoConfig, setGuardandoConfig] = useState(false);
+  function abrirEditarConfig(e: Empleado) {
+    setEditandoConfig(e);
+    setFormConfig(e);
+  }
+  async function guardarConfig(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editandoConfig) return;
+    setGuardandoConfig(true);
+    await updateEmpleado(editandoConfig.id, {
+      horaEntradaEsperada: formConfig.horaEntradaEsperada,
+      horaSalidaEsperada: formConfig.horaSalidaEsperada,
+      toleranciaTardanzaMin: formConfig.toleranciaTardanzaMin,
+      tipoPago: formConfig.tipoPago,
+      montoPagoBase: formConfig.montoPagoBase,
+    });
+    setGuardandoConfig(false);
+    setEditandoConfig(null);
+    toast("Configuración actualizada.");
+  }
 
   async function invitar(e: React.FormEvent) {
     e.preventDefault();
@@ -131,11 +166,12 @@ export default function EmpleadosPage() {
 
       <div className="table-card mt-4">
         <div className="table-filter-bar justify-end">
-          <button onClick={() => setAbierto(true)} className="btn-primary gap-1.5">
+          <button onClick={() => setAbierto(true)} className="btn-primary h-11 gap-1.5 sm:h-auto">
             <Plus size={16} /> Invitar empleado
           </button>
         </div>
 
+        <Skeleton name="empleados-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -155,7 +191,7 @@ export default function EmpleadosPage() {
                           <span className="row-avatar"><UserRound size={16} /></span>
                           <span>
                             <span className="block font-medium text-slate-900 dark:text-slate-100">{e.nombres} {e.apellidos}</span>
-                            <span className="block text-xs text-slate-400 dark:text-slate-500">{e.email ?? "—"}</span>
+                            <span className="block text-xs text-slate-500 dark:text-slate-500">{e.email ?? "—"}</span>
                           </span>
                         </div>
                       </td>
@@ -166,7 +202,7 @@ export default function EmpleadosPage() {
                           <select
                             value={e.rolPersonalizadoId || e.rol}
                             onChange={(ev) => cambiarRol(e, ev.target.value)}
-                            className="select text-sm"
+                            className="select h-11 sm:h-auto"
                           >
                             <optgroup label="Rol principal">
                               <option value="trabajador">{nombreRol("trabajador")}</option>
@@ -183,21 +219,31 @@ export default function EmpleadosPage() {
                         )}
                       </td>
                       <td className="table-body-cell text-right">
-                        {e.rol !== "administrador" && e.id !== yo?.id && (
-                          confirmandoId === e.id ? (
-                            <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                              <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>
-                              <button onClick={() => eliminar(e.id)} disabled={eliminando} className="link-danger">
-                                {eliminando ? "Eliminando…" : "Sí"}
-                              </button>
-                              <button onClick={() => { setConfirmandoId(null); setErrorEliminar(null); }} className="link-muted">No</button>
-                            </span>
-                          ) : (
-                            <button onClick={() => { setConfirmandoId(e.id); setErrorEliminar(null); }} title="Eliminar" aria-label={`Eliminar a ${e.nombres} ${e.apellidos}`} className="row-icon-btn row-icon-btn-danger">
-                              <Trash2 size={15} />
+                        <div className="inline-flex items-center gap-1 whitespace-nowrap">
+                          {/* Config de asistencia/sueldo — nunca sobre la propia
+                              fila, el trigger de la DB rechazaría el self-edit
+                              (ver comentario junto a editandoConfig arriba). */}
+                          {e.id !== yo?.id && (
+                            <button onClick={() => abrirEditarConfig(e)} title="Asistencia y sueldo" aria-label={`Configurar asistencia y sueldo de ${e.nombres} ${e.apellidos}`} className="row-icon-btn">
+                              <Pencil size={15} />
                             </button>
-                          )
-                        )}
+                          )}
+                          {e.rol !== "administrador" && e.id !== yo?.id && (
+                            confirmandoId === e.id ? (
+                              <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                                <span className="text-xs text-slate-500 dark:text-slate-400">¿Seguro?</span>
+                                <button onClick={() => eliminar(e.id)} disabled={eliminando} className="link-danger">
+                                  {eliminando ? "Eliminando…" : "Sí"}
+                                </button>
+                                <button onClick={() => { setConfirmandoId(null); setErrorEliminar(null); }} className="link-muted">No</button>
+                              </span>
+                            ) : (
+                              <button onClick={() => { setConfirmandoId(e.id); setErrorEliminar(null); }} title="Eliminar" aria-label={`Eliminar a ${e.nombres} ${e.apellidos}`} className="row-icon-btn row-icon-btn-danger">
+                                <Trash2 size={15} />
+                              </button>
+                            )
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {confirmandoId === e.id && errorEliminar && (
@@ -211,22 +257,88 @@ export default function EmpleadosPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 
       <SlideOver abierto={abierto} onClose={() => setAbierto(false)} titulo="Invitar empleado">
         <form onSubmit={invitar} className="space-y-3">
-          <input placeholder="Nombres" required value={nombres} onChange={(e) => setNombres(e.target.value)} className="input w-full text-sm" />
-          <input placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="input w-full text-sm" />
-          <input placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input w-full text-sm" />
-          <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="select w-full text-sm">
-            <option value="trabajador">{nombreRol("trabajador")}</option>
-            <option value="encargado">{nombreRol("encargado")}</option>
-          </select>
-          <button type="submit" disabled={enviando} className="btn-primary w-full">
+          <div>
+            <label className="form-label">Nombres <span className="text-red-500">*</span></label>
+            <input placeholder="Ej. María" required value={nombres} onChange={(e) => setNombres(e.target.value)} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Apellidos</label>
+            <input placeholder="Ej. Gonzáles" value={apellidos} onChange={(e) => setApellidos(e.target.value)} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Email <span className="text-red-500">*</span></label>
+            <input placeholder="Ej. maria@correo.com" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <div>
+            <label className="form-label">Rol</label>
+            <select value={rol} onChange={(e) => setRol(e.target.value as "encargado" | "trabajador")} className="select h-11 w-full sm:h-auto">
+              <option value="trabajador">{nombreRol("trabajador")}</option>
+              <option value="encargado">{nombreRol("encargado")}</option>
+            </select>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campos obligatorios</p>
+          <button type="submit" disabled={enviando} className="btn-primary h-11 w-full sm:h-auto">
             {enviando ? "Enviando…" : "Invitar empleado"}
           </button>
           {mensaje && <p className="text-sm text-slate-600 dark:text-slate-300">{mensaje}</p>}
+        </form>
+      </SlideOver>
+
+      <SlideOver
+        abierto={!!editandoConfig}
+        onClose={() => setEditandoConfig(null)}
+        titulo={editandoConfig ? `Asistencia y sueldo — ${editandoConfig.nombres} ${editandoConfig.apellidos}` : ""}
+      >
+        <form onSubmit={guardarConfig} className="space-y-3">
+          <p className="text-xs text-slate-500 dark:text-slate-500">
+            Todo opcional — un negocio puede no usar asistencia/sueldos todavía.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="form-label">Hora de entrada esperada</label>
+              <TimePicker etiqueta="Hora de entrada esperada" placeholder="Sin definir" valor={formConfig.horaEntradaEsperada ?? ""} onChange={(v) => setFormConfig({ ...formConfig, horaEntradaEsperada: v || undefined })} />
+            </div>
+            <div>
+              <label className="form-label">Hora de salida esperada</label>
+              <TimePicker etiqueta="Hora de salida esperada" placeholder="Sin definir" valor={formConfig.horaSalidaEsperada ?? ""} onChange={(v) => setFormConfig({ ...formConfig, horaSalidaEsperada: v || undefined })} />
+            </div>
+          </div>
+          <div>
+            <label className="form-label">Tolerancia de tardanza (minutos)</label>
+            <input
+              placeholder="Ej. 10" type="number" min={0}
+              value={formConfig.toleranciaTardanzaMin ?? ""}
+              onChange={(e) => setFormConfig({ ...formConfig, toleranciaTardanzaMin: Number(e.target.value) })}
+              className="input h-11 w-full sm:h-auto"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="form-label">Tipo de pago</label>
+              <select value={formConfig.tipoPago ?? ""} onChange={(e) => setFormConfig({ ...formConfig, tipoPago: (e.target.value || undefined) as TipoPeriodoPago | undefined })} className="select h-11 w-full sm:h-auto">
+                <option value="">Sin definir</option>
+                {TIPOS_PERIODO.map((t) => <option key={t} value={t}>{TIPO_PERIODO_LABEL[t]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Monto base (S/)</label>
+              <input
+                placeholder="Ej. 1200.00" type="number" step="0.01" min={0}
+                value={formConfig.montoPagoBase ?? ""}
+                onChange={(e) => setFormConfig({ ...formConfig, montoPagoBase: e.target.value ? Number(e.target.value) : undefined })}
+                className="input h-11 w-full sm:h-auto"
+              />
+            </div>
+          </div>
+          <button type="submit" disabled={guardandoConfig} className="btn-primary h-11 w-full sm:h-auto">
+            {guardandoConfig ? "Guardando…" : "Guardar configuración"}
+          </button>
         </form>
       </SlideOver>
     </main>

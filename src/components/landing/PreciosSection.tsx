@@ -61,7 +61,7 @@ export function PreciosSection() {
         <div className="card flex flex-col p-6">
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">Gratis</h3>
           <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            S/ 0 <span className="text-sm font-normal text-slate-400 dark:text-slate-500">/ para siempre</span>
+            S/ 0 <span className="text-sm font-normal text-slate-500 dark:text-slate-500">/ para siempre</span>
           </p>
           <ul className="mt-4 flex-1 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
             <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Clientes, citas y recetas</li>
@@ -79,7 +79,7 @@ export function PreciosSection() {
               <h3 className="font-semibold text-slate-900 dark:text-slate-100">{p.nombre}</h3>
               <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
                 S/ {precio.toFixed(2)}
-                <span className="text-sm font-normal text-slate-400 dark:text-slate-500"> / {anual ? "año" : "mes"}</span>
+                <span className="text-sm font-normal text-slate-500 dark:text-slate-500"> / {anual ? "año" : "mes"}</span>
               </p>
               {anual && (
                 <p className="mt-1 text-xs font-medium text-accent">

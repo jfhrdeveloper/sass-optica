@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FileText, ArrowRightCircle, Trash2 } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Cotizacion, type CotizacionItem } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -16,10 +17,10 @@ import { CajaCerradaBanner } from "@/components/dashboard/CajaCerradaBanner";
    `placeholder`/`aria-label` de los selects y de DatePicker desaparece en
    cuanto el usuario elige un valor, así que sin esto no hay forma de
    recordar qué campo es cada uno una vez lleno (queja real de usuario). */
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function Campo({ label, obligatorio, children }: { label: string; obligatorio?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">{label}</label>
+      <label className="form-label">{label}{obligatorio && <> <span className="text-red-500">*</span></>}</label>
       {children}
     </div>
   );
@@ -45,7 +46,7 @@ const ESTADO_LABEL: Record<Cotizacion["estado"], string> = {
    documento previo a la venta, no toca stock ni caja hasta que se
    convierte — ver convertirCotizacionAVenta en DataProvider.tsx. */
 export default function CotizacionesPage() {
-  const { cotizaciones, cotizacionItems, clientes, productos, descuentos, cajas, addCotizacion, updateCotizacion, updateDescuento, deleteCotizacion, convertirCotizacionAVenta } = useData();
+  const { cotizaciones, cotizacionItems, clientes, productos, descuentos, cajas, addCotizacion, updateCotizacion, updateDescuento, deleteCotizacion, convertirCotizacionAVenta, ready } = useData();
   const cajaAbierta = cajas.some((c) => c.estado === "abierta");
   const toast = useToast();
   const [clienteId, setClienteId] = useState("");
@@ -190,7 +191,7 @@ export default function CotizacionesPage() {
         <h2 className="font-medium">Nueva cotización</h2>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Campo label="Cliente">
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select w-full text-sm">
+            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select h-11 w-full sm:h-auto">
               <option value="">Sin cliente</option>
               {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
             </select>
@@ -217,34 +218,34 @@ export default function CotizacionesPage() {
 
         {modoItem === "catalogo" ? (
           <div className="mt-2 space-y-2">
-            <Campo label="Producto">
-              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select w-full text-sm">
+            <Campo label="Producto" obligatorio>
+              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select h-11 w-full sm:h-auto">
                 <option value="">Elegir producto…</option>
                 {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} — S/ {p.precioVenta.toFixed(2)}</option>)}
               </select>
             </Campo>
             <div className="flex items-end gap-2">
               <Campo label="Cantidad">
-                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input h-11 w-20 sm:h-auto" />
               </Campo>
-              <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
+              <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 h-11 px-3 py-2 text-sm disabled:opacity-50 sm:h-auto">
                 Agregar ítem
               </button>
             </div>
           </div>
         ) : (
           <div className="mt-2 space-y-2">
-            <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)">
-              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full text-sm" />
+            <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)" obligatorio>
+              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input h-11 w-full sm:h-auto" />
             </Campo>
             <div className="flex items-end gap-2">
-              <Campo label="Precio unitario (S/)">
-                <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28 text-sm" />
+              <Campo label="Precio unitario (S/)" obligatorio>
+                <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input h-11 w-28 sm:h-auto" />
               </Campo>
               <Campo label="Cantidad">
-                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20 text-sm" />
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input h-11 w-20 sm:h-auto" />
               </Campo>
-              <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
+              <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 h-11 px-3 py-2 text-sm disabled:opacity-50 sm:h-auto">
                 Agregar ítem
               </button>
             </div>
@@ -270,7 +271,7 @@ export default function CotizacionesPage() {
             <Campo label="Código de descuento (opcional)">
               <select
                 value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-                className="select w-full text-sm sm:w-48"
+                className="select h-11 w-full sm:h-auto sm:w-48"
               >
                 <option value="">Sin descuento</option>
                 {descuentosDisponibles.map((d) => (
@@ -291,9 +292,10 @@ export default function CotizacionesPage() {
           </div>
         )}
 
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
         <button
           onClick={confirmarCotizacion} disabled={guardando || items.length === 0 || !cajaAbierta}
-          className="btn-primary mt-3 w-full"
+          className="btn-primary mt-1 h-11 w-full sm:h-auto"
         >
           {!cajaAbierta ? "Abre la caja para cotizar" : guardando ? "Guardando…" : "Crear cotización"}
         </button>
@@ -301,7 +303,7 @@ export default function CotizacionesPage() {
 
       <div className="table-card mt-6">
         <div className="table-filter-bar">
-          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select text-sm">
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)} className="select h-11 sm:h-auto">
             <option value="todos">Todos los estados</option>
             <option value="pendiente">Pendiente</option>
             <option value="aceptada">Aceptada</option>
@@ -310,6 +312,7 @@ export default function CotizacionesPage() {
           </select>
         </div>
 
+        <Skeleton name="cotizaciones-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -335,7 +338,7 @@ export default function CotizacionesPage() {
                   <td className="table-body-cell hidden md:table-cell text-slate-500 dark:text-slate-400">{c.vigenciaHasta ? formatearFechaPE(c.vigenciaHasta) : "—"}</td>
                   <td className="table-body-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {c.total.toFixed(2)}</span>
-                    <div className="text-xs text-slate-400 dark:text-slate-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-500">
                       {cotizacionItems.filter((it) => it.cotizacionId === c.id).map((it) => it.descripcion).join(", ")}
                     </div>
                   </td>
@@ -365,7 +368,7 @@ export default function CotizacionesPage() {
                         </button>
                       )}
                       {c.estado === "aceptada" && c.ventaId ? (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">Ya es venta</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-500">Ya es venta</span>
                       ) : (
                         <button onClick={() => setConfirmarEliminar(c)} title="Eliminar" aria-label="Eliminar cotización" className="row-icon-btn row-icon-btn-danger">
                           <Trash2 size={15} />
@@ -388,6 +391,7 @@ export default function CotizacionesPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 

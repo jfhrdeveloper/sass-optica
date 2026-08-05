@@ -14,7 +14,7 @@ export function ActividadHeatmap({ matriz, picoLabel }: { matriz: number[][]; pi
   const totalEventos = matriz.flat().reduce((a, b) => a + b, 0);
 
   if (totalEventos === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Sin actividad registrada todavía.</p>;
+    return <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-500">Sin actividad registrada todavía.</p>;
   }
 
   return (
@@ -33,14 +33,14 @@ export function ActividadHeatmap({ matriz, picoLabel }: { matriz: number[][]; pi
         >
           <div className="flex pl-9">
             {HORAS.map((h) => (
-              <div key={h} className="min-w-[1.1rem] flex-1 text-center text-[9px] text-slate-400 dark:text-slate-500">
+              <div key={h} className="min-w-[1.1rem] flex-1 text-center text-[9px] text-slate-500 dark:text-slate-500">
                 {h % 4 === 0 ? h : ""}
               </div>
             ))}
           </div>
           {matriz.map((fila, dia) => (
             <div key={dia} className="flex items-center">
-              <div className="w-9 shrink-0 pr-1.5 text-right text-[10px] text-slate-400 dark:text-slate-500">{DIAS_SEMANA[dia]}</div>
+              <div className="w-9 shrink-0 pr-1.5 text-right text-[10px] text-slate-500 dark:text-slate-500">{DIAS_SEMANA[dia]}</div>
               {fila.map((total, hora) => (
                 <div
                   key={hora}
@@ -54,7 +54,7 @@ export function ActividadHeatmap({ matriz, picoLabel }: { matriz: number[][]; pi
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-slate-500 dark:text-slate-500">
         Menos
         <span className="h-3 w-3 rounded-sm bg-slate-100 dark:bg-slate-800" />
         <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: "var(--color-primary)", opacity: 0.35 }} />

@@ -54,7 +54,7 @@ function WelcomePlanModalInner() {
         <button
           onClick={cerrar}
           aria-label="Cerrar"
-          className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         >
           <X size={16} />
         </button>
@@ -70,7 +70,7 @@ function WelcomePlanModalInner() {
               <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta {LIMITE_EMPLEADOS_GRATIS} empleados</li>
               <li className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />Hasta {LIMITE_VENTAS_MES_GRATIS} ventas al mes</li>
             </ul>
-            <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">Mejora tu plan cuando lo necesites, sin perder nada de lo que ya cargaste.</p>
+            <p className="mt-4 text-xs text-slate-500 dark:text-slate-500">Mejora tu plan cuando lo necesites, sin perder nada de lo que ya cargaste.</p>
           </>
         ) : (
           <>
@@ -81,7 +81,7 @@ function WelcomePlanModalInner() {
                 <li key={b} className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-accent" />{b}</li>
               ))}
             </ul>
-            <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+            <p className="mt-4 text-xs text-slate-500 dark:text-slate-500">
               Si no activas el pago antes de que termine, tu cuenta vuelve automáticamente al plan Gratis — nunca se bloquea ni pierdes tus datos.
             </p>
           </>

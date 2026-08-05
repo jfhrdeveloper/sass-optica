@@ -178,7 +178,7 @@ export default function AdminLoginPage() {
                   solo hay UNA identidad posible (el equipo del SaaS no tiene
                   roles), así que es un solo botón en vez de un selector. */}
               <div className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">
                   Entrar rápido
                 </p>
                 <button type="button" onClick={entrarRapido} className="btn-outline mt-2 w-full gap-1.5 text-sm">

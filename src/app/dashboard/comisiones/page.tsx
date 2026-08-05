@@ -77,7 +77,7 @@ export default function ComisionesPage() {
                             const valor = Number(e.target.value);
                             if (!Number.isNaN(valor) && valor !== c.comisionPct) updateEmpleado(c.empleadoId, { comisionPct: valor });
                           }}
-                          className="input w-16 text-sm"
+                          className="input w-16"
                         />
                         <Percent size={12} className="text-slate-400" />
                       </label>

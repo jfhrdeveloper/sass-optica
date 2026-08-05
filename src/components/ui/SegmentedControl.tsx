@@ -26,6 +26,15 @@ interface Props {
      "Anual, pestaña 2 de 2" para algo que no es una pestaña — no cambia de
      panel, cambia el precio mostrado. */
   variante?: "tabs" | "opciones";
+  /* Por defecto el track mide lo que ocupa su contenido (`w-fit`,
+     centrado) — correcto para casos cortos como Mensual/Anual. Cuando el
+     control debe ocupar TODO el ancho disponible del contenedor (ej. el
+     selector de vista de Citas: Día/3 días/5 días/Semana/Mes/Lista), esta
+     prop reparte el ancho en partes iguales entre las opciones en vez de
+     dejar que cada una mida lo que su propio texto necesita — si no, un
+     label largo ("5 días") queda más ancho que uno corto ("Mes") y el
+     conjunto se ve desalineado del card que lo contiene. */
+  distribuirAncho?: boolean;
 }
 
 /* Segmented control con indicador DESLIZANTE: un solo bloque (track) con
@@ -41,7 +50,7 @@ interface Props {
    La transición se habilita recién DESPUÉS del primer posicionamiento
    (`dataset.listo`): si no, al montar el indicador animaría desde
    `translateX(0)` con ancho 0 hasta su lugar, que se ve como un glitch. */
-export function SegmentedControl({ opciones, valor, onChange, className, variante = "tabs", ...aria }: Props) {
+export function SegmentedControl({ opciones, valor, onChange, className, variante = "tabs", distribuirAncho = false, ...aria }: Props) {
   const esTabs = variante === "tabs";
   const botonesRef = useRef<Record<string, HTMLButtonElement | null>>({});
   const indicadorRef = useRef<HTMLSpanElement>(null);
@@ -76,7 +85,9 @@ export function SegmentedControl({ opciones, valor, onChange, className, variant
       <div
         role={esTabs ? "tablist" : "radiogroup"}
         aria-label={aria["aria-label"]}
-        className="relative mx-auto flex w-fit rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800"
+        className={`relative flex rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800 ${
+          distribuirAncho ? "w-full" : "mx-auto w-fit"
+        }`}
       >
         <span
           ref={indicadorRef}
@@ -94,9 +105,9 @@ export function SegmentedControl({ opciones, valor, onChange, className, variant
               aria-selected={esTabs ? activo : undefined}
               aria-checked={esTabs ? undefined : activo}
               onClick={() => onChange(o.valor)}
-              className={`relative z-10 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                activo ? "text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-              }`}
+              className={`relative z-10 flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                distribuirAncho ? "flex-1" : "shrink-0"
+              } ${activo ? "text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
             >
               {o.label}
               {o.extra}

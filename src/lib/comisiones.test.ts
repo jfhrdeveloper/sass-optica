@@ -12,7 +12,7 @@ function venta(patch: Partial<Venta> = {}): Venta {
 function empleado(patch: Partial<Empleado> = {}): Empleado {
   return {
     id: "e1", negocioId: "n1", nombres: "Ana", apellidos: "Gómez",
-    rol: "trabajador", permisos: {}, comisionPct: 5, activo: true, ...patch,
+    rol: "trabajador", permisos: {}, comisionPct: 5, toleranciaTardanzaMin: 10, activo: true, ...patch,
   };
 }
 

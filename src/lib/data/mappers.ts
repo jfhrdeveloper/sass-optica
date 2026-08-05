@@ -10,8 +10,15 @@ import type {
   Empleado, RolPersonalizado, Negocio, Rol, Suscripcion, Sucursal,
   Cliente, Cita, Receta, ExamenOptometrico, Producto, MovimientoStock, Venta, VentaItem, Gasto,
   Descuento, Proveedor, Cotizacion, CotizacionItem, OrdenLaboratorio, EstadoOrdenLaboratorio,
-  Caja, EstadoCaja, ItemAperturaCaja,
+  Caja, EstadoCaja, ItemAperturaCaja, Asistencia, EstadoAsistencia, AsistenciaFoto, PagoSueldo, TipoPeriodoPago,
 } from "@/components/providers/DataProvider";
+
+/* Postgres `time` viaja como "HH:mm:ss" — la app solo necesita "HH:mm"
+   (mismo formato que ya usa TimePicker.tsx en todo el proyecto). */
+function horaCorta(v: unknown): string | undefined {
+  if (!v) return undefined;
+  return String(v).slice(0, 5);
+}
 
 /* ====== Sucursales (multisedes) ====== */
 export function rowToSucursal(r: Record<string, unknown>): Sucursal {
@@ -47,6 +54,11 @@ export function rowToEmpleado(r: Record<string, unknown>): Empleado {
     rolPersonalizadoId: r.rol_personalizado_id ? String(r.rol_personalizado_id) : undefined,
     comisionPct:   Number(r.comision_pct ?? 0),
     sucursalId:    r.sucursal_id ? String(r.sucursal_id) : undefined,
+    horaEntradaEsperada: horaCorta(r.hora_entrada_esperada),
+    horaSalidaEsperada:  horaCorta(r.hora_salida_esperada),
+    toleranciaTardanzaMin: Number(r.tolerancia_tardanza_min ?? 10),
+    tipoPago:      r.tipo_pago ? (r.tipo_pago as TipoPeriodoPago) : undefined,
+    montoPagoBase: r.monto_pago_base != null ? Number(r.monto_pago_base) : undefined,
     activo:        Boolean(r.activo ?? true),
   };
 }
@@ -62,6 +74,11 @@ export function empleadoToRow(e: Partial<Empleado>): Record<string, unknown> {
   if (e.rolPersonalizadoId !== undefined) out.rol_personalizado_id = e.rolPersonalizadoId || null;
   if (e.comisionPct    !== undefined) out.comision_pct     = e.comisionPct;
   if (e.sucursalId     !== undefined) out.sucursal_id      = e.sucursalId || null;
+  if (e.horaEntradaEsperada   !== undefined) out.hora_entrada_esperada   = e.horaEntradaEsperada || null;
+  if (e.horaSalidaEsperada    !== undefined) out.hora_salida_esperada    = e.horaSalidaEsperada || null;
+  if (e.toleranciaTardanzaMin !== undefined) out.tolerancia_tardanza_min = e.toleranciaTardanzaMin;
+  if (e.tipoPago              !== undefined) out.tipo_pago               = e.tipoPago || null;
+  if (e.montoPagoBase         !== undefined) out.monto_pago_base         = e.montoPagoBase ?? null;
   if (e.activo         !== undefined) out.activo          = e.activo;
   return out;
 }
@@ -516,6 +533,90 @@ export function descuentoToRow(d: Partial<Descuento>): Record<string, unknown> {
   if (d.vigenciaHasta   !== undefined) out.vigencia_hasta   = d.vigenciaHasta || null;
   if (d.limiteUsos      !== undefined) out.limite_usos      = d.limiteUsos ?? null;
   if (d.activo           !== undefined) out.activo           = d.activo;
+  return out;
+}
+
+/* ====== Asistencia ====== */
+export function rowToAsistencia(r: Record<string, unknown>): Asistencia {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id), empleadoId: String(r.empleado_id),
+    sucursalId: r.sucursal_id ? String(r.sucursal_id) : undefined,
+    fecha: String(r.fecha ?? ""),
+    horaEntrada: horaCorta(r.hora_entrada),
+    horaSalida: horaCorta(r.hora_salida),
+    estado: (r.estado as EstadoAsistencia) ?? "presente",
+    marcadoPor: (r.marcado_por as Asistencia["marcadoPor"]) ?? "empleado",
+    fotoEntrada: Boolean(r.foto_entrada ?? false),
+    fotoSalida: Boolean(r.foto_salida ?? false),
+    verificadoEntradaPor: r.verificado_entrada_por ? String(r.verificado_entrada_por) : undefined,
+    verificadoEntradaAt: r.verificado_entrada_at ? String(r.verificado_entrada_at) : undefined,
+    verificadoSalidaPor: r.verificado_salida_por ? String(r.verificado_salida_por) : undefined,
+    verificadoSalidaAt: r.verificado_salida_at ? String(r.verificado_salida_at) : undefined,
+    notas: r.notas ? String(r.notas) : undefined,
+  };
+}
+export function asistenciaToRow(a: Partial<Asistencia>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (a.sucursalId   !== undefined) out.sucursal_id    = a.sucursalId || null;
+  if (a.fecha         !== undefined) out.fecha          = a.fecha;
+  if (a.horaEntrada  !== undefined) out.hora_entrada    = a.horaEntrada || null;
+  if (a.horaSalida   !== undefined) out.hora_salida     = a.horaSalida || null;
+  if (a.estado        !== undefined) out.estado          = a.estado;
+  if (a.marcadoPor   !== undefined) out.marcado_por     = a.marcadoPor;
+  if (a.fotoEntrada  !== undefined) out.foto_entrada    = a.fotoEntrada;
+  if (a.fotoSalida   !== undefined) out.foto_salida     = a.fotoSalida;
+  if (a.verificadoEntradaPor !== undefined) out.verificado_entrada_por = a.verificadoEntradaPor || null;
+  if (a.verificadoEntradaAt  !== undefined) out.verificado_entrada_at  = a.verificadoEntradaAt || null;
+  if (a.verificadoSalidaPor  !== undefined) out.verificado_salida_por  = a.verificadoSalidaPor || null;
+  if (a.verificadoSalidaAt   !== undefined) out.verificado_salida_at   = a.verificadoSalidaAt || null;
+  if (a.notas          !== undefined) out.notas           = a.notas;
+  return out;
+}
+
+/* ====== Fotos de evidencia de asistencia (separadas a propósito — el
+   base64 no debe viajar en cada fetch de la lista, ver comentario de la
+   tabla en supabase-schema.sql) ====== */
+export function rowToAsistenciaFoto(r: Record<string, unknown>): AsistenciaFoto {
+  return {
+    id: String(r.id), asistenciaId: String(r.asistencia_id),
+    tipo: (r.tipo as AsistenciaFoto["tipo"]) ?? "entrada",
+    fotoBase64: String(r.foto_base64 ?? ""),
+  };
+}
+export function asistenciaFotoToRow(f: Partial<AsistenciaFoto>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (f.asistenciaId !== undefined) out.asistencia_id = f.asistenciaId;
+  if (f.tipo          !== undefined) out.tipo          = f.tipo;
+  if (f.fotoBase64    !== undefined) out.foto_base64    = f.fotoBase64;
+  return out;
+}
+
+/* ====== Pagos de sueldo (gasto_id lo mantienen los triggers de DB, nunca
+   se manda desde acá) ====== */
+export function rowToPagoSueldo(r: Record<string, unknown>): PagoSueldo {
+  return {
+    id: String(r.id), negocioId: String(r.negocio_id), empleadoId: String(r.empleado_id),
+    tipoPeriodo: (r.tipo_periodo as TipoPeriodoPago) ?? "mensual",
+    periodoDesde: String(r.periodo_desde ?? ""),
+    periodoHasta: String(r.periodo_hasta ?? ""),
+    fechaPago: String(r.fecha_pago ?? ""),
+    monto: Number(r.monto ?? 0),
+    metodoPago: String(r.metodo_pago ?? "efectivo"),
+    notas: r.notas ? String(r.notas) : undefined,
+    gastoId: r.gasto_id ? String(r.gasto_id) : undefined,
+    registradoPor: r.registrado_por ? String(r.registrado_por) : undefined,
+  };
+}
+export function pagoSueldoToRow(p: Partial<PagoSueldo>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (p.tipoPeriodo    !== undefined) out.tipo_periodo    = p.tipoPeriodo;
+  if (p.periodoDesde   !== undefined) out.periodo_desde   = p.periodoDesde;
+  if (p.periodoHasta   !== undefined) out.periodo_hasta   = p.periodoHasta;
+  if (p.fechaPago       !== undefined) out.fecha_pago       = p.fechaPago;
+  if (p.monto            !== undefined) out.monto            = p.monto;
+  if (p.metodoPago      !== undefined) out.metodo_pago      = p.metodoPago;
+  if (p.notas             !== undefined) out.notas             = p.notas;
+  if (p.registradoPor   !== undefined) out.registrado_por   = p.registradoPor || null;
   return out;
 }
 

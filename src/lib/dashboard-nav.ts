@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, CalendarDays, Package, ShoppingCart,
   Wallet, UserCog, Settings, Tag, Truck, FileText, BarChart3, Percent, Store, FlaskConical, Banknote,
-  Lightbulb, ShieldCheck,
+  Lightbulb, ShieldCheck, Clock, HandCoins,
 } from "lucide-react";
 
 export type Restriccion = { soloAdmin?: boolean; permiso?: string };
@@ -18,6 +18,13 @@ export const NAV: NavItem[] = [
   { kind: "link", href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { kind: "link", href: "/dashboard/clientes", label: "Clientes", icon: Users },
   { kind: "link", href: "/dashboard/citas", label: "Citas", icon: CalendarDays },
+  /* Sin `permiso` ni `soloAdmin` a propósito: marcar la PROPIA asistencia es
+     self-registro de cualquier empleado, no un módulo delegable (ver
+     policy asistencias_self en supabase-schema.sql) — todos deben poder
+     llegar acá. Ver/gestionar la del equipo sí está gateado (permiso
+     'asistencia'), pero eso se resuelve DENTRO de la página, no ocultando
+     la ruta entera. */
+  { kind: "link", href: "/dashboard/asistencia", label: "Asistencia", icon: Clock },
   {
     kind: "group", key: "comercial", label: "Comercial", icon: ShoppingCart,
     children: [
@@ -34,6 +41,7 @@ export const NAV: NavItem[] = [
     kind: "group", key: "administracion", label: "Administración", icon: Settings,
     children: [
       { href: "/dashboard/gastos", label: "Gastos", icon: Wallet, permiso: "gastos" },
+      { href: "/dashboard/sueldos", label: "Sueldos", icon: HandCoins, permiso: "sueldos" },
       { href: "/dashboard/informes", label: "Informes", icon: BarChart3, permiso: "gastos" },
       { href: "/dashboard/comisiones", label: "Comisiones", icon: Percent, permiso: "gastos" },
       { href: "/dashboard/sucursales", label: "Sucursales", icon: Store, soloAdmin: true },

@@ -34,7 +34,7 @@ export function EstadoMejoraSelect({ id, estadoActual }: { id: string; estadoAct
   }
 
   return (
-    <select value={estadoActual} onChange={onChange} disabled={enviando} className="select text-sm">
+    <select value={estadoActual} onChange={onChange} disabled={enviando} className="select">
       {ESTADOS.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
     </select>
   );

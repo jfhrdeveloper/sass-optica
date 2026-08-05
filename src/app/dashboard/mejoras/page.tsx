@@ -133,7 +133,7 @@ export default function MejorasPage() {
               {m.esMia && <span className="badge badge-neutral">Propuesta por ti</span>}
             </div>
             {m.descripcion && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{m.descripcion}</p>}
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{formatearFecha(m.createdAt)}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">{formatearFecha(m.createdAt)}</p>
           </div>
           <button
             onClick={() => toggleVoto(m)}
@@ -196,7 +196,7 @@ export default function MejorasPage() {
             <input
               required value={titulo} onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ej. Recordatorio de citas por SMS"
-              className="input mt-1 w-full text-sm"
+              className="input mt-1 w-full"
             />
           </div>
           <div>
@@ -204,10 +204,10 @@ export default function MejorasPage() {
             <textarea
               value={descripcion} onChange={(e) => setDescripcion(e.target.value)}
               rows={4} placeholder="Cuéntanos el problema que resolvería"
-              className="input mt-1 w-full text-sm"
+              className="input mt-1 w-full"
             />
           </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-500">
             Se muestra a todas las ópticas para que voten, sin decir que la propusiste tú.
           </p>
           <button type="submit" disabled={guardando || !titulo.trim()} className="btn-primary w-full">

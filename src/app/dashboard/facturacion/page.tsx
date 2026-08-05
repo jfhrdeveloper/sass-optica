@@ -125,7 +125,7 @@ export default function FacturacionPage() {
                   </div>
                   <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">
                     S/ {precio.toFixed(2)}
-                    <span className="text-sm font-normal text-slate-400 dark:text-slate-500"> / {ciclo === "anual" ? "año" : "mes"}</span>
+                    <span className="text-sm font-normal text-slate-500 dark:text-slate-500"> / {ciclo === "anual" ? "año" : "mes"}</span>
                   </p>
                   <ul className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
                     {p.bullets.map((b) => (
@@ -180,8 +180,8 @@ export default function FacturacionPage() {
               solo en modo lectura — no se oculta como haría un feature flag
               tradicional, así el equipo ve el valor del plan Pro. */}
           <fieldset disabled className="card mt-3 grid grid-cols-1 gap-2 p-4 opacity-60 sm:grid-cols-3">
-            <select className="select text-sm"><option>Boleta</option><option>Factura</option></select>
-            <input placeholder="Serie-número (auto)" className="input text-sm" />
+            <select className="select"><option>Boleta</option><option>Factura</option></select>
+            <input placeholder="Serie-número (auto)" className="input" />
             <button type="button" className="btn-primary">Emitir comprobante</button>
           </fieldset>
         </div>

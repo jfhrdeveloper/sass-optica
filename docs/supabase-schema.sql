@@ -161,6 +161,10 @@ create table if not exists public.roles_personalizados (
 create index if not exists idx_roles_personalizados_negocio on public.roles_personalizados(negocio_id);
 
 -- empleados (1:1 con auth.users — "usuarios" del brief) ---------------------
+-- Declarado acá (no junto al resto de enums del "módulo de dominio" más
+-- abajo) porque empleados.tipo_pago lo necesita antes que cualquier otra
+-- tabla — pagos_sueldo (más abajo) reusa el mismo tipo, no lo redeclara.
+do $$ begin create type tipo_periodo_pago as enum ('diario','semanal','quincenal','mensual'); exception when duplicate_object then null; end $$;
 create table if not exists public.empleados (
   id            uuid primary key references auth.users(id) on delete cascade,
   negocio_id    uuid references public.negocios(id) on delete cascade,
@@ -197,6 +201,17 @@ create table if not exists public.empleados (
   -- current_sucursal() más abajo. A diferencia de negocio_id, sucursal_id SÍ
   -- se puede reasignar libremente (cambiar de sede es operación normal).
   sucursal_id   uuid references public.sucursales(id) on delete set null,
+  -- Asistencia/sueldos — config por empleado, no por negocio ("todo debe ser
+  -- modificable" y cada empleado puede tener un turno distinto, pedido
+  -- explícito). Editable SOLO por administrador (ver bloqueo en
+  -- bloquear_autoescalada_empleado() más abajo, misma idea que comision_pct
+  -- pero esta vez si reforzada con el trigger — comision_pct quedó sin ese
+  -- refuerzo, es una brecha preexistente que se corrige acá de paso).
+  hora_entrada_esperada   time,
+  hora_salida_esperada    time,
+  tolerancia_tardanza_min integer not null default 10 check (tolerancia_tardanza_min >= 0),
+  tipo_pago               tipo_periodo_pago,
+  monto_pago_base         numeric(10,2) check (monto_pago_base >= 0),
   activo        boolean not null default true,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -231,16 +246,28 @@ create trigger trg_empleados_lock_tenant
 -- empleados_admin_update (auth.uid() distinto de la fila objetivo) y no
 -- pasa por acá. service_role (altas/invitaciones, admin.ts) queda exento
 -- explícitamente — BYPASSRLS salta las policies pero NO los triggers.
+--
+-- `comision_pct` se suma acá de paso: el comentario de esa columna siempre
+-- dijo "editable solo por administrador", pero nunca estuvo reforzado en
+-- este trigger — un trabajador podía auto-subirse su propia comisión con un
+-- UPDATE directo. Brecha preexistente, se cierra junto con los campos
+-- nuevos de asistencia/sueldo (misma clase de problema).
 create or replace function public.bloquear_autoescalada_empleado()
 returns trigger language plpgsql
 set search_path = public as $$
 begin
   if (new.rol is distinct from old.rol
       or new.permisos is distinct from old.permisos
-      or new.rol_personalizado_id is distinct from old.rol_personalizado_id)
+      or new.rol_personalizado_id is distinct from old.rol_personalizado_id
+      or new.comision_pct is distinct from old.comision_pct
+      or new.hora_entrada_esperada is distinct from old.hora_entrada_esperada
+      or new.hora_salida_esperada is distinct from old.hora_salida_esperada
+      or new.tolerancia_tardanza_min is distinct from old.tolerancia_tardanza_min
+      or new.tipo_pago is distinct from old.tipo_pago
+      or new.monto_pago_base is distinct from old.monto_pago_base)
      and auth.uid() = old.id
      and coalesce(auth.role(), '') <> 'service_role' then
-    raise exception 'No puedes modificar tu propio rol o permisos.';
+    raise exception 'No puedes modificar tu propio rol, permisos, comisión ni configuración de sueldo/asistencia.';
   end if;
   return new;
 end $$;
@@ -1128,6 +1155,74 @@ create unique index if not exists idx_cajas_una_abierta
   on public.cajas(negocio_id, coalesce(sucursal_id, '00000000-0000-0000-0000-000000000000'))
   where estado = 'abierta';
 
+-- Asistencia / control de horario ------------------------------------------
+do $$ begin create type estado_asistencia as enum ('presente','tarde','falta','permiso'); exception when duplicate_object then null; end $$;
+
+-- 1 fila por empleado por día (unique de abajo). El estado se sugiere en la
+-- UI comparando hora_entrada contra empleados.hora_entrada_esperada +
+-- tolerancia_tardanza_min (lib/asistencia.ts, NO un trigger de DB — mismo
+-- criterio que el resto de "cálculos derivados" del proyecto, ver
+-- lib/seguimiento-clientes.ts), pero siempre queda editable a mano después
+-- (pedido explícito: "todo debe ser modificable"). `marcado_por` distingue
+-- el auto-registro del propio empleado de una corrección hecha por el
+-- dueño/encargado. Verificación SEPARADA por evento (entrada/salida) — no
+-- un solo booleano para el día — porque cada marca puede llegar en momentos
+-- distintos y aprobarse independiente; mismo patrón exacto de referencia
+-- que el proyecto tramys-rrhh (tabla `asistencia`, columnas
+-- verificado_entrada_*/verificado_salida_*), incluida la sede del día
+-- (`sucursal_id`, solo se pregunta al marcar ENTRADA si es distinta a la
+-- habitual del empleado — la SALIDA hereda esa misma sede, no se vuelve a
+-- preguntar) y la foto de evidencia opcional (ver tabla asistencia_fotos
+-- más abajo). Opción B: el marcaje queda oficial al instante, sin bloquear
+-- al empleado esperando aprobación.
+create table if not exists public.asistencias (
+  id             uuid primary key default gen_random_uuid(),
+  negocio_id     uuid not null references public.negocios(id) on delete cascade,
+  empleado_id    uuid not null references public.empleados(id) on delete cascade,
+  -- Sede del día (igual que citas/ventas) — un empleado multisede puede
+  -- marcar en una sede distinta a la que tiene fija en su ficha. Se fija al
+  -- marcar ENTRADA; la salida la hereda (no se vuelve a preguntar).
+  sucursal_id    uuid references public.sucursales(id) on delete set null,
+  fecha          date not null default current_date,
+  hora_entrada   time,
+  hora_salida    time,
+  estado         estado_asistencia not null default 'presente',
+  marcado_por    text not null default 'empleado' check (marcado_por in ('empleado', 'admin')),
+  -- Flags baratos (viajan en el fetch normal); el base64 de la foto en sí
+  -- vive aparte en asistencia_fotos, cargado bajo demanda.
+  foto_entrada   boolean not null default false,
+  foto_salida    boolean not null default false,
+  verificado_entrada_por uuid references public.empleados(id) on delete set null,
+  verificado_entrada_at  timestamptz,
+  verificado_salida_por  uuid references public.empleados(id) on delete set null,
+  verificado_salida_at   timestamptz,
+  notas          text,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique (empleado_id, fecha)
+);
+create index if not exists idx_asistencias_negocio  on public.asistencias(negocio_id);
+create index if not exists idx_asistencias_empleado on public.asistencias(empleado_id);
+create index if not exists idx_asistencias_fecha    on public.asistencias(fecha);
+create index if not exists idx_asistencias_negocio_fecha on public.asistencias(negocio_id, fecha);
+
+-- Fotos de evidencia (opcional, una fila por (asistencia, tipo)) — separada
+-- de `asistencias` a propósito, mismo motivo que tramys-rrhh: el base64 no
+-- debe viajar en cada fetch normal de la lista, solo cuando se pide ver la
+-- foto puntual. Retención 15 días vía pg_cron (ver purgar_fotos_asistencia
+-- más abajo, junto al resto de crons del proyecto) — evidencia vieja no
+-- aporta nada y solo ocupa espacio.
+create table if not exists public.asistencia_fotos (
+  id            uuid primary key default gen_random_uuid(),
+  asistencia_id uuid not null references public.asistencias(id) on delete cascade,
+  tipo          text not null check (tipo in ('entrada', 'salida')),
+  foto_base64   text not null,
+  created_at    timestamptz not null default now(),
+  unique (asistencia_id, tipo)
+);
+create index if not exists idx_asistencia_fotos_asistencia on public.asistencia_fotos(asistencia_id);
+create index if not exists idx_asistencia_fotos_created    on public.asistencia_fotos(created_at);
+
 create table if not exists public.gastos (
   id              uuid primary key default gen_random_uuid(),
   negocio_id      uuid not null references public.negocios(id) on delete cascade,
@@ -1142,6 +1237,84 @@ create table if not exists public.gastos (
 );
 create index if not exists idx_gastos_negocio on public.gastos(negocio_id);
 create index if not exists idx_gastos_fecha   on public.gastos(fecha);
+
+-- Pagos de sueldo ------------------------------------------------------------
+-- (tipo_periodo_pago se declaró arriba, junto a la tabla empleados — la
+-- necesita tanto empleados.tipo_pago como esta tabla).
+
+-- Registro de pago (NO una planilla peruana completa — sin cálculo de
+-- AFP/ONP/gratificación/CTS, eso es fase posterior). `tipo_periodo`/
+-- `monto` por defecto vienen de empleados.tipo_pago/monto_pago_base pero se
+-- pueden cambiar caso por caso ("todo debe ser modificable", pedido
+-- explícito) — por eso NO son columnas generadas, son valores propios de
+-- cada fila. `gasto_id` enlaza al Gasto que el trigger de abajo crea/
+-- sincroniza automáticamente (categoría 'sueldos', ya existía esa categoría)
+-- para que Informes/reportes de gastos ya sumen esto sin registrarlo dos
+-- veces a mano.
+create table if not exists public.pagos_sueldo (
+  id             uuid primary key default gen_random_uuid(),
+  negocio_id     uuid not null references public.negocios(id) on delete cascade,
+  empleado_id    uuid not null references public.empleados(id) on delete cascade,
+  tipo_periodo   tipo_periodo_pago not null,
+  periodo_desde  date not null,
+  periodo_hasta  date not null,
+  fecha_pago     date not null default current_date,
+  monto          numeric(10,2) not null check (monto >= 0),
+  metodo_pago    metodo_pago not null default 'efectivo',
+  notas          text,
+  -- Gasto espejo (categoría 'sueldos') — lo mantienen los triggers de abajo,
+  -- nunca se escribe a mano desde la UI.
+  gasto_id       uuid references public.gastos(id) on delete set null,
+  registrado_por uuid references public.empleados(id) on delete set null,
+  created_at     timestamptz not null default now(),
+  constraint pagos_sueldo_periodo_valido check (periodo_hasta >= periodo_desde)
+);
+create index if not exists idx_pagos_sueldo_negocio        on public.pagos_sueldo(negocio_id);
+create index if not exists idx_pagos_sueldo_empleado       on public.pagos_sueldo(empleado_id);
+create index if not exists idx_pagos_sueldo_fecha          on public.pagos_sueldo(fecha_pago);
+create index if not exists idx_pagos_sueldo_negocio_fecha  on public.pagos_sueldo(negocio_id, fecha_pago);
+
+-- security definer: quien registra el pago puede no tener permiso delegado
+-- de 'gastos' (solo 'sueldos') — este trigger necesita poder escribir en
+-- gastos igual, saltándose esa RLS puntual (mismo criterio que fn_audit()).
+create or replace function public.fn_pago_sueldo_sync_gasto()
+returns trigger language plpgsql
+security definer set search_path = public as $$
+declare v_desc text;
+begin
+  v_desc := 'Pago de sueldo (' || new.tipo_periodo || ') del ' || to_char(new.periodo_desde, 'DD/MM/YYYY') || ' al ' || to_char(new.periodo_hasta, 'DD/MM/YYYY');
+  if tg_op = 'INSERT' then
+    insert into public.gastos (negocio_id, empleado_id, categoria, descripcion, monto, fecha)
+    values (new.negocio_id, new.empleado_id, 'sueldos', v_desc, new.monto, new.fecha_pago)
+    returning id into new.gasto_id;
+  elsif tg_op = 'UPDATE' and new.gasto_id is not null then
+    update public.gastos set
+      empleado_id = new.empleado_id, descripcion = v_desc, monto = new.monto, fecha = new.fecha_pago
+    where id = new.gasto_id;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_pago_sueldo_sync_gasto on public.pagos_sueldo;
+create trigger trg_pago_sueldo_sync_gasto
+  before insert or update on public.pagos_sueldo
+  for each row execute function public.fn_pago_sueldo_sync_gasto();
+
+create or replace function public.fn_pago_sueldo_borra_gasto()
+returns trigger language plpgsql
+security definer set search_path = public as $$
+begin
+  delete from public.gastos where id = old.gasto_id;
+  return old;
+end $$;
+
+drop trigger if exists trg_pago_sueldo_borra_gasto on public.pagos_sueldo;
+create trigger trg_pago_sueldo_borra_gasto
+  after delete on public.pagos_sueldo
+  for each row execute function public.fn_pago_sueldo_borra_gasto();
+
+revoke execute on function public.fn_pago_sueldo_sync_gasto()  from public, anon, authenticated;
+revoke execute on function public.fn_pago_sueldo_borra_gasto() from public, anon, authenticated;
 
 -- Comprobantes (facturación SUNAT — fase posterior al MVP, brief §8/§9) ---
 -- Sin policy de escritura para `authenticated`: el alta la hace service_role
@@ -1231,6 +1404,11 @@ create index if not exists idx_cajas_empleado_cierre   on public.cajas(empleado_
 create index if not exists idx_cajas_sucursal          on public.cajas(sucursal_id);
 create index if not exists idx_stock_sucursal_sucursal on public.stock_sucursal(sucursal_id);
 create index if not exists idx_mejoras_sugeridas_negocio on public.mejoras_sugeridas(negocio_id);
+create index if not exists idx_asistencias_sucursal      on public.asistencias(sucursal_id);
+create index if not exists idx_asistencias_verificado_entrada_por on public.asistencias(verificado_entrada_por);
+create index if not exists idx_asistencias_verificado_salida_por  on public.asistencias(verificado_salida_por);
+create index if not exists idx_pagos_sueldo_gasto_id      on public.pagos_sueldo(gasto_id);
+create index if not exists idx_pagos_sueldo_registrado_por on public.pagos_sueldo(registrado_por);
 
 create index if not exists idx_ventas_negocio_fecha   on public.ventas(negocio_id, fecha);
 create index if not exists idx_citas_negocio_fecha    on public.citas(negocio_id, fecha_hora);
@@ -1242,7 +1420,7 @@ create index if not exists idx_movstock_negocio_fecha on public.movimientos_stoc
 do $$
 declare t text;
 begin
-  foreach t in array array['sucursales','clientes','citas','recetas','examenes_optometricos','productos','inventario','ventas','ordenes_laboratorio','cajas','descuentos','campanias_email','proveedores','cotizaciones'] loop
+  foreach t in array array['sucursales','clientes','citas','recetas','examenes_optometricos','productos','inventario','ventas','ordenes_laboratorio','cajas','descuentos','campanias_email','proveedores','cotizaciones','asistencias'] loop
     execute format(
       'drop trigger if exists trg_%1$s_updated on public.%1$s;
        create trigger trg_%1$s_updated before update on public.%1$s
@@ -1263,6 +1441,8 @@ alter table public.ventas            enable row level security;
 alter table public.venta_items       enable row level security;
 alter table public.ordenes_laboratorio enable row level security;
 alter table public.cajas             enable row level security;
+alter table public.asistencias       enable row level security;
+alter table public.pagos_sueldo      enable row level security;
 alter table public.gastos            enable row level security;
 alter table public.comprobantes      enable row level security;
 alter table public.descuentos        enable row level security;
@@ -1371,6 +1551,74 @@ create policy cajas_read on public.cajas for select
 create policy cajas_write on public.cajas for all
   using (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('caja'))) and negocio_id = (select public.current_tenant()))
   with check (((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('caja'))) and negocio_id = (select public.current_tenant()));
+
+-- asistencias: TRES policies, no dos — a diferencia del resto del módulo:
+-- 1) asistencias_self: CUALQUIER empleado (sin importar rol/permiso) puede
+--    marcar/editar SU PROPIA fila — self-registro, no es un privilegio
+--    delegable (mismo criterio que asist_self en tramys-rrhh, el proyecto
+--    de referencia). 2)/3) el equipo completo (otras filas) sigue el patrón
+--    operativo de siempre (clave 'asistencia', con filtro de sede como
+--    citas/ventas). Postgres evalúa policies permisivas con OR, así que un
+--    encargado sin permiso delegado igual puede marcar la suya (por la
+--    policy 1) aunque no vea las de nadie más.
+drop policy if exists asistencias_self  on public.asistencias;
+drop policy if exists asistencias_read  on public.asistencias;
+drop policy if exists asistencias_write on public.asistencias;
+create policy asistencias_self on public.asistencias for all
+  using (empleado_id = (select auth.uid()) and negocio_id = (select public.current_tenant()))
+  with check (empleado_id = (select auth.uid()) and negocio_id = (select public.current_tenant()));
+create policy asistencias_read on public.asistencias for select
+  using (
+    ((select public.sin_rol_personalizado()) or (select public.tiene_permiso_lectura('asistencia'))) and negocio_id = (select public.current_tenant())
+    and ((select public.current_sucursal()) is null or sucursal_id is null or sucursal_id = (select public.current_sucursal()))
+  );
+create policy asistencias_write on public.asistencias for all
+  using (
+    ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('asistencia'))) and negocio_id = (select public.current_tenant())
+    and ((select public.current_sucursal()) is null or sucursal_id is null or sucursal_id = (select public.current_sucursal()))
+  )
+  with check (
+    ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('asistencia'))) and negocio_id = (select public.current_tenant())
+    and ((select public.current_sucursal()) is null or sucursal_id is null or sucursal_id = (select public.current_sucursal()))
+  );
+
+-- asistencia_fotos: misma visibilidad que la asistencia dueña — el
+-- trabajador ve/gestiona las suyas, el equipo/admin las del alcance que ya
+-- les da asistencias_read/write. Mismo patrón que tramys-rrhh
+-- (asistfoto_self/team/admin), pero resuelto en 2 policies (self + team,
+-- "for all" ya cubre lectura+escritura) en vez de 3.
+alter table public.asistencia_fotos enable row level security;
+drop policy if exists asistencia_fotos_self on public.asistencia_fotos;
+drop policy if exists asistencia_fotos_team on public.asistencia_fotos;
+create policy asistencia_fotos_self on public.asistencia_fotos for all
+  using (exists (select 1 from public.asistencias a where a.id = asistencia_fotos.asistencia_id and a.empleado_id = (select auth.uid())))
+  with check (exists (select 1 from public.asistencias a where a.id = asistencia_fotos.asistencia_id and a.empleado_id = (select auth.uid())));
+create policy asistencia_fotos_team on public.asistencia_fotos for all
+  using (exists (
+    select 1 from public.asistencias a
+    where a.id = asistencia_fotos.asistencia_id
+      and ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('asistencia')))
+      and a.negocio_id = (select public.current_tenant())
+      and ((select public.current_sucursal()) is null or a.sucursal_id is null or a.sucursal_id = (select public.current_sucursal()))
+  ))
+  with check (exists (
+    select 1 from public.asistencias a
+    where a.id = asistencia_fotos.asistencia_id
+      and ((select public.puede_gestionar()) or (select public.tiene_permiso_escritura('asistencia')))
+      and a.negocio_id = (select public.current_tenant())
+      and ((select public.current_sucursal()) is null or a.sucursal_id is null or a.sucursal_id = (select public.current_sucursal()))
+  ));
+
+-- pagos_sueldo: mismo criterio que gastos (sin piso por defecto salvo
+-- administrador — dato sensible de compensación, nunca abierto por
+-- defecto a encargado/trabajador aunque puedan ver su PROPIA asistencia).
+drop policy if exists pagos_sueldo_read  on public.pagos_sueldo;
+drop policy if exists pagos_sueldo_write on public.pagos_sueldo;
+create policy pagos_sueldo_read on public.pagos_sueldo for select
+  using (((select public.is_administrador()) or (select public.tiene_permiso_lectura('sueldos'))) and negocio_id = (select public.current_tenant()));
+create policy pagos_sueldo_write on public.pagos_sueldo for all
+  using (((select public.is_administrador()) or (select public.tiene_permiso_escritura('sueldos'))) and negocio_id = (select public.current_tenant()))
+  with check (((select public.is_administrador()) or (select public.tiene_permiso_escritura('sueldos'))) and negocio_id = (select public.current_tenant()));
 
 -- inventario (hereda tenant vía productos.negocio_id) — mismo permiso
 -- delegable 'productos' que la tabla productos: ajustar stock es parte de
@@ -1539,8 +1787,11 @@ declare t text;
 begin
   -- Solo tablas sensibles/financieras del dominio (clientes, recetas, ventas,
   -- gastos) — se omiten movimientos_stock/venta_items/inventario por volumen,
-  -- igual que asistencia en el patrón de referencia tramys-rrhh.
-  foreach t in array array['negocios','empleados','suscripciones','sucursales','clientes','recetas','examenes_optometricos','ventas','cajas','gastos','descuentos','proveedores','cotizaciones'] loop
+  -- igual que asistencia en el patrón de referencia tramys-rrhh (esa SÍ se
+  -- omite acá también, mismo motivo: marcaje diario de mucho volumen, con su
+  -- propio rastro de verificación). pagos_sueldo SÍ se audita — es dato de
+  -- compensación, misma categoría que gastos/ventas.
+  foreach t in array array['negocios','empleados','suscripciones','sucursales','clientes','recetas','examenes_optometricos','ventas','cajas','gastos','descuentos','proveedores','cotizaciones','pagos_sueldo'] loop
     execute format(
       'drop trigger if exists trg_audit_%1$s on public.%1$s;
        create trigger trg_audit_%1$s after insert or update or delete on public.%1$s
@@ -1643,6 +1894,34 @@ select cron.schedule('opticaly_purgar_eventos_uso', '0 5 * * *',
   $$ select public.purgar_eventos_uso_viejos(); $$);
 
 -- ================================================================
+-- pg_cron: purga diaria de fotos de asistencia (retención 15 días) — mismo
+-- criterio que tramys-rrhh: la evidencia vieja no aporta nada. Resetea los
+-- flags foto_entrada/foto_salida de la fila dueña para que la UI deje de
+-- mostrar el ícono de "tiene foto" una vez que ya se borró.
+-- ================================================================
+create or replace function public.purgar_fotos_asistencia()
+returns void language plpgsql security definer
+set search_path = public as $$
+begin
+  update public.asistencias a set
+    foto_entrada = case when f.tipo = 'entrada' then false else a.foto_entrada end,
+    foto_salida  = case when f.tipo = 'salida'  then false else a.foto_salida  end
+  from public.asistencia_fotos f
+  where f.asistencia_id = a.id
+    and f.created_at < now() - interval '15 days';
+
+  delete from public.asistencia_fotos where created_at < now() - interval '15 days';
+end $$;
+
+revoke execute on function public.purgar_fotos_asistencia() from public, anon, authenticated;
+
+do $$ begin perform cron.unschedule('opticaly_purgar_fotos_asistencia');
+exception when others then null; end $$;
+
+select cron.schedule('opticaly_purgar_fotos_asistencia', '0 6 * * *',
+  $$ select public.purgar_fotos_asistencia(); $$);
+
+-- ================================================================
 -- REALTIME + REPLICA IDENTITY FULL
 -- ================================================================
 do $$
@@ -1651,7 +1930,7 @@ begin
   foreach t in array array[
     'negocios','empleados','suscripciones','sucursales',
     'clientes','citas','recetas','examenes_optometricos','productos','inventario','stock_sucursal','movimientos_stock','ventas','venta_items','ordenes_laboratorio','cajas','gastos','comprobantes',
-    'descuentos','campanias_email','proveedores','cotizaciones','cotizacion_items'
+    'descuentos','campanias_email','proveedores','cotizaciones','cotizacion_items','asistencias','pagos_sueldo'
   ] loop
     if not exists (select 1 from pg_publication_tables
       where pubname='supabase_realtime' and schemaname='public' and tablename=t) then

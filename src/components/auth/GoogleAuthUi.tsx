@@ -18,7 +18,7 @@ export function GoogleIcon() {
    email/contraseña. */
 export function DivisorO({ texto }: { texto: string }) {
   return (
-    <div className="my-4 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+    <div className="my-4 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
       <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
       {texto}
       <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />

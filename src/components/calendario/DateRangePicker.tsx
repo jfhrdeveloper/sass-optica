@@ -124,10 +124,10 @@ export function DateRangePicker({ desde, hasta, onChange, etiqueta = "Rango de f
         aria-haspopup="dialog"
         aria-expanded={abierto}
         aria-label={etiqueta}
-        className="input flex items-center gap-2 text-sm"
+        className="input flex h-11 items-center gap-2 sm:h-auto"
       >
         <CalendarDays size={15} className="shrink-0 text-slate-400" />
-        <span className={hayRango ? "" : "text-slate-400 dark:text-slate-500"}>{texto}</span>
+        <span className={hayRango ? "" : "text-slate-500 dark:text-slate-500"}>{texto}</span>
         {hayRango && (
           <span
             role="button"
@@ -135,7 +135,10 @@ export function DateRangePicker({ desde, hasta, onChange, etiqueta = "Rango de f
             aria-label="Quitar filtro de fechas"
             onClick={limpiar}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange("", ""); } }}
-            className="ml-1 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
+            /* -my-[10px]: mismo fix que DatePicker.tsx — el área táctil sigue
+               midiendo 44px, pero el margen negativo evita que este botón
+               anidado empuje la altura de la fila del `.input`. */
+            className="-my-[10px] ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
           >
             <X size={13} />
           </span>
@@ -191,7 +194,7 @@ const CLASES = {
     "flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-100 dark:hover:bg-slate-800",
   month_grid: "w-full border-collapse",
   weekdays: "flex",
-  weekday: "w-10 pb-1 text-[11px] font-medium uppercase text-slate-400 dark:text-slate-500",
+  weekday: "w-10 pb-1 text-[11px] font-medium uppercase text-slate-500 dark:text-slate-500",
   week: "flex w-full",
   day: "h-9 w-10 p-0 text-center text-sm",
   day_button:

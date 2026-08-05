@@ -100,27 +100,27 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="card p-4">
-          <div className="text-xs text-slate-400 dark:text-slate-500">RUC</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">RUC</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{negocio.ruc ?? "—"}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-slate-400 dark:text-slate-500">Teléfono</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Teléfono</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{negocio.telefono ?? "—"}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-slate-400 dark:text-slate-500">Dirección</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Dirección</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{negocio.direccion ?? "—"}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-slate-400 dark:text-slate-500">Plan</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Plan</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{suscripcion?.plan ? PLAN_LABEL[suscripcion.plan] ?? suscripcion.plan : "—"}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-slate-400 dark:text-slate-500">Trial hasta</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Trial hasta</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{suscripcion?.trial_fin ? formatearFechaPE(suscripcion.trial_fin) : "—"}</div>
         </div>
         <div className="card p-4">
-          <div className="text-xs text-slate-400 dark:text-slate-500">Último pago</div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Último pago</div>
           <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{suscripcion?.fecha_pago_ultimo ? formatearFechaPE(suscripcion.fecha_pago_ultimo) : "—"}</div>
         </div>
       </div>
@@ -135,26 +135,26 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
 
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="card p-4">
-            <div className="text-xs text-slate-400 dark:text-slate-500">Última actividad</div>
+            <div className="text-xs text-slate-500 dark:text-slate-500">Última actividad</div>
             <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{etiquetaUltimaActividad(ultima)}</div>
           </div>
           <div className="card p-4">
-            <div className="text-xs text-slate-400 dark:text-slate-500">Eventos (últimos 30 días)</div>
+            <div className="text-xs text-slate-500 dark:text-slate-500">Eventos (últimos 30 días)</div>
             <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{totalEventos30d}</div>
           </div>
           <div className="card p-4">
-            <div className="text-xs text-slate-400 dark:text-slate-500">Módulo más usado</div>
+            <div className="text-xs text-slate-500 dark:text-slate-500">Módulo más usado</div>
             <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{modulos[0]?.label ?? "—"}</div>
           </div>
         </div>
 
         <div className="card mt-4 p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Actividad diaria (últimos {DIAS_ACTIVIDAD} días)</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Actividad diaria (últimos {DIAS_ACTIVIDAD} días)</h3>
           <ActividadBarChart puntos={serieActividad} />
         </div>
 
         <div className="card mt-4 p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Día y hora de uso (hora de Perú)</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Día y hora de uso (hora de Perú)</h3>
           <div className="mt-3">
             <ActividadHeatmap matriz={heatmap} picoLabel={pico} />
           </div>
@@ -162,7 +162,7 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
 
         {modulos.length > 0 && (
           <div className="card mt-4 p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Módulos más usados</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">Módulos más usados</h3>
             <ul className="mt-3 space-y-2">
               {modulos.map((m) => {
                 const max = modulos[0].total;
@@ -172,7 +172,7 @@ export default async function NegocioDetallePage({ params }: { params: Promise<{
                     <span className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (m.total / max) * 100)}%` }} />
                     </span>
-                    <span className="w-8 shrink-0 text-right text-xs text-slate-400 dark:text-slate-500">{m.total}</span>
+                    <span className="w-8 shrink-0 text-right text-xs text-slate-500 dark:text-slate-500">{m.total}</span>
                   </li>
                 );
               })}

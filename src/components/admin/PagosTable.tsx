@@ -40,10 +40,10 @@ export function PagosTable({ pagos }: { pagos: PagoFila[] }) {
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             placeholder="Buscar por negocio…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-            className="input w-full pl-9 text-sm"
+            className="input w-full pl-9"
           />
         </div>
-        <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} className="select text-sm">
+        <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} className="select">
           <option value="todos">Todos los métodos</option>
           <option value="tarjeta">Tarjeta</option>
           <option value="yape">Yape</option>

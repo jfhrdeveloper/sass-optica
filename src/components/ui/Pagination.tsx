@@ -34,24 +34,27 @@ export function Pagination({ pagina, totalPaginas, onCambiar }: Props) {
   if (totalPaginas <= 1) return null;
 
   return (
-    <nav aria-label="Paginación" className="flex items-center justify-end gap-1 border-t border-slate-200 px-4 py-2.5 dark:border-slate-800">
+    <nav aria-label="Paginación" className="flex items-center justify-center gap-1 border-t border-slate-200 px-4 py-2.5 dark:border-slate-800">
       <button
         onClick={() => onCambiar(pagina - 1)}
         disabled={pagina <= 1}
         aria-label="Página anterior"
-        className="row-icon-btn disabled:pointer-events-none disabled:opacity-30"
+        className="flex h-11 w-11 items-center justify-center text-slate-600 transition-colors hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30 dark:text-slate-300 dark:hover:text-white"
       >
         <ChevronLeft size={16} />
       </button>
       {paginasVisibles(pagina, totalPaginas).map((p, i) =>
         p === "…" ? (
-          <span key={`e${i}`} className="px-1 text-sm text-slate-400 dark:text-slate-500">…</span>
+          <span key={`e${i}`} className="px-1 text-sm text-slate-500 dark:text-slate-500">
+            <span aria-hidden="true">…</span>
+            <span className="sr-only">Más páginas</span>
+          </span>
         ) : (
           <button
             key={p}
             onClick={() => onCambiar(p)}
             aria-current={p === pagina ? "page" : undefined}
-            className={`flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 text-sm font-medium transition-colors ${
+            className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5 text-sm font-medium transition-colors ${
               p === pagina
                 ? "bg-primary text-white"
                 : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -65,7 +68,7 @@ export function Pagination({ pagina, totalPaginas, onCambiar }: Props) {
         onClick={() => onCambiar(pagina + 1)}
         disabled={pagina >= totalPaginas}
         aria-label="Página siguiente"
-        className="row-icon-btn disabled:pointer-events-none disabled:opacity-30"
+        className="flex h-11 w-11 items-center justify-center text-slate-600 transition-colors hover:text-slate-900 disabled:pointer-events-none disabled:opacity-30 dark:text-slate-300 dark:hover:text-white"
       >
         <ChevronRight size={16} />
       </button>

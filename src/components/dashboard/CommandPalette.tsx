@@ -101,11 +101,11 @@ export function CommandPalette() {
             placeholder="Ir a una sección…"
             className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
           />
-          <kbd className="hidden shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400 dark:border-slate-700 sm:block">Esc</kbd>
+          <kbd className="hidden shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500 dark:border-slate-700 sm:block">Esc</kbd>
         </div>
         <div className="max-h-80 overflow-y-auto p-2">
           {filtrados.length === 0 ? (
-            <p className="p-4 text-center text-sm text-slate-400 dark:text-slate-500">Sin resultados para &quot;{q}&quot;.</p>
+            <p className="p-4 text-center text-sm text-slate-500 dark:text-slate-500">Sin resultados para &quot;{q}&quot;.</p>
           ) : (
             filtrados.map((item, i) => {
               const Icon = item.icon;
@@ -120,7 +120,7 @@ export function CommandPalette() {
                 >
                   <Icon size={16} className={i === activo ? "text-primary" : "text-slate-400"} />
                   {item.label}
-                  {item.grupo && <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{item.grupo}</span>}
+                  {item.grupo && <span className="ml-auto text-xs text-slate-500 dark:text-slate-500">{item.grupo}</span>}
                 </button>
               );
             })

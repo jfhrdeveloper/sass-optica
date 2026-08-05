@@ -68,7 +68,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   </button>
                 )}
               </div>
-              <button onClick={() => descartar(t.id)} aria-label="Descartar notificación" className="shrink-0 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
+              <button onClick={() => descartar(t.id)} aria-label="Descartar notificación" className="-m-1 flex h-11 w-11 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={15} />
               </button>
             </div>

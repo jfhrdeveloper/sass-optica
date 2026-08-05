@@ -16,19 +16,33 @@ import { HORA_INICIO_AGENDA, HORA_FIN_AGENDA, PASO_MINUTOS_AGENDA, DURACION_CITA
 
 const DIAS_SEMANA_CORTO = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 const MESES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+/* Solo para el título de la vista Día en mobile — ahí la cabecera de columna
+   (abreviatura + círculo con el número) se oculta por redundante con este
+   título (ver más abajo), así que el nombre del día se muda acá completo en
+   vez de la abreviatura de 3 letras. */
+const DIAS_SEMANA_LARGO = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const MESES_LARGO = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
 
 const HORA_INICIO = HORA_INICIO_AGENDA; // 07:00 — primera fila
 const HORA_FIN = HORA_FIN_AGENDA; // 21:00 — la grilla llega hasta acá (última fila = 20:00-21:00)
 const SNAP_MIN = PASO_MINUTOS_AGENDA; // granularidad del clic-y-arrastre, en minutos
 
-/* Zoom vertical de la grilla (px por hora) — controles +/- en la cabecera.
-   56 es el valor "cómodo" original; el rango [32, 112] deja ver el día
-   completo (32) o distinguir citas de 15 min pegadas (112) sin que ninguno
-   de los dos extremos rompa el layout. */
-const ALTO_HORA_DEFECTO = 56;
-const ALTO_HORA_MIN = 32;
-const ALTO_HORA_MAX = 112;
-const ALTO_HORA_PASO = 12;
+/* Zoom vertical de la grilla — controles +/- en la cabecera. SOLO 3 niveles
+   discretos, cada uno atado a una granularidad de hora concreta (hora en
+   punto / media hora / cuarto de hora) — antes era un incremento continuo
+   de a 12px con el rango [32,112], así que la mayoría de los clics
+   agrandaban el panel SIN agregar ningún horario nuevo (bug real,
+   reportado por el usuario: "sigo viendo clics que agrandan pero no
+   agregan las horas"). Ahora cada clic en +/- SIEMPRE cambia el detalle
+   mostrado, nunca solo el tamaño. */
+const NIVELES_ZOOM = [
+  { altoHora: 56, pasoMarca: 60 }, // horas en punto (7:00, 8:00…)
+  { altoHora: 84, pasoMarca: 30 }, // + medias horas (7:00, 7:30, 8:00…)
+  { altoHora: 112, pasoMarca: 15 }, // + cuartos de hora (7:00, 7:15, 7:30, 7:45…)
+] as const;
 
 /* `duracionMin` es opcional en `Cita` (citas viejas no la tienen) — cuando
    falta, se asume DURACION_CITA_DEFECTO_MIN (compartida con el <select> de
@@ -78,17 +92,6 @@ function formatHora(minDesdeInicio: number): string {
   const h = Math.floor(total / 60);
   const m = total % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
-/* A más zoom, más franjas horarias visibles — no solo filas más altas.
-   Con el alto por defecto se ven las horas en punto (como antes); estirar
-   con "+" primero revela las medias horas y, estirando más, los cuartos de
-   hora — así "+" agrega horarios (7:00 → 7:00/7:30 → 7:00/7:15/7:30/7:45)
-   en vez de solo hacer más grande el mismo horario de siempre. */
-function pasoMarcaParaZoom(altoHora: number): number {
-  if (altoHora > 84) return 15;
-  if (altoHora > 56) return 30;
-  return 60;
 }
 
 /* Misma idea que formatHora pero sin cero a la izquierda en la hora (7:00,
@@ -152,15 +155,16 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
   const hoyClave = claveDia(new Date());
   const minutosAhora = minutosDesdeInicio(new Date());
 
-  /* Zoom vertical — no es solo "más píxeles por hora": a partir de cierto
-     zoom aparecen también las franjas de media hora y, más adelante, las de
-     cuarto de hora (`pasoMarca`/`marcas`, ver pasoMarcaParaZoom). Solo
-     afecta esta grilla, no hace falta que el padre lo sepa (no cambia qué
-     citas se ven, solo qué tan finas se dibujan las franjas). */
-  const [altoHora, setAltoHora] = useState(ALTO_HORA_DEFECTO);
-  const acercar = () => setAltoHora((a) => Math.min(ALTO_HORA_MAX, a + ALTO_HORA_PASO));
-  const alejar = () => setAltoHora((a) => Math.max(ALTO_HORA_MIN, a - ALTO_HORA_PASO));
-  const pasoMarca = pasoMarcaParaZoom(altoHora);
+  /* Zoom vertical — 3 niveles fijos (ver NIVELES_ZOOM), no un incremento
+     continuo: cada clic en +/- cambia SIEMPRE tanto el tamaño como el
+     detalle de horario mostrado (franjas de hora/media hora/cuarto de
+     hora), nunca uno sin el otro. Solo afecta esta grilla, no hace falta
+     que el padre lo sepa (no cambia qué citas se ven, solo qué tan finas
+     se dibujan las franjas). */
+  const [nivelZoom, setNivelZoom] = useState(0);
+  const acercar = () => setNivelZoom((n) => Math.min(NIVELES_ZOOM.length - 1, n + 1));
+  const alejar = () => setNivelZoom((n) => Math.max(0, n - 1));
+  const { altoHora, pasoMarca } = NIVELES_ZOOM[nivelZoom];
   const altoMarca = (pasoMarca / 60) * altoHora;
   const marcas = Array.from({ length: ((HORA_FIN - HORA_INICIO) * 60) / pasoMarca }, (_, i) => i * pasoMarca);
 
@@ -227,6 +231,10 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
 
   const primero = columnas[0];
   const ultimo = columnas[columnas.length - 1];
+  const nombreDia = DIAS_SEMANA_LARGO[(primero.getDay() + 6) % 7];
+  const tituloDiaMobil = dias === 1
+    ? `${nombreDia.charAt(0).toUpperCase()}${nombreDia.slice(1)}, ${primero.getDate()} de ${MESES_LARGO[primero.getMonth()]} de ${primero.getFullYear()}`
+    : "";
   const tituloRango = dias === 1
     ? `${primero.getDate()} de ${MESES_CORTO[primero.getMonth()]} de ${primero.getFullYear()}`
     : primero.getMonth() === ultimo.getMonth()
@@ -235,51 +243,88 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-        <h2 className="font-display text-lg text-slate-900 dark:text-slate-100">{tituloRango}</h2>
-        <div className="flex items-center gap-1">
-          {/* Zoom vertical de la grilla: track tipo toggle (mismo fondo/borde
-             que SegmentedControl) con un botón "-" y uno "+" a los lados. */}
-          <div className="flex items-center rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
-            <button
-              type="button"
-              onClick={alejar}
-              disabled={altoHora <= ALTO_HORA_MIN}
-              aria-label="Reducir la grilla"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              <Minus size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={acercar}
-              disabled={altoHora >= ALTO_HORA_MAX}
-              aria-label="Estirar la grilla"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              <Plus size={13} />
-            </button>
+      {/* Mobile: 2 líneas (la fecha completa arriba, controles abajo) — en
+         una sola línea "4 de agosto de 2026" competía por espacio con 6
+         controles y todo salía apretado/desalineado. Desktop (`sm:`) vuelve
+         a una sola fila como antes: fecha a la izquierda, controles a la
+         derecha, zoom primero (orden original). Los dos grupos de controles
+         usan `order-*` (no dos JSX separados) para invertir su orden entre
+         mobile y desktop sin duplicar el markup. */}
+      <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-display text-lg text-slate-900 dark:text-slate-100">
+            {dias === 1 ? (
+              <>
+                <span className="sm:hidden">{tituloDiaMobil}</span>
+                <span className="hidden sm:inline">{tituloRango}</span>
+              </>
+            ) : tituloRango}
+          </h2>
+          <div className="flex items-center justify-between gap-2 sm:gap-1 sm:justify-end">
+            <div className="order-1 flex items-center gap-2 sm:order-2 sm:gap-1">
+              <button onClick={() => onNavegar(-dias)} className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 sm:h-auto sm:w-auto sm:p-1.5" aria-label="Período anterior">
+                <ChevronLeft size={18} />
+              </button>
+              <button onClick={onIrAHoy} className="btn-outline h-11 min-w-[92px] px-3 text-sm sm:h-auto sm:min-w-0 sm:px-3 sm:py-1 sm:text-xs">Hoy</button>
+              <button onClick={() => onNavegar(dias)} className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 sm:h-auto sm:w-auto sm:p-1.5" aria-label="Período siguiente">
+                <ChevronRight size={18} />
+              </button>
+            </div>
+            {/* Zoom vertical de la grilla: track tipo toggle (mismo fondo/borde
+               que SegmentedControl) con un botón "-" y uno "+" a los lados. */}
+            <div className="order-2 flex items-center rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800 sm:order-1">
+              <button
+                type="button"
+                onClick={alejar}
+                disabled={nivelZoom <= 0}
+                aria-label="Reducir la grilla"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-slate-700 sm:h-6 sm:w-6"
+              >
+                <Minus size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={acercar}
+                disabled={nivelZoom >= NIVELES_ZOOM.length - 1}
+                aria-label="Estirar la grilla"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-slate-700 sm:h-6 sm:w-6"
+              >
+                <Plus size={13} />
+              </button>
+            </div>
           </div>
-          <button onClick={onIrAHoy} className="btn-outline px-3 py-1 text-xs">Hoy</button>
-          <button onClick={() => onNavegar(-dias)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" aria-label="Período anterior">
-            <ChevronLeft size={18} />
-          </button>
-          <button onClick={() => onNavegar(dias)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" aria-label="Período siguiente">
-            <ChevronRight size={18} />
-          </button>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <div className={`min-w-[640px] ${dragVisual ? "select-none" : ""}`}>
-          {/* Cabecera: columna de horas (angosta, vacía) + una columna por día */}
-          <div className="grid border-b border-slate-100 dark:border-slate-800" style={{ gridTemplateColumns: `56px repeat(${dias}, 1fr)` }}>
+        {/* Ancho mínimo PROPORCIONAL a `dias` (90px por columna + 56px de la
+            columna de horas), no un total fijo — con un total fijo (ej. 640px)
+            la vista Día (1 sola columna) quedaba forzada al mismo ancho que
+            Semana (7 columnas) y salía scroll horizontal en mobile sin
+            necesidad. Con esto Día ocupa TODO el ancho del card sin scroll
+            (igual que Google Calendar/Toggl Track), y el scroll solo aparece
+            en 5 días/Semana cuando de verdad no entran en pantalla angosta —
+            mismo comportamiento que esas apps. */}
+        <div
+          style={dias > 1 ? { minWidth: 56 + dias * 90 } : undefined}
+          className={dragVisual ? "select-none" : ""}
+        >
+          {/* Cabecera: columna de horas (angosta, vacía) + una columna por día.
+              En Día (1 sola columna) en mobile se oculta (`dias === 1 &&
+              hidden sm:grid`): repetía el mismo día que ya dice el título de
+              arriba ("martes, 4 de agosto…") — con varias columnas (3/5/
+              Semana) sigue haciendo falta, ahí cada columna es un día
+              distinto y no hay título único que los cubra a todos. */}
+          <div
+            className={`grid border-b border-slate-100 dark:border-slate-800 ${dias === 1 ? "hidden sm:grid" : ""}`}
+            style={{ gridTemplateColumns: `56px repeat(${dias}, 1fr)` }}
+          >
             <div />
             {columnas.map((dia) => {
               const esHoy = claveDia(dia) === hoyClave;
               return (
                 <div key={dia.toISOString()} className="border-l border-slate-100 py-2 text-center dark:border-slate-800">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">{DIAS_SEMANA_CORTO[(dia.getDay() + 6) % 7]}</div>
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">{DIAS_SEMANA_CORTO[(dia.getDay() + 6) % 7]}</div>
                   <div className={`mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium ${esHoy ? "bg-primary text-white" : "text-slate-700 dark:text-slate-300"}`}>
                     {dia.getDate()}
                   </div>
@@ -299,7 +344,7 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                     key={min}
                     style={{ height: altoMarca }}
                     className={`${i === 0 ? "" : "-translate-y-2"} pr-2 text-right ${
-                      esHora ? "text-[11px] text-slate-400 dark:text-slate-500" : "text-[10px] text-slate-300 dark:text-slate-600"
+                      esHora ? "text-[11px] text-slate-500 dark:text-slate-500" : "text-[10px] text-slate-300 dark:text-slate-600"
                     }`}
                   >
                     {etiquetaMarca(min)}

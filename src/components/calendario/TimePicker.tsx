@@ -99,10 +99,10 @@ export function TimePicker({ valor, onChange, etiqueta = "Hora", placeholder = "
         aria-haspopup="dialog"
         aria-expanded={abierto}
         aria-label={etiqueta}
-        className="input flex w-full items-center gap-2 text-sm"
+        className="input flex h-11 w-full items-center gap-2 sm:h-auto"
       >
         <Clock size={15} className="shrink-0 text-slate-400" />
-        <span className={valor ? "flex-1 text-left" : "flex-1 text-left text-slate-400 dark:text-slate-500"}>
+        <span className={valor ? "flex-1 text-left" : "flex-1 text-left text-slate-500 dark:text-slate-500"}>
           {valor || placeholder}
         </span>
         {valor && (
@@ -112,7 +112,11 @@ export function TimePicker({ valor, onChange, etiqueta = "Hora", placeholder = "
             aria-label="Quitar hora"
             onClick={limpiar}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(""); } }}
-            className="rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
+            /* -my-[10px]: mismo fix que DatePicker.tsx — el área táctil sigue
+               midiendo 44px, pero el margen negativo evita que este botón
+               anidado empuje la altura de la fila del `.input` (que
+               naturalmente mide ~40px) cuando aparece (solo con `valor`). */
+            className="-my-[10px] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700"
           >
             <X size={13} />
           </span>

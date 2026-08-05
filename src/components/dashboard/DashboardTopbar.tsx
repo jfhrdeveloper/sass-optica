@@ -65,7 +65,7 @@ export function DashboardTopbar() {
           type="button"
           onClick={() => window.dispatchEvent(new Event("abrir-command-palette"))}
           aria-label="Buscar secciones (Ctrl+K)"
-          className="hidden items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 md:flex"
+          className="hidden items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 md:flex"
         >
           <Search size={14} />
           <span className="hidden lg:inline">Buscar</span>
@@ -79,7 +79,7 @@ export function DashboardTopbar() {
               value={sucursalFiltro ?? ""}
               onChange={(e) => setSucursalFiltro(e.target.value || null)}
               aria-label="Filtrar por sede"
-              className="select max-w-[140px] py-1 text-xs"
+              className="select max-w-[140px] py-1"
             >
               <option value="">Todas las sedes</option>
               {sucursales.filter((s) => s.activo).map((s) => (
@@ -99,7 +99,7 @@ export function DashboardTopbar() {
             onClick={() => setAbierto((v) => !v)}
             aria-expanded={abierto}
             aria-haspopup="true"
-            className="flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="flex h-11 items-center gap-1.5 rounded-full py-2 pl-1 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             {empleado?.avatarBase64 ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -118,7 +118,7 @@ export function DashboardTopbar() {
                 <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                   {empleado?.nombres} {empleado?.apellidos}
                 </p>
-                <p className="truncate text-xs text-slate-400 dark:text-slate-500">{empleado?.email}</p>
+                <p className="truncate text-xs text-slate-500 dark:text-slate-500">{empleado?.email}</p>
               </div>
               <Link
                 href="/dashboard/perfil"

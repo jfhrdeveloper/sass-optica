@@ -153,11 +153,11 @@ function VistaPrevia({ modulo }: { modulo: Modulo }) {
         <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
         <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
         <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-        <span className="ml-3 text-xs text-slate-400 dark:text-slate-500">app.tuoptica.pe/dashboard/{modulo.clave}</span>
+        <span className="ml-3 text-xs text-slate-500 dark:text-slate-500">app.tuoptica.pe/dashboard/{modulo.clave}</span>
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:text-slate-500">
+          <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-500">
             {modulo.columnas.map((c) => (
               <th key={c} className="px-4 py-2 font-medium">{c}</th>
             ))}

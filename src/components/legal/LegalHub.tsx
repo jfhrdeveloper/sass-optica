@@ -558,7 +558,7 @@ export function LegalHub({ tabInicial }: { tabInicial: TabId }) {
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="min-w-0 flex-1 space-y-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
           >
-            <p className="text-xs text-slate-400 dark:text-slate-500">Última actualización: agosto de 2026</p>
+            <p className="text-xs text-slate-500 dark:text-slate-500">Última actualización: agosto de 2026</p>
             {tabActual.secciones.map((s) => (
               <section key={s.id} id={s.id} className="scroll-mt-28">
                 <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">{s.titulo}</h2>

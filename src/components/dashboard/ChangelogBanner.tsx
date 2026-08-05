@@ -38,7 +38,7 @@ export function ChangelogBanner({ negocioId }: { negocioId?: string }) {
         <Sparkles size={16} className="text-accent" />
         <span>¡Hay novedades! Rediseñamos el panel y ahora puedes darle permisos puntuales a cada empleado.</span>
       </div>
-      <button onClick={cerrar} className="rounded p-1 text-slate-400 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-white/10" aria-label="Cerrar">
+      <button onClick={cerrar} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-white/10" aria-label="Cerrar">
         <X size={16} />
       </button>
     </div>

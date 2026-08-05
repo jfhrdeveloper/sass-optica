@@ -71,13 +71,13 @@ export default async function MejorasAdminPage() {
                   <tr key={m.id} className="table-row">
                     <td className="table-body-cell">
                       <span className="block font-medium text-slate-900 dark:text-slate-100">{m.titulo}</span>
-                      {m.descripcion && <span className="block text-xs text-slate-400 dark:text-slate-500">{m.descripcion}</span>}
+                      {m.descripcion && <span className="block text-xs text-slate-500 dark:text-slate-500">{m.descripcion}</span>}
                     </td>
                     <td className="table-body-cell text-slate-600 dark:text-slate-300">{nombrePorNegocio.get(m.negocio_id) ?? "—"}</td>
                     <td className="table-body-cell hidden md:table-cell">
                       <span className={`badge ${votantes.length > 0 ? "badge-success" : "badge-neutral"}`}>{votantes.length}</span>
                       {votantes.length > 0 && (
-                        <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{votantes.join(", ")}</span>
+                        <span className="ml-2 text-xs text-slate-500 dark:text-slate-500">{votantes.join(", ")}</span>
                       )}
                     </td>
                     <td className="table-body-cell hidden text-slate-600 dark:text-slate-300 lg:table-cell">{formatearFechaPE(m.created_at)}</td>

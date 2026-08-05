@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Tag, Trash2 } from "lucide-react";
+import { Skeleton } from "boneyard-js/react";
 import { useData, type Descuento } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -28,7 +29,7 @@ const APLICA_A_LABEL: Record<Descuento["aplicaA"], string> = {
    con solo lectura, el formulario/toggle/eliminar se ocultan sin escritura
    (ver proxy.ts y descuentos_read/descuentos_write en supabase-schema.sql). */
 export default function DescuentosPage() {
-  const { descuentos, rolesPersonalizados, addDescuento, updateDescuento, deleteDescuento } = useData();
+  const { descuentos, rolesPersonalizados, addDescuento, updateDescuento, deleteDescuento, ready } = useData();
   const { empleado } = useSession();
   const puedeEditar = puedeEscribirModulo(empleado, rolesPersonalizados, "descuentos");
   const toast = useToast();
@@ -65,12 +66,13 @@ export default function DescuentosPage() {
       <div className="table-card mt-4">
         {puedeEditar && (
           <div className="table-filter-bar justify-end">
-            <button onClick={nuevo} className="btn-primary gap-1.5">
+            <button onClick={nuevo} className="btn-primary h-11 gap-1.5 sm:h-auto">
               <Plus size={16} /> Nuevo cupón
             </button>
           </div>
         )}
 
+        <Skeleton name="descuentos-tabla" loading={!ready}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -135,36 +137,53 @@ export default function DescuentosPage() {
             </tbody>
           </table>
         </div>
+        </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 
       <SlideOver abierto={abierto} onClose={() => setAbierto(false)} titulo="Nuevo cupón">
         <form onSubmit={onSubmit} className="space-y-3">
-          <input placeholder="Código (ej. VERANO10)" required value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input w-full text-sm uppercase" />
+          <div>
+            <label className="form-label">Código <span className="text-red-500">*</span></label>
+            <input placeholder="Ej. VERANO10" required value={form.codigo ?? ""} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="input h-11 w-full uppercase sm:h-auto" />
+          </div>
           <div className="grid grid-cols-2 gap-2">
-            <select value={form.tipo ?? ""} onChange={(e) => setForm({ ...form, tipo: e.target.value as Descuento["tipo"] })} className="select min-w-0 text-sm">
-              <option value="" disabled>Tipo…</option>
-              <option value="porcentaje">% Porcentaje</option>
-              <option value="monto">S/ Monto fijo</option>
-            </select>
-            <input placeholder="Valor" type="number" step="0.01" required value={form.valor ?? ""} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} className="input min-w-0 text-sm" />
+            <div>
+              <label className="form-label">Tipo <span className="text-red-500">*</span></label>
+              <select value={form.tipo ?? ""} onChange={(e) => setForm({ ...form, tipo: e.target.value as Descuento["tipo"] })} className="select h-11 w-full min-w-0 sm:h-auto">
+                <option value="" disabled>Tipo…</option>
+                <option value="porcentaje">% Porcentaje</option>
+                <option value="monto">S/ Monto fijo</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Valor <span className="text-red-500">*</span></label>
+              <input placeholder="Ej. 10" type="number" step="0.01" required value={form.valor ?? ""} onChange={(e) => setForm({ ...form, valor: Number(e.target.value) })} className="input h-11 w-full min-w-0 sm:h-auto" />
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Aplica a</label>
-            <select value={form.aplicaA ?? "ambos"} onChange={(e) => setForm({ ...form, aplicaA: e.target.value as Descuento["aplicaA"] })} className="select mt-1 w-full text-sm">
+            <label className="form-label">Aplica a</label>
+            <select value={form.aplicaA ?? "ambos"} onChange={(e) => setForm({ ...form, aplicaA: e.target.value as Descuento["aplicaA"] })} className="select h-11 w-full sm:h-auto">
               <option value="ambos">Cotizaciones y ventas</option>
               <option value="cotizaciones">Solo cotizaciones</option>
               <option value="ventas">Solo ventas</option>
             </select>
           </div>
-          <DateRangePicker
-            etiqueta="Vigencia del cupón"
-            desde={form.vigenciaDesde ?? ""}
-            hasta={form.vigenciaHasta ?? ""}
-            onChange={(d, h) => setForm({ ...form, vigenciaDesde: d || undefined, vigenciaHasta: h || undefined })}
-          />
-          <input placeholder="Límite de usos (opcional)" type="number" value={form.limiteUsos ?? ""} onChange={(e) => setForm({ ...form, limiteUsos: e.target.value ? Number(e.target.value) : undefined })} className="input w-full text-sm" />
-          <button type="submit" disabled={guardando || !form.codigo || !form.valor || !form.tipo} className="btn-primary w-full">
+          <div>
+            <label className="form-label">Vigencia del cupón</label>
+            <DateRangePicker
+              etiqueta="Vigencia del cupón"
+              desde={form.vigenciaDesde ?? ""}
+              hasta={form.vigenciaHasta ?? ""}
+              onChange={(d, h) => setForm({ ...form, vigenciaDesde: d || undefined, vigenciaHasta: h || undefined })}
+            />
+          </div>
+          <div>
+            <label className="form-label">Límite de usos</label>
+            <input placeholder="Ej. 50" type="number" value={form.limiteUsos ?? ""} onChange={(e) => setForm({ ...form, limiteUsos: e.target.value ? Number(e.target.value) : undefined })} className="input h-11 w-full sm:h-auto" />
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campos obligatorios</p>
+          <button type="submit" disabled={guardando || !form.codigo || !form.valor || !form.tipo} className="btn-primary h-11 w-full sm:h-auto">
             {guardando ? "Guardando…" : "Crear cupón"}
           </button>
         </form>
