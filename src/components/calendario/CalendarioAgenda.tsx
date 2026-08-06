@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import type { Cita } from "@/components/providers/DataProvider";
+import { SlideOver } from "@/components/ui/SlideOver";
+import { EstadoCitaBadge } from "@/components/citas/EstadoCitaBadge";
 import { HORA_INICIO_AGENDA, HORA_FIN_AGENDA, PASO_MINUTOS_AGENDA, DURACION_CITA_DEFECTO_MIN } from "@/lib/citas";
 
 /* ================= CALENDARIO DE AGENDA (Día / N días / Semana) =================
@@ -55,6 +58,21 @@ const COLOR_ESTADO: Record<string, string> = {
   cancelada: "border-slate-300 bg-slate-100 text-slate-500 line-through dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400",
   no_asistio: "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400",
 };
+/* Mismo mapeo que COLOR_ESTADO pero como punto sólido — se usa en el
+   popover/sidebar de solapes (ver MAX_COLS_VISIBLE), mismo criterio que
+   COLOR_DOT_ESTADO en CalendarioMes. */
+const COLOR_DOT_ESTADO: Record<string, string> = {
+  programada: "bg-primary",
+  atendida: "bg-accent",
+  cancelada: "bg-slate-400 dark:bg-slate-600",
+  no_asistio: "bg-red-500",
+};
+/* Igual criterio que MAX_CHIPS_POR_DIA en CalendarioMes: a partir de 4
+   citas solapadas a la misma hora las columnas angostas ya no se leen —
+   se muestran 3 en su ancho normal y el resto se agrupa (ver
+   agruparPorSolape) en un chip "+N más" por franja horaria que abre la
+   lista completa de esa franja. */
+const MAX_COLS_VISIBLE = 3;
 
 function claveDia(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -132,6 +150,36 @@ function asignarColumnas(citasDelDia: Cita[]): CitaConColumna[] {
   return conColumna.map((c) => ({ ...c, _totalCols: totalCols }));
 }
 
+/* Fusiona en un solo grupo las citas que se solapan entre sí (sweep de
+   intervalos, mismo criterio que asignarColumnas pero fusionando en vez de
+   repartir en columnas nuevas). Genérica en `T extends Cita` porque sirve
+   para dos casos distintos:
+   - Desktop: solo se llama con las citas que quedaron fuera de
+     MAX_COLS_VISIBLE, para fusionarlas en el chip "+N más".
+   - Mobile: se llama con TODAS las citas del día, para decidir por franja
+     horaria (no por el máximo del día completo, que es una simplificación
+     de asignarColumnas que sobre-angosta citas que en realidad no se cruzan
+     con nada) si esa franja va como chip legible (grupo de 1) o como cúmulo
+     de puntos que abre el panel (grupo de 2+) — ver el render de
+     `gruposDiaMobile` más abajo. */
+function agruparPorSolape<T extends Cita>(citasDelDia: T[]): T[][] {
+  const ordenadas = [...citasDelDia].sort(
+    (a, b) => minutosDesdeInicio(new Date(a.fechaHora)) - minutosDesdeInicio(new Date(b.fechaHora))
+  );
+  const grupos: T[][] = [];
+  let finGrupo = -Infinity;
+  for (const c of ordenadas) {
+    const inicio = minutosDesdeInicio(new Date(c.fechaHora));
+    if (grupos.length > 0 && inicio < finGrupo) {
+      grupos[grupos.length - 1].push(c);
+    } else {
+      grupos.push([c]);
+    }
+    finGrupo = Math.max(finGrupo, inicio + (c.duracionMin ?? DURACION_DEFECTO_MIN));
+  }
+  return grupos;
+}
+
 interface Props {
   /** Primer día visible en la grilla (ya resuelto por el padre: inicio de
    *  semana para la vista Semana, la fecha tal cual para Día/3/5 días). */
@@ -177,6 +225,38 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dragInfoRef = useRef<{ diaIdx: number; startMin: number } | null>(null);
   const [dragVisual, setDragVisual] = useState<{ diaIdx: number; min: number; max: number } | null>(null);
+
+  /* Popover (mobile) / sidebar (desktop) de un grupo de citas solapadas que
+     quedó fuera de MAX_COLS_VISIBLE — mismo patrón (y mismos componentes)
+     que el popover/sidebar de un día cargado en CalendarioMes. */
+  const [popoverAgenda, setPopoverAgenda] = useState<{ dia: Date; citas: Cita[]; top: number; left: number; ancho: number } | null>(null);
+  const [sidebarAgenda, setSidebarAgenda] = useState<{ dia: Date; citas: Cita[] } | null>(null);
+
+  useEffect(() => {
+    if (!popoverAgenda) return;
+    function cerrar() { setPopoverAgenda(null); }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") cerrar(); }
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [popoverAgenda]);
+
+  function alClickOverflow(e: React.MouseEvent<HTMLSpanElement>, dia: Date, grupo: Cita[]) {
+    e.stopPropagation();
+    const esMobile = window.matchMedia("(max-width: 639px)").matches;
+    if (!esMobile) { setSidebarAgenda({ dia, citas: grupo }); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const margen = 8;
+    const ancho = Math.min(260, window.innerWidth - margen * 2);
+    const top = Math.min(rect.bottom + margen, window.innerHeight - margen);
+    const left = Math.min(Math.max(margen, rect.left), window.innerWidth - ancho - margen);
+    setPopoverAgenda({ dia, citas: grupo, top, left, ancho });
+  }
 
   useEffect(() => {
     function calcMin(clientY: number, diaIdx: number): number {
@@ -357,6 +437,20 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
               const clave = claveDia(dia);
               const esHoy = clave === hoyClave;
               const citasDia = asignarColumnas(citasPorDia.get(clave) ?? []);
+              const totalColsDia = citasDia[0]?._totalCols ?? 1;
+              const hayOverflow = totalColsDia > MAX_COLS_VISIBLE;
+              const citasNormales = hayOverflow ? citasDia.filter((c) => c._col < MAX_COLS_VISIBLE) : citasDia;
+              const gruposOverflow = hayOverflow ? agruparPorSolape(citasDia.filter((c) => c._col >= MAX_COLS_VISIBLE)) : [];
+              const colsVisibles = hayOverflow ? MAX_COLS_VISIBLE + 1 : totalColsDia;
+              const anchoPctDia = 100 / colsVisibles;
+              /* Mobile: no reusa colsVisibles/MAX_COLS_VISIBLE de desktop —
+                 ese cálculo es a nivel DÍA (el mismo _totalCols para todas
+                 las citas del día, aunque no se crucen entre sí) y en una
+                 pantalla angosta hasta 2 columnas ya salen ilegibles. Acá se
+                 agrupa por SOLAPE REAL de cada franja: una cita sola en su
+                 franja queda legible a ancho completo, solo el grupo que de
+                 verdad se solapa colapsa en el cúmulo de puntos. */
+              const gruposDiaMobile = agruparPorSolape(citasPorDia.get(clave) ?? []);
 
               return (
                 <div
@@ -400,11 +494,10 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                     </div>
                   )}
 
-                  {citasDia.map((c) => {
+                  {citasNormales.map((c) => {
                     const inicio = minutosDesdeInicio(new Date(c.fechaHora));
                     const top = (inicio / 60) * altoHora;
                     const alto = Math.max(((c.duracionMin ?? DURACION_DEFECTO_MIN) / 60) * altoHora - 2, 18);
-                    const anchoPct = 100 / c._totalCols;
 
                     return (
                       <span
@@ -413,12 +506,80 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         tabIndex={0}
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => { e.stopPropagation(); onClickCita(c); }}
-                        style={{ top, height: alto, left: `${c._col * anchoPct}%`, width: `${anchoPct}%` }}
-                        className={`absolute z-[5] cursor-pointer overflow-hidden truncate rounded-md border-l-2 px-1.5 py-0.5 text-[11px] font-medium leading-tight ${COLOR_ESTADO[c.estado] ?? "border-slate-300 bg-slate-100 text-slate-600"}`}
+                        style={{ top, height: alto, left: `${c._col * anchoPctDia}%`, width: `${anchoPctDia}%` }}
+                        className={`absolute z-[5] hidden cursor-pointer overflow-hidden truncate rounded-md border-l-2 px-1.5 py-0.5 text-[11px] font-medium leading-tight sm:block ${COLOR_ESTADO[c.estado] ?? "border-slate-300 bg-slate-100 text-slate-600"}`}
                         title={`${new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })} · ${nombreCliente(c.clienteId)}`}
                         suppressHydrationWarning
                       >
                         <span suppressHydrationWarning>{new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span> {nombreCliente(c.clienteId)}
+                      </span>
+                    );
+                  })}
+
+                  {gruposOverflow.map((grupo, gi) => {
+                    const inicio = Math.min(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora))));
+                    const fin = Math.max(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora)) + (c.duracionMin ?? DURACION_DEFECTO_MIN)));
+                    const top = (inicio / 60) * altoHora;
+                    const alto = Math.max(((fin - inicio) / 60) * altoHora - 2, 18);
+
+                    return (
+                      <span
+                        key={`overflow-${clave}-${gi}`}
+                        role="button"
+                        tabIndex={0}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => alClickOverflow(e, dia, grupo)}
+                        style={{ top, height: alto, left: `${MAX_COLS_VISIBLE * anchoPctDia}%`, width: `${anchoPctDia}%` }}
+                        className="absolute z-[5] hidden cursor-pointer items-center justify-center overflow-hidden truncate rounded-md border-l-2 border-slate-300 bg-slate-100 px-1 py-0.5 text-center text-[11px] font-medium leading-tight text-slate-600 sm:flex dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                      >
+                        +{grupo.length} más
+                      </span>
+                    );
+                  })}
+
+                  {/* Mobile: por franja, o el chip legible (sola) o el
+                      cúmulo de puntos por estado (2+, mismo idioma visual
+                      que CalendarioMes) que abre el panel — ver
+                      gruposDiaMobile arriba. */}
+                  {gruposDiaMobile.map((grupo, gi) => {
+                    const inicio = Math.min(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora))));
+                    const fin = Math.max(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora)) + (c.duracionMin ?? DURACION_DEFECTO_MIN)));
+                    const top = (inicio / 60) * altoHora;
+                    const alto = Math.max(((fin - inicio) / 60) * altoHora - 2, 18);
+
+                    if (grupo.length === 1) {
+                      const c = grupo[0];
+                      return (
+                        <span
+                          key={c.id}
+                          role="button"
+                          tabIndex={0}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); onClickCita(c); }}
+                          style={{ top, height: alto, left: 0, width: "100%" }}
+                          className={`absolute z-[5] block cursor-pointer overflow-hidden truncate rounded-md border-l-2 px-1.5 py-0.5 text-[11px] font-medium leading-tight sm:hidden ${COLOR_ESTADO[c.estado] ?? "border-slate-300 bg-slate-100 text-slate-600"}`}
+                          title={`${new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })} · ${nombreCliente(c.clienteId)}`}
+                          suppressHydrationWarning
+                        >
+                          <span suppressHydrationWarning>{new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span> {nombreCliente(c.clienteId)}
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <span
+                        key={`mobile-grupo-${clave}-${gi}`}
+                        role="button"
+                        tabIndex={0}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => alClickOverflow(e, dia, grupo)}
+                        style={{ top, height: alto, left: 0, width: "100%" }}
+                        aria-label={`${grupo.length} citas a esta hora`}
+                        className="absolute z-[5] flex cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-md border-l-2 border-slate-300 bg-slate-100 px-1 py-0.5 sm:hidden dark:border-slate-600 dark:bg-slate-800"
+                      >
+                        {grupo.slice(0, 4).map((c) => (
+                          <span key={c.id} className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
+                        ))}
                       </span>
                     );
                   })}
@@ -428,6 +589,62 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
           </div>
         </div>
       </div>
+
+      {popoverAgenda && createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setPopoverAgenda(null)} />
+          <div
+            role="dialog"
+            aria-label={`Citas del ${popoverAgenda.dia.getDate()} de ${MESES_CORTO[popoverAgenda.dia.getMonth()]}`}
+            style={{ top: popoverAgenda.top, left: popoverAgenda.left, width: popoverAgenda.ancho }}
+            className="card fixed z-50 p-1.5 shadow-xl"
+          >
+            <div className="max-h-64 overflow-y-auto">
+              {popoverAgenda.citas.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => { onClickCita(c); setPopoverAgenda(null); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-3 text-left text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
+                  <span className="shrink-0 text-xs text-slate-500 dark:text-slate-500" suppressHydrationWarning>
+                    {new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="truncate font-medium text-slate-700 dark:text-slate-200">{nombreCliente(c.clienteId)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      <SlideOver
+        abierto={!!sidebarAgenda}
+        onClose={() => setSidebarAgenda(null)}
+        titulo={sidebarAgenda ? `Citas del ${sidebarAgenda.dia.getDate()} de ${MESES_CORTO[sidebarAgenda.dia.getMonth()]}` : "Citas"}
+      >
+        {sidebarAgenda && (
+          <div className="space-y-1 pb-4">
+            {sidebarAgenda.citas.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => { onClickCita(c); setSidebarAgenda(null); }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-3 text-left text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
+                <span className="shrink-0 text-xs text-slate-500 dark:text-slate-500" suppressHydrationWarning>
+                  {new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="truncate font-medium text-slate-700 dark:text-slate-200">{nombreCliente(c.clienteId)}</span>
+                <EstadoCitaBadge estado={c.estado} className="ml-auto" />
+              </button>
+            ))}
+          </div>
+        )}
+      </SlideOver>
     </div>
   );
 }
