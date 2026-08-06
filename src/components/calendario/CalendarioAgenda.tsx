@@ -511,7 +511,7 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         title={`${new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })} · ${nombreCliente(c.clienteId)}`}
                         suppressHydrationWarning
                       >
-                        <span suppressHydrationWarning>{new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span> {nombreCliente(c.clienteId)}
+                        {nombreCliente(c.clienteId)}
                       </span>
                     );
                   })}
@@ -561,7 +561,7 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                           title={`${new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })} · ${nombreCliente(c.clienteId)}`}
                           suppressHydrationWarning
                         >
-                          <span suppressHydrationWarning>{new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span> {nombreCliente(c.clienteId)}
+                          {nombreCliente(c.clienteId)}
                         </span>
                       );
                     }
