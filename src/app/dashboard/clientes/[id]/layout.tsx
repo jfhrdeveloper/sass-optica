@@ -12,6 +12,8 @@ import { ClienteFormSlideOver } from "@/components/clientes/ClienteFormSlideOver
 import { BotonWhatsApp } from "@/components/clientes/BotonWhatsApp";
 import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 import { formatearFecha, formatearFechaHora } from "@/lib/formato/date";
 import { createClient } from "@/lib/supabase/client";
 import { isMockMode } from "@/lib/mock/mock-mode";
@@ -21,6 +23,10 @@ import { SettingsTabs, type TabDeAjustes } from "@/components/dashboard/Settings
 
 type EntradaAuditoria = { id: number; ts: string; accion: string };
 const ACCION_LABEL: Record<string, string> = { INSERT: "Creado", UPDATE: "Editado", DELETE: "Eliminado" };
+/* Fijo en 4 (no el responsive 8 desktop/4 mobile de usePaginado) — pedido
+   explícito del usuario: esta lista es de avisos cortos apilados arriba de
+   toda la ficha, con 8 en desktop empujaba demasiado el resto para abajo. */
+const TAMANO_PAGINA_FICHA = 4;
 
 /* Shell compartido de la ficha de cliente — antes todo (datos, Citas, Recetas,
    Exámenes, Compras, Historial) vivía apilado en un solo page.tsx; ahora Citas
@@ -50,17 +56,8 @@ export default function ClienteDetalleLayout({ children }: { children: React.Rea
         .filter((s) => s.clienteId === cliente.id)
         .sort((a, b) => a.fecha.localeCompare(b.fecha))
     : [];
-  /* Con varios seguimientos activos, mostrarlos TODOS siempre empujaba el
-     resto de la ficha (contacto, notas, pestañas) muy abajo — pedido
-     explícito del usuario: solo los VENCIDOS quedan siempre visibles (son
-     los accionables de verdad), el resto se colapsa detrás de "+N más". Si
-     no hay ninguno vencido, se muestran los 2 más próximos igual (una
-     sección vacía con solo un link "+N más" no da contexto de qué son). */
-  const [verTodosSeguimientos, setVerTodosSeguimientos] = useState(false);
-  const seguimientosVencidos = seguimientosDelCliente.filter((s) => estaVencido(s.fecha));
-  const seguimientosSiempreVisibles = seguimientosVencidos.length > 0 ? seguimientosVencidos : seguimientosDelCliente.slice(0, 2);
-  const seguimientosColapsados = seguimientosDelCliente.filter((s) => !seguimientosSiempreVisibles.includes(s));
-  const seguimientosAMostrar = verTodosSeguimientos ? seguimientosDelCliente : seguimientosSiempreVisibles;
+  const { pagina: paginaSeguimientos, setPagina: setPaginaSeguimientos, totalPaginas: totalPaginasSeguimientos, visibles: seguimientosVisibles } =
+    usePaginado(seguimientosDelCliente, TAMANO_PAGINA_FICHA);
 
   function mensajeSeguimiento(s: Seguimiento): string {
     const nombreOptica = negocio?.nombre ?? "nuestra óptica";
@@ -159,7 +156,7 @@ export default function ClienteDetalleLayout({ children }: { children: React.Rea
 
       {seguimientosDelCliente.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {seguimientosAMostrar.map((s) => {
+          {seguimientosVisibles.map((s) => {
             const urlRecordatorio = urlRecordatorioSeguimiento(s);
             return (
               <p
@@ -191,17 +188,9 @@ export default function ClienteDetalleLayout({ children }: { children: React.Rea
               </p>
             );
           })}
-          {seguimientosColapsados.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setVerTodosSeguimientos((v) => !v)}
-              className="link-muted text-sm font-medium"
-            >
-              {verTodosSeguimientos ? "Ver menos" : `+${seguimientosColapsados.length} más`}
-            </button>
-          )}
         </div>
       )}
+      <Pagination pagina={paginaSeguimientos} totalPaginas={totalPaginasSeguimientos} onCambiar={setPaginaSeguimientos} />
 
       <div className="card mt-5 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -261,7 +250,7 @@ export default function ClienteDetalleLayout({ children }: { children: React.Rea
         )}
       </div>
 
-      <SettingsTabs tabs={tabs} />
+      <SettingsTabs tabs={tabs} gridMobile2 />
 
       <div className="mt-4">{children}</div>
 

@@ -146,7 +146,11 @@ export default function DashboardPage() {
          nombra los productos afectados, igual que las alertas de
          trial/vencido de arriba. */}
       {stockBajo.length > 0 && !stockBajoDescartado && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+        /* items-center (no items-start) en mobile: con la lista de productos
+           envuelta en 2-3 líneas la fila se estira, y con items-start la X
+           quedaba pegada arriba en vez de centrada contra todo el bloque de
+           texto. Desktop (`sm:`) no se toca. */
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 sm:items-start">
           <Link href="/dashboard/productos" className="flex flex-1 items-start gap-2 transition-colors hover:text-amber-950 dark:hover:text-amber-200">
             <PackageX size={16} className="mt-0.5 shrink-0" />
             <span>
@@ -174,7 +178,10 @@ export default function DashboardPage() {
          ficha del cliente) — automatizarlo del todo necesita la API real de
          WhatsApp Business, fuera de alcance de este MVP (ver citas). */}
       {seguimientos.length > 0 && !seguimientosDescartado && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+        /* Mismo criterio que el banner de stock bajo: items-center en
+           mobile para que la X quede centrada contra el bloque de texto
+           (que acá suele envolver aún más líneas). Desktop sin tocar. */
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300 sm:items-start">
           <Link href="/dashboard/clientes" className="flex flex-1 items-start gap-2 transition-colors hover:text-sky-950 dark:hover:text-sky-200">
             <Contact size={16} className="mt-0.5 shrink-0" />
             <span>

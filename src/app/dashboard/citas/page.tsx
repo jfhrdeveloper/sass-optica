@@ -16,7 +16,8 @@ import { DateRangePicker } from "@/components/calendario/DateRangePicker";
 import { DatePicker } from "@/components/calendario/DatePicker";
 import { TimePicker } from "@/components/calendario/TimePicker";
 import { ClienteCombobox } from "@/components/clientes/ClienteCombobox";
-import { ESTADOS_CITA, ESTADO_CITA_LABEL, ESTADO_CITA_BADGE, DURACION_CITA_DEFECTO_MIN, sumarMinutosHora, diferenciaMinutos } from "@/lib/citas";
+import { EstadoCitaBadge } from "@/components/citas/EstadoCitaBadge";
+import { ESTADOS_CITA, ESTADO_CITA_LABEL, DURACION_CITA_DEFECTO_MIN, sumarMinutosHora, diferenciaMinutos } from "@/lib/citas";
 import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 import { urlWhatsAppContacto } from "@/lib/contacto";
 
@@ -76,7 +77,7 @@ const VISTA_LABEL: Record<Vista, string> = {
 };
 
 export default function CitasPage() {
-  const { citas, clientes, recetas, negocio, sucursales, sucursalFiltro, addCita, updateCita, deleteCita, addReceta, ready } = useData();
+  const { citas, clientes, recetas, negocio, sucursales, sucursalFiltro, empleados, addCita, updateCita, deleteCita, addReceta, ready } = useData();
   const { empleado } = useSession();
   const toast = useToast();
   const [form, setForm] = useState<Partial<Cita>>(VACIO);
@@ -385,7 +386,7 @@ export default function CitasPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(c.clienteId)}</span>
-                      <span className={`badge ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>{ESTADO_CITA_LABEL[c.estado] ?? c.estado}</span>
+                      <EstadoCitaBadge estado={c.estado} />
                       {c.estado === "programada" && esManana(c.fechaHora) && (
                         <span className="badge badge-warning">Mañana</span>
                       )}
@@ -504,6 +505,17 @@ export default function CitasPage() {
             <label className="form-label">Estado</label>
             <select value={form.estado ?? "programada"} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="select h-11 w-full sm:h-auto">
               {ESTADOS_CITA.map((s) => <option key={s} value={s}>{ESTADO_CITA_LABEL[s]}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Empleado asignado</label>
+            <select
+              value={form.empleadoId ?? ""}
+              onChange={(e) => setForm({ ...form, empleadoId: e.target.value || undefined })}
+              className="select h-11 w-full sm:h-auto"
+            >
+              <option value="">Sin asignar</option>
+              {empleados.filter((e) => e.activo).map((e) => <option key={e.id} value={e.id}>{e.nombres} {e.apellidos}</option>)}
             </select>
           </div>
           {sucursales.length > 0 && (

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import type { Cita } from "@/components/providers/DataProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
-import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";
+import { EstadoCitaBadge } from "@/components/citas/EstadoCitaBadge";
 
 /* ================= CALENDARIO MENSUAL DE CITAS =================
    Vista tipo Google Calendar para /dashboard/citas — grilla de 6 semanas
@@ -322,9 +322,7 @@ export function CalendarioMes({ mesActual, onCambiarMes, onIrAHoy, citas, nombre
                   {new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
                 </span>
                 <span className="truncate font-medium text-slate-700 dark:text-slate-200">{nombreCliente(c.clienteId)}</span>
-                <span className={`badge ml-auto shrink-0 ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>
-                  {ESTADO_CITA_LABEL[c.estado] ?? c.estado}
-                </span>
+                <EstadoCitaBadge estado={c.estado} className="ml-auto" />
               </button>
             ))}
             <button

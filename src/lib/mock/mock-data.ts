@@ -685,7 +685,37 @@ export const MOCK_CITAS: Cita[] = [
   ...CITAS_PERFIL_STRESS,
 ];
 
-export const MOCK_RECETAS: Receta[] = [];
+/* 9 recetas de Carlos Ramírez (cli-1), en orden cronológico — pedido
+   explícito del usuario para ver cómo se ve la pestaña "Recetas" de la
+   ficha de cliente con historial real: miopía y astigmatismo progresando
+   de a poco año a año, adición de cerca apareciendo recién a partir de los
+   ~38 años (presbicia), y notas solo en los controles donde hubo un cambio
+   real que vale la pena registrar (no en todos, para que se vea realista). */
+export const MOCK_RECETAS: Receta[] = [
+  { id: "rec-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2017-03-10", tipo: "lejos",
+    odEsfera: -1.25, odCilindro: -0.25, odEje: 10, oiEsfera: -1.00, oiCilindro: -0.25, oiEje: 175, dip: 62,
+    notas: "Primera consulta — miopía leve en ambos ojos." },
+  { id: "rec-2", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2018-04-05", tipo: "lejos",
+    odEsfera: -1.50, odCilindro: -0.25, odEje: 12, oiEsfera: -1.25, oiCilindro: -0.25, oiEje: 170, dip: 62 },
+  { id: "rec-3", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2019-05-20", tipo: "lejos",
+    odEsfera: -1.75, odCilindro: -0.50, odEje: 15, oiEsfera: -1.50, oiCilindro: -0.50, oiEje: 165, dip: 62,
+    notas: "Aumento leve de miopía; se detecta astigmatismo en ambos ojos." },
+  { id: "rec-4", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2020-09-14", tipo: "lejos",
+    odEsfera: -2.00, odCilindro: -0.50, odEje: 15, oiEsfera: -1.75, oiCilindro: -0.50, oiEje: 165, dip: 63 },
+  { id: "rec-5", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2021-10-02", tipo: "lejos",
+    odEsfera: -2.25, odCilindro: -0.75, odEje: 18, oiEsfera: -2.00, oiCilindro: -0.50, oiEje: 160, dip: 63 },
+  { id: "rec-6", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2022-11-18", tipo: "lejos",
+    odEsfera: -2.50, odCilindro: -0.75, odEje: 20, oiEsfera: -2.25, oiCilindro: -0.75, oiEje: 160, dip: 63,
+    notas: "Cambio de armazón — misma fórmula que el control anterior." },
+  { id: "rec-7", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2023-08-07", tipo: "cerca",
+    odEsfera: -2.50, odCilindro: -0.75, odEje: 20, odAdicion: 0.75, oiEsfera: -2.25, oiCilindro: -0.75, oiEje: 160, oiAdicion: 0.75, dip: 63,
+    notas: "Primeros signos de presbicia — se agrega adición para cerca." },
+  { id: "rec-8", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2024-09-11", tipo: "lejos",
+    odEsfera: -2.75, odCilindro: -0.75, odEje: 20, odAdicion: 1.00, oiEsfera: -2.50, oiCilindro: -0.75, oiEje: 160, oiAdicion: 1.00, dip: 64 },
+  { id: "rec-9", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", fecha: "2025-10-03", tipo: "bifocal",
+    odEsfera: -3.00, odCilindro: -1.00, odEje: 22, odAdicion: 1.25, oiEsfera: -2.75, oiCilindro: -1.00, oiEje: 158, oiAdicion: 1.25, dip: 64,
+    notas: "Fórmula bifocal — control sugerido en 12 meses." },
+];
 
 const EXAMENES_PERFIL_STRESS = generarExamenesPerfilStress(MOCK_CLIENTES, CITAS_PERFIL_STRESS);
 

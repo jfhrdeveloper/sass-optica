@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { useData, type ExamenOptometrico } from "@/components/providers/DataProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Pagination } from "@/components/ui/Pagination";
@@ -12,11 +12,15 @@ import { formatearFecha } from "@/lib/formato/date";
 const EXAMEN_VACIO: Partial<ExamenOptometrico> = {};
 
 /* Pestaña "Exámenes optométricos" de la ficha de cliente — lista + el
-   formulario de alta (antes vivía suelto al fondo del page.tsx único, ahora
-   viaja junto con la pestaña a la que pertenece). */
+   formulario de alta/edición (antes vivía suelto al fondo del page.tsx
+   único, ahora viaja junto con la pestaña a la que pertenece). Solo
+   editar, no eliminar — `deleteExamenOptometrico` no existe en
+   DataProvider (mismo criterio clínico de "una vez creado, queda" que
+   tenían las recetas hasta que se les agregó editar/eliminar; acá el
+   usuario solo pidió editar). */
 export default function ClienteExamenesPage() {
   const params = useParams<{ id: string }>();
-  const { clientes, examenesOptometricos, addExamenOptometrico } = useData();
+  const { clientes, examenesOptometricos, addExamenOptometrico, updateExamenOptometrico } = useData();
   const cliente = clientes.find((c) => c.id === params.id) ?? null;
 
   const examenesDelCliente = cliente
@@ -26,25 +30,48 @@ export default function ClienteExamenesPage() {
     usePaginado(examenesDelCliente);
 
   const [abiertoExamen, setAbiertoExamen] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [examenForm, setExamenForm] = useState<Partial<ExamenOptometrico>>(EXAMEN_VACIO);
   const [guardandoExamen, setGuardandoExamen] = useState(false);
+
+  function nuevo() {
+    setEditandoId(null);
+    setExamenForm(EXAMEN_VACIO);
+    setAbiertoExamen(true);
+  }
+  function editar(ex: ExamenOptometrico) {
+    setEditandoId(ex.id);
+    setExamenForm(ex);
+    setAbiertoExamen(true);
+  }
+  function cerrar() {
+    setAbiertoExamen(false);
+    setEditandoId(null);
+    setExamenForm(EXAMEN_VACIO);
+  }
   async function onSubmitExamen(e: React.FormEvent) {
     e.preventDefault();
     if (!cliente) return;
     setGuardandoExamen(true);
-    await addExamenOptometrico({ ...examenForm, clienteId: cliente.id });
+    if (editandoId) {
+      await updateExamenOptometrico(editandoId, examenForm);
+    } else {
+      await addExamenOptometrico({ ...examenForm, clienteId: cliente.id });
+    }
     setGuardandoExamen(false);
-    setAbiertoExamen(false);
-    setExamenForm(EXAMEN_VACIO);
+    cerrar();
   }
 
   if (!cliente) return null;
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      {/* Mobile: título arriba, botón debajo a todo el ancho — antes quedaba
+          al costado del título, apretado contra "optométricos". Desktop
+          (`sm:`) sin cambios, sigue en la misma fila. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Exámenes optométricos ({examenesDelCliente.length})</h2>
-        <button onClick={() => setAbiertoExamen(true)} className="btn-outline h-11 gap-1.5 sm:h-auto">
+        <button onClick={nuevo} className="btn-outline h-11 w-full justify-center gap-1.5 sm:h-auto sm:w-auto">
           <Plus size={14} /> Nuevo examen
         </button>
       </div>
@@ -55,7 +82,12 @@ export default function ClienteExamenesPage() {
           <ul className="mt-2 space-y-3">
             {examenesVisibles.map((ex) => (
               <li key={ex.id} className="rounded-lg border border-slate-100 p-3 text-sm dark:border-slate-800">
-                <span className="font-medium text-slate-700 dark:text-slate-200">{formatearFecha(ex.fecha)}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{formatearFecha(ex.fecha)}</span>
+                  <button onClick={() => editar(ex)} title="Editar" aria-label="Editar examen" className="row-icon-btn shrink-0">
+                    <Pencil size={15} />
+                  </button>
+                </div>
 
                 {/* Desktop: tabla comparativa OD/OI. Mobile: 2 tarjetas apiladas
                     (evita el scroll horizontal de una tabla de 6 columnas en pantallas angostas). */}
@@ -119,7 +151,7 @@ export default function ClienteExamenesPage() {
         </>
       )}
 
-      <SlideOver abierto={abiertoExamen} onClose={() => setAbiertoExamen(false)} titulo="Nuevo examen optométrico">
+      <SlideOver abierto={abiertoExamen} onClose={cerrar} titulo={editandoId ? "Editar examen optométrico" : "Nuevo examen optométrico"}>
         <form onSubmit={onSubmitExamen} className="space-y-3">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Agudeza visual</p>
           <div className="grid grid-cols-2 gap-2">
@@ -176,7 +208,7 @@ export default function ClienteExamenesPage() {
             <textarea rows={2} value={examenForm.notas ?? ""} onChange={(e) => setExamenForm({ ...examenForm, notas: e.target.value || undefined })} className="input mt-1 w-full" />
           </div>
           <button type="submit" disabled={guardandoExamen} className="btn-primary h-11 w-full sm:h-auto">
-            {guardandoExamen ? "Guardando…" : "Guardar examen"}
+            {guardandoExamen ? "Guardando…" : editandoId ? "Guardar cambios" : "Guardar examen"}
           </button>
         </form>
       </SlideOver>

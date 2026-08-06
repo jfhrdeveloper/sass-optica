@@ -33,7 +33,13 @@ export function ChangelogBanner({ negocioId }: { negocioId?: string }) {
   if (cerrado) return null;
 
   return (
-    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent-light px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200">
+    /* pl-4 pr-3 sm:px-4 (no solo px-4): en mobile el padding derecho más
+       chico acerca la X al borde para que quede a la misma distancia que
+       los otros avisos cerrables de esta página (stock bajo/seguimientos,
+       que usan px-3) — antes quedaba más adentro que ellos. El padding
+       izquierdo se mantiene en 16px siempre (no hay motivo para moverlo) y
+       desktop (`sm:`) no se toca. */
+    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent-light pl-4 pr-3 py-2.5 sm:px-4 text-sm text-slate-700 dark:text-slate-200">
       <div className="flex items-center gap-2">
         <Sparkles size={16} className="text-accent" />
         <span>¡Hay novedades! Rediseñamos el panel y ahora puedes darle permisos puntuales a cada empleado.</span>

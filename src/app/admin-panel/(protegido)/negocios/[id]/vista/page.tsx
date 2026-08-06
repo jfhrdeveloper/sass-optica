@@ -9,7 +9,7 @@ import {
 } from "@/lib/mock/mock-data";
 import { leerOverridesActivo, aplicarOverridesActivo } from "@/lib/mock/mock-admin-overrides";
 import { formatearFechaPE, formatearFechaHora } from "@/lib/formato/date";
-import { ESTADO_CITA_LABEL, ESTADO_CITA_BADGE } from "@/lib/citas";
+import { EstadoCitaBadge } from "@/components/citas/EstadoCitaBadge";
 
 const LIMITE = 5;
 
@@ -140,7 +140,7 @@ export default async function VistaNegocioPage({ params }: { params: Promise<{ i
                     <span className="block font-medium text-slate-900 dark:text-slate-100">{c.cliente_nombre}</span>
                     <span className="text-xs text-slate-500 dark:text-slate-500">{formatearFechaHora(c.fecha_hora)}{c.motivo ? ` · ${c.motivo}` : ""}</span>
                   </span>
-                  <span className={`badge ${ESTADO_CITA_BADGE[c.estado] ?? "badge-neutral"}`}>{ESTADO_CITA_LABEL[c.estado] ?? c.estado}</span>
+                  <EstadoCitaBadge estado={c.estado} />
                 </li>
               ))}
               {citas.length === 0 && <li className="table-empty">Sin citas programadas.</li>}

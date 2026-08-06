@@ -394,6 +394,8 @@ interface DataCtx {
   updateCita:     (id: string, patch: Partial<Cita>) => Promise<void>;
   deleteCita:     (id: string) => Promise<void>;
   addReceta:      (r: Partial<Receta>) => Promise<void>;
+  updateReceta:   (id: string, patch: Partial<Receta>) => Promise<void>;
+  deleteReceta:   (id: string) => Promise<void>;
   addExamenOptometrico:    (e: Partial<ExamenOptometrico>) => Promise<void>;
   updateExamenOptometrico: (id: string, patch: Partial<ExamenOptometrico>) => Promise<void>;
   addProducto:    (p: Partial<Producto>, stockInicial: number, stockMinimo: number) => Promise<void>;
@@ -758,6 +760,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
     await supabase.from("recetas").insert({ ...recetaToRow(r), negocio_id: negocio.id });
   }, [supabase, negocio, mock]);
+  /* Antes solo se podían crear (nunca editar/eliminar) — una receta mal
+     hecha se "corregía" creando una nueva, nunca alterando la vieja. La RLS
+     de `recetas` ya cubría update/delete desde siempre (policy `for all`,
+     ver supabase-schema.sql), así que esto es puramente cerrar el hueco en
+     la capa de la app — pedido explícito del usuario tras confirmar que
+     quería editar/eliminar recetas, no solo crearlas. */
+  const updateReceta = useCallback(async (id: string, patch: Partial<Receta>) => {
+    if (mock) { setRecetas((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r))); return; }
+    await supabase.from("recetas").update(recetaToRow(patch)).eq("id", id);
+  }, [supabase, mock]);
+  const deleteReceta = useCallback(async (id: string) => {
+    if (mock) { setRecetas((prev) => prev.filter((r) => r.id !== id)); return; }
+    await supabase.from("recetas").delete().eq("id", id);
+  }, [supabase, mock]);
 
   const addExamenOptometrico = useCallback(async (e: Partial<ExamenOptometrico>) => {
     if (!negocio) return;
@@ -1223,7 +1239,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     updateEmpleado, addRolPersonalizado, updateRolPersonalizado, deleteRolPersonalizado, updateNegocio, addSucursal, updateSucursal, repartirStockInicial,
     addCliente, updateCliente, deleteCliente, restaurarCliente, purgarCliente,
     addCita, updateCita, deleteCita,
-    addReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,
+    addReceta, updateReceta, deleteReceta, addExamenOptometrico, updateExamenOptometrico, addProducto, updateProducto, ajustarStock,
     addVenta, anularVenta, addOrdenLaboratorio, updateOrdenLaboratorio, abrirCaja, cerrarCaja, addGasto, deleteGasto,
     marcarAsistencia, updateAsistencia, verificarAsistencia, addPagoSueldo, deletePagoSueldo,
     addDescuento, updateDescuento, deleteDescuento,
