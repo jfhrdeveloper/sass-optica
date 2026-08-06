@@ -186,6 +186,42 @@ de URL / la desaparición del modal para continuar solo. Script de referencia:
 
 ## Bitácora de sesiones
 
+### 2026-08-06 (26) — Edición de citas/recetas/exámenes desde la ficha del cliente + agrupamiento de solapes en la agenda
+- **Qué cambió:**
+  1. **Ficha de cliente — pestañas Citas/Recetas/Exámenes editables**: antes solo se gestionaban
+     desde sus páginas principales (`/dashboard/citas`, etc.); ahora cada pestaña de la ficha
+     permite editar y eliminar directo, con el mismo patrón de deshacer por toast que ya usa el
+     resto del dashboard. De paso: paginación de "seguimientos" en la ficha (reemplaza el "+N más"
+     colapsable por un `Pagination` de 4 por página), `EstadoCitaBadge` extraído como componente
+     compartido (antes duplicado en varios lugares) y `SettingsTabs` ganó la variante `gridMobile2`.
+  2. **Agenda (Día/3 días/5 días/Semana) — citas solapadas**: hasta ahora, cuando varias citas
+     caían a la misma hora, se repartían en columnas cada vez más angostas sin límite. En desktop,
+     desde 4+ solapes las que sobran ahora se fusionan en un chip "+N más" que abre el mismo
+     panel/popover de lista que ya existía en la vista Mes (sidebar en desktop, popover flotante en
+     mobile). En mobile va más lejos: cada franja horaria se agrupa por solape REAL (no por el
+     máximo del día completo, que angostaba citas sueltas sin necesidad) — una cita sola queda
+     legible a ancho completo, y cualquier solape de 2+ colapsa en un cúmulo de puntos de color por
+     estado (mismo idioma visual que los puntitos de Mes), tocarlo abre la lista.
+  3. Se evaluó imitar el patrón de Google Calendar (columnas infinitas sin fusionar, texto que
+     desaparece cuando no hay espacio, apoyo en la vista Lista para el detalle) pero se descartó
+     para este producto: para el volumen real de una óptica (pocas citas simultáneas) el panel
+     agrupado da mejor "cuántas hay de un vistazo" sin perder tap-target ni legibilidad.
+  4. Se quitó la hora del texto de los chips de la agenda (Día/3/5 días/Semana) — la posición
+     vertical en la grilla ya la indica, era ruido que le quitaba espacio al nombre; sigue
+     disponible en el tooltip (`title`) al pasar el cursor.
+  - Verificado tras cada bloque: `npx tsc --noEmit`, `npm run lint` y `npm test` (249/249) limpios;
+    visual con Playwright en navegador real (desktop y mobile), inyectando temporalmente citas
+    solapadas en el mock data para forzar el caso y revirtiéndolo después.
+- **Por qué:** pedido explícito del usuario, iterando sobre el resultado en vivo — primero notó que
+  faltaba poder editar/eliminar citas desde la ficha del cliente, y después que la vista Mes ya
+  resolvía bien "muchas citas en un día" pero las vistas de agenda no, seguido de una ronda de
+  comparación de alternativas (apilar verticalmente, imitar Google Calendar) antes de converger en
+  el panel agrupado + puntos en mobile.
+- **Pendiente:** nada nuevo bloqueante. El problema de fondo de columnas angostas en mobile cuando
+  se muestran VARIOS DÍAS a la vez (3 días/5 días/Semana en una pantalla de ~390px, ya angosto
+  incluso sin ningún solape) no se tocó — quedó fuera de alcance de esta sesión, que se centró en
+  el solape dentro de un mismo día.
+
 ### 2026-08-02 (25) — Vercel Analytics + PostHog (analítica solo en páginas públicas) + banner de cookies real
 - **Qué cambió:** el usuario preguntó por Google Analytics/heatmaps para medir clics y tiempo en
   página. Se le explicaron las dos categorías (tráfico vs. heatmaps/session recording) y se
