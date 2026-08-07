@@ -577,9 +577,15 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         aria-label={`${grupo.length} citas a esta hora`}
                         className="absolute z-[5] flex cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-md border-l-2 border-slate-300 bg-slate-100 px-1 py-0.5 sm:hidden dark:border-slate-600 dark:bg-slate-800"
                       >
-                        {grupo.slice(0, 4).map((c) => (
+                        {grupo.slice(0, 3).map((c) => (
                           <span key={c.id} className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
                         ))}
+                        {/* Los puntos por sí solos no distinguen "4 citas" de "7, cortadas
+                            en 4" — a partir de la 4ta se reemplaza por el número real en
+                            vez de seguir agregando puntos indistinguibles entre sí. */}
+                        {grupo.length > 3 && (
+                          <span className="text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">+{grupo.length - 3}</span>
+                        )}
                       </span>
                     );
                   })}

@@ -38,9 +38,9 @@ function aInputLocal(fecha: Date): string {
 
 /* Lunes de la semana que contiene `d` (mismo orden Lunes-primero que usa
    CalendarioMes) — ancla la vista Semana al inicio de semana real en vez
-   de a "7 días desde donde estabas parado", que es lo que sí hacen Día/3
-   días/5 días. `getDay()` de JS da 0=Domingo, por eso se convierte a un
-   índice Lunes=0..Domingo=6 antes de retroceder. */
+   de a "7 días desde donde estabas parado", que es lo que sí hace Día.
+   `getDay()` de JS da 0=Domingo, por eso se convierte a un índice
+   Lunes=0..Domingo=6 antes de retroceder. */
 function inicioSemana(d: Date): Date {
   const r = new Date(d);
   const diaSemanaLunesPrimero = (r.getDay() + 6) % 7;
@@ -55,25 +55,24 @@ function sumarDias(fecha: Date, n: number): Date {
   return d;
 }
 
-type Vista = "dia" | "3dias" | "5dias" | "semana" | "mes" | "lista";
-const DIAS_POR_VISTA: Record<string, number> = { dia: 1, "3dias": 3, "5dias": 5, semana: 7 };
-/* Las 6 opciones no tienen una agrupación de 3+3 que tenga sentido (Semana
-   es una vista de grilla como Día/3/5 días, no un tipo distinto como
-   Mes/Lista) — en mobile, en vez de forzar 2 filas de píldoras compitiendo
-   por espacio, se resuelve como un solo menú desplegable (mismo patrón que
-   el selector de vista de Google Calendar en su app mobile). Desktop se
-   queda con el SegmentedControl de 6 píldoras de siempre, ahí sí hay
-   espacio de sobra. */
+type Vista = "dia" | "semana" | "mes" | "lista";
+const DIAS_POR_VISTA: Record<string, number> = { dia: 1, semana: 7 };
+/* Mobile: en vez de forzar el track completo en pantalla angosta, se
+   resuelve como un solo menú desplegable (mismo patrón que el selector de
+   vista de Google Calendar en su app mobile). Desktop se queda con el
+   SegmentedControl de 4 píldoras de siempre, ahí sí hay espacio de sobra.
+   ("3 días"/"5 días" existieron pero se quitaron: no son un patrón
+   estándar de ningún calendario de referencia y sumaban la mayor parte
+   del problema de columnas angostas en mobile sin aportar un caso de uso
+   claramente distinto de Día/Semana.) */
 const VISTAS_MENU: { valor: Vista; label: string }[] = [
   { valor: "dia", label: "Día" },
-  { valor: "3dias", label: "3 días" },
-  { valor: "5dias", label: "5 días" },
   { valor: "semana", label: "Semana" },
   { valor: "mes", label: "Mes" },
   { valor: "lista", label: "Lista" },
 ];
 const VISTA_LABEL: Record<Vista, string> = {
-  dia: "Día", "3dias": "3 días", "5dias": "5 días", semana: "Semana", mes: "Mes", lista: "Lista",
+  dia: "Día", semana: "Semana", mes: "Mes", lista: "Lista",
 };
 
 export default function CitasPage() {
@@ -109,10 +108,10 @@ export default function CitasPage() {
   /* Mes por defecto en desktop (más útil de un vistazo para agendar) — Lista
      sigue disponible para cuando hace falta buscar por estado o rango de
      fechas, algo que ningún calendario resuelve bien. Los filtros de
-     estado/fecha solo aplican a Lista. Día/3 días/5 días/Semana/Mes son la
-     vista de agenda tipo Google Calendar (CalendarioMes/CalendarioAgenda) —
-     todas comparten una sola fecha ancla (`fecha`) en vez de tener cada una
-     su propio estado, así cambiar de vista no te saca de dónde estabas. */
+     estado/fecha solo aplican a Lista. Día/Semana/Mes son la vista de
+     agenda tipo Google Calendar (CalendarioMes/CalendarioAgenda) — todas
+     comparten una sola fecha ancla (`fecha`) en vez de tener cada una su
+     propio estado, así cambiar de vista no te saca de dónde estabas. */
   const [vista, setVista] = useState<Vista>("mes");
   /* En mobile el default pasa a "Día" (un mes entero no entra bien en
      pantalla angosta) — pedido explícito del usuario, pero SOLO para mobile,
@@ -277,12 +276,10 @@ export default function CitasPage() {
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Citas</h1>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* Desktop: el control original de 6 opciones en un solo track, sin cambios,
-            pero sin forzar el ancho completo — así queda junto al botón "Agendar
-            cita" (empujado a la derecha con `sm:ml-auto`) en vez de ocupar toda
-            la fila y mandarlo a la línea de abajo. Mobile (oculto acá, sm:hidden
-            abajo): partido en 2 filas de 3, un track angosto de 6 no entra bien
-            en pantalla chica. */}
+        {/* Desktop: el track de 4 opciones, sin forzar el ancho completo — así
+            queda junto al botón "Agendar cita" (empujado a la derecha con
+            `sm:ml-auto`) en vez de ocupar toda la fila y mandarlo a la línea
+            de abajo. Mobile (oculto acá, sm:hidden abajo): menú desplegable. */}
         <SegmentedControl
           aria-label="Vista de citas"
           variante="opciones"
@@ -291,8 +288,6 @@ export default function CitasPage() {
           className="hidden sm:block"
           opciones={[
             { valor: "dia", label: "Día" },
-            { valor: "3dias", label: "3 días" },
-            { valor: "5dias", label: "5 días" },
             { valor: "semana", label: "Semana" },
             { valor: "mes", label: "Mes" },
             { valor: "lista", label: "Lista" },

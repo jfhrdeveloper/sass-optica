@@ -78,13 +78,17 @@ export function BottomTabBar() {
               href={t.href}
               className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"
             >
-              {/* "Seleccionado" se ve igual en todo el sitio: fondo primario sólido +
-                  texto blanco (docs/style-guide.md), no solo un cambio de color de texto.
-                  El feedback al tocar (`active:`) queda confinado a esta píldora
-                  `rounded-xl` en vez del rectángulo completo del `Link` (que ocupa todo
-                  el alto/ancho del tab) — si no, el tap highlight nativo del navegador
-                  (que sí es un rectángulo, ver regla global en globals.css) se apagó
-                  pero no quedaba ningún reemplazo cuadrado/redondeado al tocar.
+              {/* Excepción puntual al "seleccionado" del resto del sitio (fondo
+                  primario sólido + texto blanco, docs/style-guide.md): en una
+                  barra de 5 columnas iguales un recuadro de fondo se ve pesado
+                  y, sin ancho fijo, se desalinea entre tabs con label de
+                  distinto largo. Mismo patrón que iOS/Material tab bars: solo
+                  cambia el COLOR (ícono + texto a `text-primary`, el trazo del
+                  ícono un poco más grueso) — pedido explícito del usuario.
+                  El feedback al tocar (`active:`) sigue confinado a esta
+                  píldora `rounded-2xl` en vez del rectángulo completo del
+                  `Link`, y ahora aplica en ambos estados (antes solo se veía
+                  en el inactivo, porque el activo ya tenía fondo propio).
 
                   Ancho fijo (`w-16`, no `px-3` suelto ajustándose al texto): "Clientes"
                   tiene más letras que "Citas"/"Ventas"/"Inicio", así que sin esto cada
@@ -94,8 +98,8 @@ export function BottomTabBar() {
                   ajusta ese aire sin volverse el rectángulo ancho-y-bajo que se quería
                   evitar en primer lugar. */}
               <span
-                className={`flex h-14 w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors ${
-                  activo ? "bg-primary text-white" : "active:bg-slate-100 dark:active:bg-white/10"
+                className={`flex h-14 w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors active:bg-slate-100 dark:active:bg-white/10 ${
+                  activo ? "text-primary" : ""
                 }`}
               >
                 <Icon size={20} strokeWidth={activo ? 2.5 : 2} />
@@ -109,14 +113,14 @@ export function BottomTabBar() {
           onClick={() => setMasAbierto(true)}
           className="flex flex-1 flex-col items-center gap-0.5 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"
         >
-          {/* Mismo tratamiento "seleccionado" que los otros 4 tabs (fondo
-              primario sólido, ver comentario de arriba) cuando la ruta activa
-              es alguna de las que vive dentro del panel — antes "Más" nunca se
-              resaltaba, así que entrar a Stock/Proveedores/etc. dejaba la
-              barra entera sin ningún tab marcado. */}
+          {/* Mismo tratamiento "seleccionado" que los otros 4 tabs (solo color,
+              ver comentario de arriba) cuando la ruta activa es alguna de las
+              que vive dentro del panel — antes "Más" nunca se resaltaba, así
+              que entrar a Stock/Proveedores/etc. dejaba la barra entera sin
+              ningún tab marcado. */}
           <span
-            className={`flex h-14 w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors ${
-              masActivo ? "bg-primary text-white" : "active:bg-slate-100 dark:active:bg-white/10"
+            className={`flex h-14 w-16 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors active:bg-slate-100 dark:active:bg-white/10 ${
+              masActivo ? "text-primary" : ""
             }`}
           >
             <Menu size={20} strokeWidth={masActivo ? 2.5 : 2} />

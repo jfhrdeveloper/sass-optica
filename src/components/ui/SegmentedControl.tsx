@@ -29,11 +29,11 @@ interface Props {
   /* Por defecto el track mide lo que ocupa su contenido (`w-fit`,
      centrado) — correcto para casos cortos como Mensual/Anual. Cuando el
      control debe ocupar TODO el ancho disponible del contenedor (ej. el
-     selector de vista de Citas: Día/3 días/5 días/Semana/Mes/Lista), esta
-     prop reparte el ancho en partes iguales entre las opciones en vez de
-     dejar que cada una mida lo que su propio texto necesita — si no, un
-     label largo ("5 días") queda más ancho que uno corto ("Mes") y el
-     conjunto se ve desalineado del card que lo contiene. */
+     selector de vista de Citas: Día/Semana/Mes/Lista), esta prop reparte
+     el ancho en partes iguales entre las opciones en vez de dejar que cada
+     una mida lo que su propio texto necesita — si no, un label largo
+     ("Semana") queda más ancho que uno corto ("Mes") y el conjunto se ve
+     desalineado del card que lo contiene. */
   distribuirAncho?: boolean;
 }
 

@@ -227,10 +227,16 @@ export function CalendarioMes({ mesActual, onCambiarMes, onIrAHoy, citas, nombre
                   legible (salía cortado en "…") — un punto sólido por cita
                   alcanza para señalar "hay algo acá" (Google Calendar mobile
                   hace lo mismo); el detalle completo se ve al tocar el día. */}
-              <div className="flex flex-wrap gap-1 px-0.5 sm:hidden" aria-hidden="true">
-                {citasDelDia.slice(0, MAX_PUNTOS_POR_DIA).map((c) => (
+              <div className="flex flex-wrap items-center gap-1 px-0.5 sm:hidden" aria-hidden="true">
+                {citasDelDia.slice(0, MAX_PUNTOS_POR_DIA - 1).map((c) => (
                   <span key={c.id} className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
                 ))}
+                {/* Los puntos por sí solos no distinguen "4 citas" de "9, cortadas
+                    en 4" — desde la 4ta se reemplaza por el número real en vez de
+                    seguir agregando puntos indistinguibles entre sí. */}
+                {citasDelDia.length > MAX_PUNTOS_POR_DIA - 1 && (
+                  <span className="text-[9px] font-medium leading-none text-slate-500 dark:text-slate-500">+{citasDelDia.length - (MAX_PUNTOS_POR_DIA - 1)}</span>
+                )}
               </div>
 
               <div className="hidden flex-1 flex-col gap-1 sm:flex">

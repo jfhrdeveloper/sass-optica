@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, CalendarDays, Package, ShoppingCart,
   Wallet, UserCog, Settings, Tag, Truck, FileText, BarChart3, Percent, Store, FlaskConical, Banknote,
-  Lightbulb, ShieldCheck, Clock, HandCoins,
+  Lightbulb, ShieldCheck, Clock, HandCoins, UserRound,
 } from "lucide-react";
 
 export type Restriccion = { soloAdmin?: boolean; permiso?: string };
@@ -18,13 +18,6 @@ export const NAV: NavItem[] = [
   { kind: "link", href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { kind: "link", href: "/dashboard/clientes", label: "Clientes", icon: Users },
   { kind: "link", href: "/dashboard/citas", label: "Citas", icon: CalendarDays },
-  /* Sin `permiso` ni `soloAdmin` a propósito: marcar la PROPIA asistencia es
-     self-registro de cualquier empleado, no un módulo delegable (ver
-     policy asistencias_self en supabase-schema.sql) — todos deben poder
-     llegar acá. Ver/gestionar la del equipo sí está gateado (permiso
-     'asistencia'), pero eso se resuelve DENTRO de la página, no ocultando
-     la ruta entera. */
-  { kind: "link", href: "/dashboard/asistencia", label: "Asistencia", icon: Clock },
   {
     kind: "group", key: "comercial", label: "Comercial", icon: ShoppingCart,
     children: [
@@ -38,15 +31,36 @@ export const NAV: NavItem[] = [
     ],
   },
   {
+    /* Todo lo que gira en torno a LA PERSONA del empleado (a diferencia de
+       "Administración", que quedó con lo genérico del negocio) — antes
+       vivían repartidos: Asistencia suelta arriba del todo, y
+       Empleados/Roles/Sueldos/Comisiones mezclados dentro de Administración
+       junto con Gastos/Informes/Sucursales/Ajustes (8 ítems sin relación
+       clara entre sí). Reordenado a pedido del usuario. */
+    kind: "group", key: "personal", label: "Personal", icon: UserRound,
+    children: [
+      /* Sin `permiso` ni `soloAdmin` a propósito: marcar la PROPIA asistencia
+         es self-registro de cualquier empleado, no un módulo delegable (ver
+         policy asistencias_self en supabase-schema.sql) — todos deben poder
+         llegar acá, incluso si el resto del grupo es solo-admin. Ver/
+         gestionar la del equipo sí está gateado (permiso 'asistencia'), pero
+         eso se resuelve DENTRO de la página, no ocultando la ruta entera.
+         Como este ítem nunca queda restringido, el grupo "Personal" en sí
+         nunca desaparece del todo para nadie (ver DashboardNav.tsx: un
+         grupo se oculta solo si TODOS sus hijos quedan filtrados). */
+      { href: "/dashboard/asistencia", label: "Asistencia", icon: Clock },
+      { href: "/dashboard/empleados", label: "Empleados", icon: UserCog, soloAdmin: true },
+      { href: "/dashboard/roles", label: "Roles", icon: ShieldCheck, soloAdmin: true },
+      { href: "/dashboard/sueldos", label: "Sueldos", icon: HandCoins, permiso: "sueldos" },
+      { href: "/dashboard/comisiones", label: "Comisiones", icon: Percent, permiso: "gastos" },
+    ],
+  },
+  {
     kind: "group", key: "administracion", label: "Administración", icon: Settings,
     children: [
       { href: "/dashboard/gastos", label: "Gastos", icon: Wallet, permiso: "gastos" },
-      { href: "/dashboard/sueldos", label: "Sueldos", icon: HandCoins, permiso: "sueldos" },
       { href: "/dashboard/informes", label: "Informes", icon: BarChart3, permiso: "gastos" },
-      { href: "/dashboard/comisiones", label: "Comisiones", icon: Percent, permiso: "gastos" },
       { href: "/dashboard/sucursales", label: "Sucursales", icon: Store, soloAdmin: true },
-      { href: "/dashboard/empleados", label: "Empleados", icon: UserCog, soloAdmin: true },
-      { href: "/dashboard/roles", label: "Roles", icon: ShieldCheck, soloAdmin: true },
       { href: "/dashboard/ajustes", label: "Ajustes", icon: Settings },
     ],
   },
