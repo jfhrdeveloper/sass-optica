@@ -30,19 +30,25 @@ export function SettingsTabs({ tabs: tabsProp, gridMobile2 }: { tabs: TabDeAjust
 
   /* `gridMobile2`: variante en grilla de 2 columnas para móvil (pedido
      explícito del usuario para la ficha de cliente, 4 pestañas — en una
-     sola fila con scroll quedaban muy apretadas). Con pocas pestañas cortas
-     (Ajustes: 3, Informes: 2) el default de fila-con-scroll siempre entró
-     en pantalla y sigue igual; esto es opt-in, no cambia esos casos. */
+     sola fila con scroll quedaban muy apretadas; después reusada por
+     Ventas/Cotizaciones —2 tabs, a todo el ancho del cartel— y Roles —3
+     tabs—). Con pocas pestañas cortas (Ajustes: 3, Informes: 2) el default
+     de fila-con-scroll siempre entró en pantalla y sigue igual; esto es
+     opt-in, no cambia esos casos. Con cantidad IMPAR de tabs, la última
+     ocupa las 2 columnas (línea propia a todo el ancho) en vez de quedar a
+     mitad de fila con un hueco vacío al lado — pedido explícito para Roles
+     (2 tabs arriba + 1 sola abajo). */
   return (
     <div className={`mt-4 border-b border-slate-200 pb-2 dark:border-slate-800 ${gridMobile2 ? "" : "overflow-x-auto"}`}>
       <div className={gridMobile2 ? "grid grid-cols-2 gap-1.5 sm:flex sm:w-fit" : "flex w-fit gap-1"}>
-        {tabs.map((t) => {
+        {tabs.map((t, i) => {
           const activo = pathname === t.href;
+          const ultimaImpar = gridMobile2 && tabs.length % 2 === 1 && i === tabs.length - 1;
           return (
             <Link
               key={t.href}
               href={t.href}
-              className={`flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-4 text-center text-sm font-medium transition-colors sm:h-auto sm:py-2 ${
+              className={`flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg px-4 text-center text-sm font-medium transition-colors sm:h-auto sm:py-2 ${ultimaImpar ? "col-span-2" : ""} ${
                 activo
                   ? "bg-primary-light text-primary"
                   : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
