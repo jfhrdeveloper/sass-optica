@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, User, Search, Eye, Trash2, Users, RotateCcw, XCircle } from "lucide-react";
+import { Plus, User, Search, Eye, Trash2, Users, RotateCcw, XCircle, ArrowLeft } from "lucide-react";
 import { Skeleton } from "boneyard-js/react";
 import { useData, type Cliente } from "@/components/providers/DataProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -95,7 +95,7 @@ export default function ClientesPage() {
           {/* Mobile: 2 columnas fijas por fila (buscador + "al día" / papelera + nuevo
               cliente); sm:contents devuelve el layout de flex-wrap original en desktop. */}
           <div className="grid w-full grid-cols-2 gap-2 sm:contents">
-            <div className="relative sm:max-w-xs sm:flex-1">
+            <div className={`relative sm:max-w-xs sm:flex-1 ${verPapelera ? "col-span-2" : ""}`}>
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 placeholder="Buscar por nombre o documento…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
@@ -117,9 +117,9 @@ export default function ClientesPage() {
           <div className="grid w-full grid-cols-2 gap-2 sm:contents">
             <button
               onClick={() => setVerPapelera((v) => !v)}
-              className={verPapelera ? "btn-primary h-11 w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:h-auto sm:w-auto sm:px-4" : "btn-outline h-11 w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:h-auto sm:w-auto sm:px-4"}
+              className={`h-11 w-full justify-center gap-1.5 whitespace-nowrap px-2 sm:h-auto sm:w-auto sm:px-4 ${verPapelera ? "btn-primary col-span-2" : "btn-outline"}`}
             >
-              <Trash2 size={16} /> {verPapelera ? "Volver a clientes" : "Papelera"}
+              {verPapelera ? <ArrowLeft size={16} /> : <Trash2 size={16} />} {verPapelera ? "Volver a clientes" : "Papelera"}
               {!verPapelera && clientesPapelera.length > 0 && (
                 <span className="badge badge-neutral">{clientesPapelera.length}</span>
               )}
