@@ -43,11 +43,13 @@ const SNAP_MIN = PASO_MINUTOS_AGENDA; // granularidad del clic-y-arrastre, en mi
 /* `altoHora / (60/pasoMarca)` = alto de CADA marca — antes bajaba a medida
    que se afinaba el zoom (56px con marcas de hora, pero solo 42px con
    medias horas y 28px con cuartos de hora), quedando más apretado justo en
-   los niveles que se usan para ver más detalle. Ahora sube al afinar
-   (56/56/40px) — pedido explícito del usuario: más espacio entre las horas
-   y las particiones de 15 y 30 minutos. */
+   los niveles que se usan para ver más detalle; y el nivel por defecto
+   (sin zoom) también se sentía muy junto para una cita de 30 min (que a
+   56px/hora rendía solo 26px de alto). Ahora todos suben (80/56/40px) —
+   pedido explícito del usuario: más espacio en la vista por defecto y
+   entre las horas y las particiones de 15 y 30 minutos. */
 const NIVELES_ZOOM = [
-  { altoHora: 56, pasoMarca: 60 }, // horas en punto (7:00, 8:00…)
+  { altoHora: 80, pasoMarca: 60 }, // horas en punto (7:00, 8:00…) — nivel por defecto
   { altoHora: 112, pasoMarca: 30 }, // + medias horas (7:00, 7:30, 8:00…)
   { altoHora: 160, pasoMarca: 15 }, // + cuartos de hora (7:00, 7:15, 7:30, 7:45…)
 ] as const;
