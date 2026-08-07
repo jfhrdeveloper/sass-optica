@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, User, FileText, Pencil, Trash2, ChevronDown, Check } from "lucide-react";
+import { Plus, User, FileText, Pencil, Trash2, ChevronDown, Check, Lock } from "lucide-react";
 import { Skeleton } from "boneyard-js/react";
 import { useData, type Cita } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
@@ -17,6 +17,8 @@ import { DatePicker } from "@/components/calendario/DatePicker";
 import { TimePicker } from "@/components/calendario/TimePicker";
 import { ClienteCombobox } from "@/components/clientes/ClienteCombobox";
 import { EstadoCitaBadge } from "@/components/citas/EstadoCitaBadge";
+import { EmpleadoCombobox } from "@/components/citas/EmpleadoCombobox";
+import { SucursalCombobox } from "@/components/ventas/SucursalCombobox";
 import { ESTADOS_CITA, ESTADO_CITA_LABEL, DURACION_CITA_DEFECTO_MIN, sumarMinutosHora, diferenciaMinutos } from "@/lib/citas";
 import { WhatsAppIcon } from "@/components/landing/WhatsAppIcon";
 import { urlWhatsAppContacto } from "@/lib/contacto";
@@ -504,28 +506,30 @@ export default function CitasPage() {
           </div>
           <div>
             <label className="form-label">Empleado asignado</label>
-            <select
-              value={form.empleadoId ?? ""}
-              onChange={(e) => setForm({ ...form, empleadoId: e.target.value || undefined })}
-              className="select h-11 w-full sm:h-auto"
-            >
-              <option value="">Sin asignar</option>
-              {empleados.filter((e) => e.activo).map((e) => <option key={e.id} value={e.id}>{e.nombres} {e.apellidos}</option>)}
-            </select>
+            <EmpleadoCombobox
+              empleados={empleados}
+              empleadoId={form.empleadoId ?? ""}
+              onChange={(id) => setForm({ ...form, empleadoId: id || undefined })}
+            />
           </div>
           {sucursales.length > 0 && (
             <div>
               <label className="form-label">Sede</label>
-              <select
-                value={form.sucursalId ?? ""}
-                onChange={(e) => setForm({ ...form, sucursalId: e.target.value || undefined })}
-                disabled={!!empleado?.sucursalId}
-                aria-label="Sede"
-                className="select h-11 w-full sm:h-auto"
-              >
-                <option value="">Sin sede asignada</option>
-                {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              {/* Empleado con sede fija: mismo criterio que Ventas — ni
+                 siquiera se ve como un desplegable, es una etiqueta
+                 bloqueada con la única sede que aplica. */}
+              {empleado?.sucursalId ? (
+                <div className="input flex w-full items-center gap-2 bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                  <Lock size={13} className="shrink-0" />
+                  <span className="truncate">{sucursales.find((s) => s.id === empleado.sucursalId)?.nombre ?? "Sede fija"}</span>
+                </div>
+              ) : (
+                <SucursalCombobox
+                  sucursales={sucursales}
+                  sucursalId={form.sucursalId ?? ""}
+                  onChange={(id) => setForm({ ...form, sucursalId: id || undefined })}
+                />
+              )}
             </div>
           )}
           <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campos obligatorios</p>
