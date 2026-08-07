@@ -25,7 +25,7 @@ const STATS = [
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
   { href: "/dashboard/citas", label: "Citas hoy", icon: CalendarDays },
   { href: "/dashboard/productos", label: "Stock bajo", icon: PackageX },
-  { href: "/dashboard/ventas", label: "Ventas totales", icon: ShoppingCart },
+  { href: "/dashboard/ventas/historial", label: "Ventas totales", icon: ShoppingCart },
 ] as const;
 
 /* Selección por defecto de "Accesos rápidos" — secciones de alto uso que NO
