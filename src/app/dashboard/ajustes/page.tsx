@@ -24,6 +24,7 @@ export default function AjustesPage() {
   const [form, setForm] = useState({
     nombre: negocio?.nombre ?? "", ruc: negocio?.ruc ?? "",
     telefono: negocio?.telefono ?? "", direccion: negocio?.direccion ?? "",
+    recargoTarjetaPct: negocio?.recargoTarjetaPct ?? 5,
   });
   const [guardando, setGuardando] = useState(false);
   const [colorPrimario, setColorPrimario] = useState(negocio?.colorPrimario ?? COLOR_DEFECTO);
@@ -103,6 +104,19 @@ export default function AjustesPage() {
           <div>
             <label className="form-label">Dirección</label>
             <input placeholder="Ej. Av. Los Álamos 123" value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className="input w-full" />
+          </div>
+          <div>
+            <label className="form-label">Recargo por tarjeta (%)</label>
+            <input
+              type="number" min={0} max={100} step="0.5"
+              placeholder="Ej. 5"
+              value={form.recargoTarjetaPct}
+              onChange={(e) => setForm({ ...form, recargoTarjetaPct: Number(e.target.value) })}
+              className="input w-full"
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+              Lo que Ventas ofrece sumar al pagar con tarjeta (checkbox &quot;Incluir recargo por tarjeta&quot;).
+            </p>
           </div>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>

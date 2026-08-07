@@ -20,6 +20,10 @@ interface Props {
   onChange: (valor: string) => void;
   etiqueta?: string;
   placeholder?: string;
+  /** Ej. un campo "Hasta" que no tiene sentido tocar hasta que "Desde" ya
+   *  tenga un valor (ver ventas/page.tsx) — bloquea el botón entero, no
+   *  solo el calendario, así no hay forma de abrirlo por accidente. */
+  disabled?: boolean;
 }
 
 /* Selector de UNA fecha (no rango) — contraparte de DateRangePicker.tsx para
@@ -35,7 +39,7 @@ interface Props {
    sin ganar nada — es más simple duplicar el poco boilerplate de
    posicionamiento (mismo patrón que ya repite ColorWell.tsx) que forzar una
    abstracción compartida a la fuerza. */
-export function DatePicker({ valor, onChange, etiqueta = "Fecha", placeholder = "Elegir fecha" }: Props) {
+export function DatePicker({ valor, onChange, etiqueta = "Fecha", placeholder = "Elegir fecha", disabled = false }: Props) {
   const [abierto, setAbierto] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; ancho: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -96,10 +100,11 @@ export function DatePicker({ valor, onChange, etiqueta = "Fecha", placeholder = 
         ref={triggerRef}
         type="button"
         onClick={() => setAbierto((v) => !v)}
+        disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={abierto}
         aria-label={etiqueta}
-        className="input flex h-11 w-full items-center gap-2 sm:h-auto"
+        className="input flex h-11 w-full items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto"
       >
         <CalendarDays size={15} className="shrink-0 text-slate-400" />
         <span className={valor ? "flex-1 text-left" : "flex-1 text-left text-slate-500 dark:text-slate-500"}>

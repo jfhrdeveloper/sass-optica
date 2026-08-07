@@ -41,6 +41,7 @@ export const MOCK_NEGOCIO: Negocio = {
   ruc: "10123456789",
   telefono: "999 999 999",
   direccion: "Av. Siempre Viva 123, Lima",
+  recargoTarjetaPct: 5,
   activo: true,
 };
 

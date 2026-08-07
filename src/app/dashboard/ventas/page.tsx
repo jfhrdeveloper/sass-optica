@@ -15,7 +15,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePaginado } from "@/lib/hooks/usePaginado";
-import { DateRangePicker } from "@/components/calendario/DateRangePicker";
+import { DatePicker } from "@/components/calendario/DatePicker";
 import { buscarDescuentoValido, montoDescuento } from "@/lib/descuentos";
 import { construirHtmlRecibo } from "@/lib/recibo";
 import { contarVentasDelMes, puedeRegistrarVenta } from "@/lib/limites-plan";
@@ -24,18 +24,26 @@ import { LimitePlanBanner } from "@/components/dashboard/LimitePlanBanner";
 import { CajaCerradaBanner } from "@/components/dashboard/CajaCerradaBanner";
 
 const IGV = 0.18;
-/* Recargo por pago con tarjeta (fee que suele trasladar el POS/pasarela al
-   cliente) — opcional, se suma al total antes del cálculo de IGV solo si el
-   usuario marca la casilla y el método de pago es "tarjeta". */
-const RECARGO_TARJETA_PCT = 0.05;
+/* Recargo por default si `negocio` todavía no cargó (o para un negocio sin
+   el campo seteado en mock antiguo) — el valor real y editable vive en
+   `negocio.recargoTarjetaPct` (Ajustes → Datos del negocio), ya no está
+   hardcodeado acá. */
+const RECARGO_TARJETA_PCT_DEFECTO = 5;
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;
+
+/* Editable en Ajustes con paso de 0.5 (numeric(5,2) en el schema) — sin
+   decimales de sobra en el copy cuando el negocio dejó un entero (ej. "5%",
+   no "5.0%"), pero respeta el decimal real si lo tiene (ej. "5.5%"). */
+function fmtPct(pct: number): string {
+  return pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1);
+}
 
 /* Ver el mismo componente en cotizaciones/page.tsx: el placeholder/label
    nativo de un &lt;select&gt; desaparece al elegir un valor, así que sin esto no
    hay forma de recordar qué campo es cada uno una vez lleno. */
-function Campo({ label, obligatorio, children }: { label: string; obligatorio?: boolean; children: React.ReactNode }) {
+function Campo({ label, obligatorio, className, children }: { label: string; obligatorio?: boolean; className?: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className={className}>
       <label className="form-label">{label}{obligatorio && <> <span className="text-red-500">*</span></>}</label>
       {children}
     </div>
@@ -106,12 +114,13 @@ export default function VentasPage() {
     [descuentos, codigoDescuento],
   );
   const descuentoMonto = descuentoAplicado ? montoDescuento(descuentoAplicado, itemsTotal) : 0;
+  const recargoTarjetaPct = negocio?.recargoTarjetaPct ?? RECARGO_TARJETA_PCT_DEFECTO;
   /* El recargo solo se aplica si el método es tarjeta Y el usuario marcó la
      casilla (algunas ópticas absorben el fee, otras lo trasladan al
      cliente — no es automático por el solo hecho de pagar con tarjeta) y se
      calcula SOBRE el monto ya con descuento aplicado, no sobre el bruto. */
   const aplicaRecargoTarjeta = metodoPago === "tarjeta" && recargoTarjeta;
-  const montoRecargoTarjeta = aplicaRecargoTarjeta ? (itemsTotal - descuentoMonto) * RECARGO_TARJETA_PCT : 0;
+  const montoRecargoTarjeta = aplicaRecargoTarjeta ? (itemsTotal - descuentoMonto) * (recargoTarjetaPct / 100) : 0;
   const total = itemsTotal - descuentoMonto + montoRecargoTarjeta;
   const subtotal = total / (1 + IGV);
   const igv = total - subtotal;
@@ -198,7 +207,7 @@ export default function VentasPage() {
        ningún lado y por eso nunca podía figurar en la boleta. */
     const notasPartes: string[] = [];
     if (descuentoAplicado) notasPartes.push(`Descuento (${descuentoAplicado.codigo}): -S/ ${descuentoMonto.toFixed(2)}`);
-    if (aplicaRecargoTarjeta) notasPartes.push(`Recargo tarjeta (${(RECARGO_TARJETA_PCT * 100).toFixed(0)}%): +S/ ${montoRecargoTarjeta.toFixed(2)}`);
+    if (aplicaRecargoTarjeta) notasPartes.push(`Recargo tarjeta (${fmtPct(recargoTarjetaPct)}%): +S/ ${montoRecargoTarjeta.toFixed(2)}`);
     const notas = notasPartes.length > 0 ? notasPartes.join(" · ") : undefined;
 
     const { id, error } = await addVenta(
@@ -232,6 +241,14 @@ export default function VentasPage() {
   // "Nuevo" para ClienteCombobox = sin compras previas (a diferencia de
   // Citas, acá el historial relevante es `ventas`, no `citas`).
   const esNuevoCliente = (id: string) => !ventas.some((v) => v.clienteId === id);
+
+  /* Descuento/recargo de una venta ya confirmada — mismo texto que arma
+     confirmarVenta() en `notas` (único lugar donde queda persistido, ver
+     ese comentario). Antes esta info solo se veía en la boleta impresa; el
+     usuario pidió que la tabla/lista de ventas también la muestre, igual
+     que ya se ve en vivo arriba del botón "Confirmar venta" mientras se
+     arma el ticket. */
+  const notasVenta = (v: Venta) => (v.notas ?? "").split(" · ").filter(Boolean);
 
   /* Ventana nueva con `document.write` + `print()` — patrón estándar para un
      recibo de una sola vez sin librería de PDF: el HTML ya trae su propio
@@ -310,52 +327,67 @@ export default function VentasPage() {
             </button>
           </div>
 
+          {/* Mismo esqueleto en los dos modos (campo(s) arriba, "Agregar ítem"
+             a ancho completo abajo) — antes el botón vivía metido en la
+             misma fila que Cantidad, con un ancho que dependía de cuántos
+             inputs tenía al lado (2 en catálogo, 3 en personalizado), así
+             que terminaba viéndose "diferenciado" entre pestañas. Ahora
+             Cantidad (y Precio unitario en personalizado) tienen su propio
+             ancho fijo sin importar el modo, y el botón siempre ocupa toda
+             la fila de abajo. */}
           {modoItem === "catalogo" ? (
             <div className="mt-2 space-y-2">
               <Campo label="Producto" obligatorio>
                 <ProductoCombobox productos={productos} productoId={productoId} onChange={setProductoId} />
               </Campo>
-              <div className="flex items-end gap-2">
-                <Campo label="Cantidad">
-                  <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
-                </Campo>
-                <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
-                  Agregar ítem
-                </button>
-              </div>
+              <Campo label="Cantidad">
+                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-24" />
+              </Campo>
+              <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline w-full disabled:opacity-50">
+                Agregar ítem
+              </button>
             </div>
           ) : (
             <div className="mt-2 space-y-2">
               <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)" obligatorio>
                 <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full" />
               </Campo>
-              <div className="flex items-end gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Campo label="Precio unitario (S/)" obligatorio>
-                  <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28" />
+                  <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-full" />
                 </Campo>
                 <Campo label="Cantidad">
-                  <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
+                  <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-full" />
                 </Campo>
-                <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
-                  Agregar ítem
-                </button>
               </div>
+              <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline w-full disabled:opacity-50">
+                Agregar ítem
+              </button>
             </div>
           )}
         </div>
 
+        {/* Card propio para los ítems ya agregados — separado del card de
+           descuento/total de más abajo (dos cards distintos, no uno solo
+           con todo adentro: pedido explícito del usuario), pero con el
+           MISMO color celeste (bg-primary-light) que ese — pedido explícito
+           también. Vive acá arriba, pegado a donde se están agregando los
+           ítems, no allá abajo junto al resto del formulario de pago. */}
         {items.length > 0 && (
-          <ul className="mt-3 space-y-1 text-sm">
-            {items.map((it, i) => (
-              <li key={i} className="flex items-center justify-between">
-                <span>{it.cantidad}× {it.descripcion}</span>
-                <span>
-                  S/ {it.subtotal.toFixed(2)}{" "}
-                  <button onClick={() => quitarItem(i)} className="link-danger">quitar</button>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3 rounded-lg bg-primary-light p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">Ítems de la venta</h3>
+            <ul className="mt-2 space-y-1 text-sm">
+              {items.map((it, i) => (
+                <li key={i} className="flex items-center justify-between text-slate-700 dark:text-slate-200">
+                  <span>{it.cantidad}× {it.descripcion}</span>
+                  <span>
+                    S/ {it.subtotal.toFixed(2)}{" "}
+                    <button onClick={() => quitarItem(i)} className="link-danger">quitar</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {/* Venta cruzada sin IA: co-ocurrencia real de venta_items pasados
@@ -376,7 +408,14 @@ export default function VentasPage() {
         )}
 
         <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:flex sm:flex-wrap sm:items-end sm:justify-between">
-          <Campo label="Método de pago">
+          {/* Orden en mobile (grid de 1 columna, el orden visual lo decide
+             `order-*`, no la posición en el DOM): Método de pago → recargo
+             (si aplica) → Sede → Descuento → Total. Antes el recargo caía
+             DESPUÉS de Sede solo porque así estaba escrito el JSX — quedaba
+             separado de "Método de pago", con el que en realidad va de la
+             mano (solo aparece si el método es tarjeta). Desktop no se toca
+             (`sm:order-none`): ahí el `flex-wrap` ya acomodaba todo bien. */}
+          <Campo label="Método de pago" className="order-1 sm:order-none">
             <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="select w-full">
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
@@ -385,8 +424,14 @@ export default function VentasPage() {
               <option value="transferencia">Transferencia</option>
             </select>
           </Campo>
+          {metodoPago === "tarjeta" && (
+            <label className="order-2 flex items-center gap-1.5 text-xs text-slate-600 sm:order-none dark:text-slate-300">
+              <input type="checkbox" checked={recargoTarjeta} onChange={(e) => setRecargoTarjeta(e.target.checked)} className="checkbox" />
+              Incluir recargo por tarjeta ({fmtPct(recargoTarjetaPct)}%)
+            </label>
+          )}
           {sucursales.length > 0 && (
-            <Campo label="Sede">
+            <Campo label="Sede" className="order-3 sm:order-none">
               {/* Empleado con sede fija: antes esto seguía siendo un <select>
                  (solo disabled), mostrando todas las sedes aunque ninguna
                  fuera realmente elegible — ahora, con sede fija, ni siquiera
@@ -403,31 +448,35 @@ export default function VentasPage() {
               )}
             </Campo>
           )}
-          {metodoPago === "tarjeta" && (
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-              <input type="checkbox" checked={recargoTarjeta} onChange={(e) => setRecargoTarjeta(e.target.checked)} className="checkbox" />
-              Incluir recargo por tarjeta ({(RECARGO_TARJETA_PCT * 100).toFixed(0)}%)
-            </label>
-          )}
           {/* Antes solo aparecía con items.length > 0 — "a veces sí, a veces
              no" reportado por el usuario. Siempre visible ahora (un
              descuento sin ítems simplemente no tiene nada sobre qué
              aplicarse, pero el campo en sí no depende de eso). */}
-          <Campo label="Código de descuento (opcional)">
+          <Campo label="Código de descuento (opcional)" className="order-4 sm:order-none">
             <DescuentoCombobox descuentos={descuentosDisponibles} codigo={codigoDescuento} onChange={setCodigoDescuento} />
           </Campo>
-          <div className="text-right sm:ml-auto">
+        </div>
+
+        {/* Card independiente del de "Ítems de la venta" de más arriba —
+           dos cards distintos a propósito, no uno solo (pedido explícito
+           del usuario). Color propio (bg-primary-light) para diferenciarse
+           del resto del card "Nueva venta", tanto en mobile como en
+           desktop. Solo aparece con al menos 1 ítem — un total de un
+           carrito vacío no aporta nada. */}
+        {items.length > 0 && (
+          <div className="mt-3 space-y-1 rounded-lg bg-primary-light p-4 text-right">
             {descuentoAplicado && (
-              <p className="text-accent">
+              <p className="text-sm font-medium text-accent">
                 {descuentoAplicado.codigo} aplicado: −S/ {descuentoMonto.toFixed(2)}
               </p>
             )}
             {aplicaRecargoTarjeta && (
-              <p className="text-slate-500 dark:text-slate-400">Recargo tarjeta: +S/ {montoRecargoTarjeta.toFixed(2)}</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Recargo tarjeta: +S/ {montoRecargoTarjeta.toFixed(2)}</p>
             )}
-            <span className="font-medium">Total: S/ {total.toFixed(2)} (IGV incl.)</span>
+            <p className="text-2xl font-bold leading-tight text-primary">S/ {total.toFixed(2)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-500">Total (IGV incl.)</p>
           </div>
-        </div>
+        )}
 
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio</p>
         <button
@@ -440,7 +489,14 @@ export default function VentasPage() {
 
       <div className="table-card mt-6">
         <div className="table-filter-bar">
-          <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select">
+          {/* "Todos los métodos" a ancho completo en su propia línea (mobile),
+             y abajo Desde/Hasta como 2 campos propios en vez del selector de
+             rango combinado (DateRangePicker) que usa el resto de la app —
+             pedido explícito del usuario para Ventas en particular. El "*"
+             en Desde es solo informativo (si vas a filtrar por fecha, hace
+             falta un desde — Hasta se puede dejar vacío = hasta hoy), no
+             bloquea nada: sin tocar el filtro se sigue viendo todo. */}
+          <select value={filtroMetodo} onChange={(e) => setFiltroMetodo(e.target.value)} className="select h-11 w-full sm:h-auto sm:w-auto">
             <option value="todos">Todos los métodos</option>
             <option value="efectivo">Efectivo</option>
             <option value="tarjeta">Tarjeta</option>
@@ -448,7 +504,17 @@ export default function VentasPage() {
             <option value="plin">Plin</option>
             <option value="transferencia">Transferencia</option>
           </select>
-          <DateRangePicker desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
+          <div className="grid w-full grid-cols-2 gap-2 sm:contents">
+            <Campo label="Desde" obligatorio>
+              {/* Si se limpia Desde, Hasta se limpia con él — no solo se
+                 deshabilita el botón, si no Hasta podía quedar con un valor
+                 "fantasma" filtrando igual aunque ya no se viera editable. */}
+              <DatePicker etiqueta="Desde" placeholder="Elegir fecha" valor={desde} onChange={(v) => { setDesde(v); if (!v) setHasta(""); }} />
+            </Campo>
+            <Campo label="Hasta">
+              <DatePicker etiqueta="Hasta" placeholder="Elegir fecha" valor={hasta} onChange={setHasta} disabled={!desde} />
+            </Campo>
+          </div>
         </div>
 
         <Skeleton name="ventas-tabla" loading={!ready}>
@@ -483,6 +549,11 @@ export default function VentasPage() {
                     <div className="text-xs text-slate-500 dark:text-slate-500">
                       {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
                     </div>
+                    {notasVenta(v).map((linea) => (
+                      <div key={linea} className={`text-xs ${linea.startsWith("Descuento") ? "text-accent" : "text-slate-500 dark:text-slate-500"}`}>
+                        {linea}
+                      </div>
+                    ))}
                   </td>
                   <td className="table-body-cell">
                     <span className={`badge ${v.estado === "anulada" ? "badge-neutral" : "badge-success"}`}>
@@ -563,6 +634,11 @@ export default function VentasPage() {
                     <p className="text-xs text-slate-500 dark:text-slate-500">
                       {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
                     </p>
+                    {notasVenta(v).map((linea) => (
+                      <p key={linea} className={`text-xs ${linea.startsWith("Descuento") ? "text-accent" : "text-slate-500 dark:text-slate-500"}`}>
+                        {linea}
+                      </p>
+                    ))}
                     <p className="text-xs capitalize text-slate-600 dark:text-slate-300">Método: {v.metodoPago}</p>
                     <div className="flex gap-2 pt-1">
                       <button

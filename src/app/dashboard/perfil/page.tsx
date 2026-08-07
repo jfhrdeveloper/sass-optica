@@ -16,7 +16,7 @@ import { nombreRol } from "@/lib/roles";
    sidebar: no es un módulo de negocio, es la cuenta de quien está adentro,
    así que cualquier rol la ve igual. */
 export default function PerfilPage() {
-  const { updateEmpleado } = useData();
+  const { updateEmpleado, sucursales } = useData();
   /* `useSession().empleado` ya sale de `DataProvider.empleados` buscado por
      el id autenticado (ver SessionProvider.tsx) — es el mismo objeto en
      vivo, no hace falta volver a buscarlo acá. */
@@ -156,6 +156,21 @@ export default function PerfilPage() {
             <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Rol</dt>
             <dd className="text-slate-700 dark:text-slate-200">{yo ? nombreRol(yo.rol) : "—"}</dd>
           </div>
+          {/* Solo si el negocio tiene sucursales creadas — pedido explícito
+             del usuario: el empleado debe poder ver acá cuál es su sede
+             asignada, sin tener que ir a preguntarle al administrador. Sin
+             sede fija (sucursalId ausente) no es un error, es el estado
+             normal de "ve todas las sedes" (administrador/encargado
+             multi-sede) — se rotula distinto para que no se lea como un
+             dato faltante. */}
+          {sucursales.length > 0 && (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">Sede</dt>
+              <dd className="text-slate-700 dark:text-slate-200">
+                {yo?.sucursalId ? (sucursales.find((s) => s.id === yo.sucursalId)?.nombre ?? "—") : "Todas las sedes"}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 

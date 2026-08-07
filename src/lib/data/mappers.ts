@@ -110,6 +110,7 @@ export function rowToNegocio(r: Record<string, unknown>): Negocio {
     direccion:   r.direccion ? String(r.direccion) : undefined,
     logoUrl:     r.logo_url ? String(r.logo_url) : undefined,
     colorPrimario: r.color_primario ? String(r.color_primario) : undefined,
+    recargoTarjetaPct: Number(r.recargo_tarjeta_pct ?? 5),
     activo:      Boolean(r.activo ?? true),
   };
 }
@@ -121,6 +122,7 @@ export function negocioToRow(n: Partial<Negocio>): Record<string, unknown> {
   if (n.direccion !== undefined) out.direccion = n.direccion;
   if (n.logoUrl   !== undefined) out.logo_url  = n.logoUrl;
   if (n.colorPrimario !== undefined) out.color_primario = n.colorPrimario || null;
+  if (n.recargoTarjetaPct !== undefined) out.recargo_tarjeta_pct = n.recargoTarjetaPct;
   if (n.activo    !== undefined) out.activo    = n.activo;
   return out;
 }

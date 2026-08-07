@@ -50,6 +50,11 @@ create table if not exists public.negocios (
   direccion    text,
   logo_url     text,
   color_primario text,  -- personalización de marca (hex, ej. '#2563eb') — null = paleta por defecto
+  -- % de recargo que Ventas ofrece sumar cuando el método de pago es
+  -- tarjeta (checkbox "Incluir recargo por tarjeta") — antes vivía
+  -- hardcodeado a 5% en ventas/page.tsx, ahora es editable en Ajustes
+  -- porque cada óptica negocia una tasa distinta con su POS/pasarela.
+  recargo_tarjeta_pct numeric(5,2) not null default 5 check (recargo_tarjeta_pct >= 0 and recargo_tarjeta_pct <= 100),
   activo       boolean not null default true,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),

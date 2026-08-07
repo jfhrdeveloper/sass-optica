@@ -116,6 +116,9 @@ export interface Negocio {
   direccion?: string;
   logoUrl?:   string;
   colorPrimario?: string;
+  /** % de recargo por tarjeta que ofrece Ventas al pagar con tarjeta —
+   *  editable en Ajustes (antes hardcodeado a 5 en ventas/page.tsx). */
+  recargoTarjetaPct: number;
   activo:     boolean;
 }
 
