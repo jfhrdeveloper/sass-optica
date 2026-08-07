@@ -753,7 +753,12 @@ const VENTAS_STRESS = generarVentasYItemsStress(50, MOCK_CLIENTES, MOCK_PRODUCTO
 const VENTAS_PERFIL_STRESS = generarVentasPerfilStress(MOCK_CLIENTES, MOCK_PRODUCTOS);
 
 export const MOCK_VENTAS: Venta[] = [
-  { id: "ven-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date().toISOString(), subtotal: 296.61, igv: 53.39, total: 350, metodoPago: "tarjeta", estado: "pagada", montoPagado: 350 },
+  // Tarjeta + descuento VERANO10 (10%) + recargo tarjeta (5% del negocio,
+  // ver MOCK_NEGOCIO.recargoTarjetaPct) sobre el monto YA con descuento —
+  // a propósito, para ver ambas líneas en el ticket impreso (lib/recibo.ts)
+  // y en la fila de Ventas → Ventas realizadas (mismo texto en `notas`).
+  // Ítem (vi-1) a 350 sin tocar: 350 - 35 (descuento) + 15.75 (recargo) = 330.75.
+  { id: "ven-1", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date().toISOString(), subtotal: 280.30, igv: 50.45, total: 330.75, metodoPago: "tarjeta", estado: "pagada", montoPagado: 330.75, notas: "Descuento (VERANO10): -S/ 35.00 · Recargo tarjeta (5%): +S/ 15.75" },
   // Hace 25 días -> con duracionReposicionDias=30 del Acuvue, la reposición
   // cae en ~5 días — a propósito, para que el banner de seguimiento de
   // Inicio (ventana de 30 días) tenga algo real que mostrar en modo mock.
@@ -763,7 +768,9 @@ export const MOCK_VENTAS: Venta[] = [
   // sugerir en modo mock: al agregar el armazón a una venta nueva, debería
   // sugerir la luna.
   { id: "ven-3", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-1", empleadoId: MOCK_EMPLEADO.id, fecha: new Date(Date.now() - 40 * 86400000).toISOString(), subtotal: 398.31, igv: 71.69, total: 470, metodoPago: "efectivo", estado: "pagada", montoPagado: 470 },
-  { id: "ven-4", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date(Date.now() - 60 * 86400000).toISOString(), subtotal: 398.31, igv: 71.69, total: 470, metodoPago: "tarjeta", estado: "pagada", montoPagado: 470 },
+  // Mismo criterio que ven-1 (tarjeta + descuento + recargo), items (vi-5,
+  // vi-6) sin tocar: 470 - 47 (descuento) + 21.15 (recargo) = 444.15.
+  { id: "ven-4", negocioId: MOCK_NEGOCIO.id, clienteId: "cli-2", empleadoId: MOCK_EMPLEADO.id, fecha: new Date(Date.now() - 60 * 86400000).toISOString(), subtotal: 376.40, igv: 67.75, total: 444.15, metodoPago: "tarjeta", estado: "pagada", montoPagado: 444.15, notas: "Descuento (VERANO10): -S/ 47.00 · Recargo tarjeta (5%): +S/ 21.15" },
   ...VENTAS_STRESS.ventas,
   ...VENTAS_PERFIL_STRESS.ventas,
 ];
