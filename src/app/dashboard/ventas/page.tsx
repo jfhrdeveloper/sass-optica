@@ -6,6 +6,8 @@ import { Skeleton } from "boneyard-js/react";
 import { EscanerCodigoBarras } from "@/components/ui/EscanerCodigoBarras";
 import { ClienteCombobox } from "@/components/clientes/ClienteCombobox";
 import { ProductoCombobox } from "@/components/ventas/ProductoCombobox";
+import { SucursalCombobox } from "@/components/ventas/SucursalCombobox";
+import { DescuentoCombobox } from "@/components/ventas/DescuentoCombobox";
 import { productosRelacionados } from "@/lib/venta-cruzada";
 import { useData, type Venta, type VentaItem, type Producto } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
@@ -397,14 +399,7 @@ export default function VentasPage() {
                   <span className="truncate">{sucursales.find((s) => s.id === empleado.sucursalId)?.nombre ?? "Sede fija"}</span>
                 </div>
               ) : (
-                <select
-                  value={sucursalVentaId}
-                  onChange={(e) => setSucursalVentaId(e.target.value)}
-                  className="select w-full"
-                >
-                  <option value="">Sin sede asignada</option>
-                  {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
+                <SucursalCombobox sucursales={sucursales} sucursalId={sucursalVentaId} onChange={setSucursalVentaId} />
               )}
             </Campo>
           )}
@@ -419,17 +414,7 @@ export default function VentasPage() {
              descuento sin ítems simplemente no tiene nada sobre qué
              aplicarse, pero el campo en sí no depende de eso). */}
           <Campo label="Código de descuento (opcional)">
-            <select
-              value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-              className="select w-full sm:w-48"
-            >
-              <option value="">Sin descuento</option>
-              {descuentosDisponibles.map((d) => (
-                <option key={d.id} value={d.codigo}>
-                  {d.codigo} — {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
-                </option>
-              ))}
-            </select>
+            <DescuentoCombobox descuentos={descuentosDisponibles} codigo={codigoDescuento} onChange={setCodigoDescuento} />
           </Campo>
           <div className="text-right sm:ml-auto">
             {descuentoAplicado && (
