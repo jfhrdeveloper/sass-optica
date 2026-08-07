@@ -165,6 +165,36 @@ create table if not exists public.roles_personalizados (
 );
 create index if not exists idx_roles_personalizados_negocio on public.roles_personalizados(negocio_id);
 
+-- Límite de 2 roles personalizados del plan Gratis (freemium) — mismo motivo
+-- que bloquear_venta_limite_gratis: `roles_personalizados` se inserta directo
+-- desde el navegador (DataProvider.addRolPersonalizado), a diferencia de
+-- empleados (que pasa 100% por /api/empleados/invitar con service_role), así
+-- que acá SÍ hace falta un trigger: RLS aísla tenants entre sí, pero no
+-- protege límites de negocio dentro del propio tenant. Solo cuenta contra
+-- INSERT (editar un rol ya creado, incluso al tope, sigue permitido). --------
+create or replace function public.bloquear_rol_personalizado_limite_gratis()
+returns trigger language plpgsql as $$
+declare
+  v_plan plan_suscripcion;
+  v_conteo integer;
+begin
+  select plan into v_plan from public.suscripciones where negocio_id = new.negocio_id;
+  if v_plan = 'gratis' then
+    select count(*) into v_conteo
+      from public.roles_personalizados
+     where negocio_id = new.negocio_id;
+    if v_conteo >= 2 then
+      raise exception 'Llegaste al límite de 2 roles personalizados del plan Gratis.';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_roles_personalizados_limite_gratis on public.roles_personalizados;
+create trigger trg_roles_personalizados_limite_gratis
+  before insert on public.roles_personalizados
+  for each row execute function public.bloquear_rol_personalizado_limite_gratis();
+
 -- empleados (1:1 con auth.users — "usuarios" del brief) ---------------------
 -- Declarado acá (no junto al resto de enums del "módulo de dominio" más
 -- abajo) porque empleados.tipo_pago lo necesita antes que cualquier otra

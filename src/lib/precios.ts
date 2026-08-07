@@ -68,6 +68,7 @@ export const PLANES: Plan[] = [
  *  sistema (clientes/citas/recetas/productos/inventario) queda sin límite. */
 export const LIMITE_EMPLEADOS_GRATIS = 2;
 export const LIMITE_VENTAS_MES_GRATIS = 30;
+export const LIMITE_ROLES_PERSONALIZADOS_GRATIS = 2;
 
 export const PLAN_IDS = ["gratis", "basico", "premium"] as const;
 export type PlanId = (typeof PLAN_IDS)[number];

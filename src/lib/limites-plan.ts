@@ -1,5 +1,5 @@
 import type { Empleado, Venta } from "@/components/providers/DataProvider";
-import { LIMITE_EMPLEADOS_GRATIS, LIMITE_VENTAS_MES_GRATIS } from "@/lib/precios";
+import { LIMITE_EMPLEADOS_GRATIS, LIMITE_VENTAS_MES_GRATIS, LIMITE_ROLES_PERSONALIZADOS_GRATIS } from "@/lib/precios";
 
 /* Lógica pura de los límites del plan Gratis (freemium) — separada de
    precios.ts porque ahí viven las CONSTANTES (compartidas con el schema/
@@ -22,4 +22,8 @@ export function puedeAgregarEmpleado(plan: string, empleadosActivosCount: number
 
 export function puedeRegistrarVenta(plan: string, ventasDelMesCount: number): boolean {
   return plan !== "gratis" || ventasDelMesCount < LIMITE_VENTAS_MES_GRATIS;
+}
+
+export function puedeCrearRolPersonalizado(plan: string, rolesPersonalizadosCount: number): boolean {
+  return plan !== "gratis" || rolesPersonalizadosCount < LIMITE_ROLES_PERSONALIZADOS_GRATIS;
 }

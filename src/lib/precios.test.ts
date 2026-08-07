@@ -3,7 +3,7 @@ import {
   PLANES, OFERTA_ANUAL,
   precioAnual, ahorroAnual, precioSegunCiclo, montoCentimosSegunCiclo,
   etiquetaOferta, descripcionOferta, nombrePlanSuscripcion, nombreEstadoSuscripcion,
-  esPlanIdValido, LIMITE_EMPLEADOS_GRATIS, LIMITE_VENTAS_MES_GRATIS,
+  esPlanIdValido, LIMITE_EMPLEADOS_GRATIS, LIMITE_VENTAS_MES_GRATIS, LIMITE_ROLES_PERSONALIZADOS_GRATIS,
 } from "@/lib/precios";
 
 /* Es aritmética de dinero mostrada al cliente: un error acá es un precio mal
@@ -193,5 +193,6 @@ describe("límites del plan Gratis", () => {
   it("son los confirmados con el usuario — no cambiar sin que lo pida", () => {
     expect(LIMITE_EMPLEADOS_GRATIS).toBe(2);
     expect(LIMITE_VENTAS_MES_GRATIS).toBe(30);
+    expect(LIMITE_ROLES_PERSONALIZADOS_GRATIS).toBe(2);
   });
 });

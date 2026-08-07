@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Empleado, Venta } from "@/components/providers/DataProvider";
 import {
-  contarEmpleadosActivos, contarVentasDelMes, puedeAgregarEmpleado, puedeRegistrarVenta,
+  contarEmpleadosActivos, contarVentasDelMes, puedeAgregarEmpleado, puedeRegistrarVenta, puedeCrearRolPersonalizado,
 } from "@/lib/limites-plan";
 
 function empleado(activo: boolean): Empleado {
@@ -70,5 +70,19 @@ describe("puedeRegistrarVenta", () => {
   it("planes pagos nunca bloquean", () => {
     expect(puedeRegistrarVenta("basico", 999)).toBe(true);
     expect(puedeRegistrarVenta("premium", 999)).toBe(true);
+  });
+});
+
+describe("puedeCrearRolPersonalizado", () => {
+  it("plan gratis: bloquea al llegar al límite, no antes", () => {
+    expect(puedeCrearRolPersonalizado("gratis", 0)).toBe(true);
+    expect(puedeCrearRolPersonalizado("gratis", 1)).toBe(true);
+    expect(puedeCrearRolPersonalizado("gratis", 2)).toBe(false);
+    expect(puedeCrearRolPersonalizado("gratis", 5)).toBe(false);
+  });
+
+  it("planes pagos nunca bloquean", () => {
+    expect(puedeCrearRolPersonalizado("basico", 999)).toBe(true);
+    expect(puedeCrearRolPersonalizado("premium", 999)).toBe(true);
   });
 });
