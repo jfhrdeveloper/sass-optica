@@ -45,13 +45,13 @@ const SNAP_MIN = PASO_MINUTOS_AGENDA; // granularidad del clic-y-arrastre, en mi
    medias horas y 28px con cuartos de hora), quedando más apretado justo en
    los niveles que se usan para ver más detalle; y el nivel por defecto
    (sin zoom) también se sentía muy junto para una cita de 30 min (que a
-   56px/hora rendía solo 26px de alto). Ahora todos suben (80/56/40px) —
-   pedido explícito del usuario: más espacio en la vista por defecto y
-   entre las horas y las particiones de 15 y 30 minutos. */
+   56px/hora rendía solo 26px de alto). Ahora todos suben (80/56/60px) — el
+   nivel de 15 min queda con el más alto de los tres (pedido explícito del
+   usuario: es el que más le importa). */
 const NIVELES_ZOOM = [
   { altoHora: 80, pasoMarca: 60 }, // horas en punto (7:00, 8:00…) — nivel por defecto
   { altoHora: 112, pasoMarca: 30 }, // + medias horas (7:00, 7:30, 8:00…)
-  { altoHora: 160, pasoMarca: 15 }, // + cuartos de hora (7:00, 7:15, 7:30, 7:45…)
+  { altoHora: 240, pasoMarca: 15 }, // + cuartos de hora (7:00, 7:15, 7:30, 7:45…) — prioridad
 ] as const;
 
 /* `duracionMin` es opcional en `Cita` (citas viejas no la tienen) — cuando
