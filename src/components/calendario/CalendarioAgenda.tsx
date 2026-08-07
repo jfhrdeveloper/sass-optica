@@ -40,10 +40,16 @@ const SNAP_MIN = PASO_MINUTOS_AGENDA; // granularidad del clic-y-arrastre, en mi
    reportado por el usuario: "sigo viendo clics que agrandan pero no
    agregan las horas"). Ahora cada clic en +/- SIEMPRE cambia el detalle
    mostrado, nunca solo el tamaño. */
+/* `altoHora / (60/pasoMarca)` = alto de CADA marca — antes bajaba a medida
+   que se afinaba el zoom (56px con marcas de hora, pero solo 42px con
+   medias horas y 28px con cuartos de hora), quedando más apretado justo en
+   los niveles que se usan para ver más detalle. Ahora sube al afinar
+   (56/56/40px) — pedido explícito del usuario: más espacio entre las horas
+   y las particiones de 15 y 30 minutos. */
 const NIVELES_ZOOM = [
   { altoHora: 56, pasoMarca: 60 }, // horas en punto (7:00, 8:00…)
-  { altoHora: 84, pasoMarca: 30 }, // + medias horas (7:00, 7:30, 8:00…)
-  { altoHora: 112, pasoMarca: 15 }, // + cuartos de hora (7:00, 7:15, 7:30, 7:45…)
+  { altoHora: 112, pasoMarca: 30 }, // + medias horas (7:00, 7:30, 8:00…)
+  { altoHora: 160, pasoMarca: 15 }, // + cuartos de hora (7:00, 7:15, 7:30, 7:45…)
 ] as const;
 
 /* `duracionMin` es opcional en `Cita` (citas viejas no la tienen) — cuando
