@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X, Contact } from "lucide-react";
+import { User, History, Pencil, Plus, ArrowLeft, Trash2, Check, X, Contact, StickyNote } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -154,8 +154,83 @@ export default function ClienteDetalleLayout({ children }: { children: React.Rea
         </div>
       </div>
 
+      {/* Datos de contacto ANTES que los avisos de seguimiento (pedido
+         explícito del usuario, "armonía con los datos") — antes los avisos
+         (reposición/garantía/control anual) iban primero, arriba de los
+         propios datos del cliente que explican a quién se le avisa. */}
+      <div className="card mt-3 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Teléfono</div>
+          <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+            {cliente.telefono ?? "—"}
+            {cliente.telefono && <BotonWhatsApp telefono={cliente.telefono} />}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Email</div>
+          <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{cliente.email ?? "—"}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Nacimiento</div>
+          <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            {cliente.fechaNacimiento ? formatearFecha(cliente.fechaNacimiento) : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 dark:text-slate-500">Dirección</div>
+          <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{cliente.direccion ?? "—"}</div>
+        </div>
+      </div>
+
+      {/* Notas ANTES que los avisos de seguimiento, junto a los datos de
+         contacto (mismo criterio, "armonía con los datos") — antes vivía
+         después de los avisos, sin ningún título que la identificara como
+         "Notas" (pedido explícito del usuario). Envuelta en `.card` (mismo
+         tratamiento que la tarjeta de datos de contacto) — antes el título y
+         el botón "Agregar nota" (cuando todavía no hay ninguna) quedaban
+         sueltos sobre el fondo de la página, sin ningún cuadro que los
+         contuviera. */}
+      <div className="card mt-4 p-4">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <StickyNote size={15} /> Notas
+        </h2>
+        <div className="mt-2">
+          {editandoNotas ? (
+            <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+              <textarea
+                rows={3}
+                value={notasValor}
+                onChange={(e) => setNotasValor(e.target.value)}
+                placeholder="Notas del cliente…"
+                className="input w-full"
+                autoFocus
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button onClick={() => setEditandoNotas(false)} className="btn-outline h-11 gap-1.5 px-4 text-xs sm:h-auto">
+                  <X size={13} /> Cancelar
+                </button>
+                <button onClick={guardarNotas} disabled={guardandoNotas} className="btn-primary h-11 gap-1.5 px-4 text-xs sm:h-auto">
+                  <Check size={13} /> {guardandoNotas ? "Guardando…" : "Guardar"}
+                </button>
+              </div>
+            </div>
+          ) : cliente.notas ? (
+            <div className="group flex items-start justify-between gap-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
+              <p className="text-sm text-slate-600 dark:text-slate-300">{cliente.notas}</p>
+              <button onClick={iniciarEdicionNotas} title="Editar nota" aria-label="Editar nota" className="row-icon-btn shrink-0">
+                <Pencil size={13} />
+              </button>
+            </div>
+          ) : (
+            <button onClick={iniciarEdicionNotas} className="link-muted inline-flex items-center gap-1.5 text-sm">
+              <Plus size={14} /> Agregar nota
+            </button>
+          )}
+        </div>
+      </div>
+
       {seguimientosDelCliente.length > 0 && (
-        <div className="mt-3 space-y-1.5">
+        <div className="mt-4 space-y-1.5">
           {seguimientosVisibles.map((s) => {
             const urlRecordatorio = urlRecordatorioSeguimiento(s);
             return (
@@ -191,64 +266,6 @@ export default function ClienteDetalleLayout({ children }: { children: React.Rea
         </div>
       )}
       <Pagination pagina={paginaSeguimientos} totalPaginas={totalPaginasSeguimientos} onCambiar={setPaginaSeguimientos} />
-
-      <div className="card mt-5 grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <div className="text-xs text-slate-500 dark:text-slate-500">Teléfono</div>
-          <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-            {cliente.telefono ?? "—"}
-            {cliente.telefono && <BotonWhatsApp telefono={cliente.telefono} />}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-slate-500 dark:text-slate-500">Email</div>
-          <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{cliente.email ?? "—"}</div>
-        </div>
-        <div>
-          <div className="text-xs text-slate-500 dark:text-slate-500">Nacimiento</div>
-          <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-            {cliente.fechaNacimiento ? formatearFecha(cliente.fechaNacimiento) : "—"}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs text-slate-500 dark:text-slate-500">Dirección</div>
-          <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{cliente.direccion ?? "—"}</div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        {editandoNotas ? (
-          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-            <textarea
-              rows={3}
-              value={notasValor}
-              onChange={(e) => setNotasValor(e.target.value)}
-              placeholder="Notas del cliente…"
-              className="input w-full"
-              autoFocus
-            />
-            <div className="mt-2 flex justify-end gap-2">
-              <button onClick={() => setEditandoNotas(false)} className="btn-outline h-11 gap-1.5 px-4 text-xs sm:h-auto">
-                <X size={13} /> Cancelar
-              </button>
-              <button onClick={guardarNotas} disabled={guardandoNotas} className="btn-primary h-11 gap-1.5 px-4 text-xs sm:h-auto">
-                <Check size={13} /> {guardandoNotas ? "Guardando…" : "Guardar"}
-              </button>
-            </div>
-          </div>
-        ) : cliente.notas ? (
-          <div className="group flex items-start justify-between gap-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-            <p className="text-sm text-slate-600 dark:text-slate-300">{cliente.notas}</p>
-            <button onClick={iniciarEdicionNotas} title="Editar nota" aria-label="Editar nota" className="row-icon-btn shrink-0">
-              <Pencil size={13} />
-            </button>
-          </div>
-        ) : (
-          <button onClick={iniciarEdicionNotas} className="link-muted inline-flex items-center gap-1.5 text-sm">
-            <Plus size={14} /> Agregar nota
-          </button>
-        )}
-      </div>
 
       <SettingsTabs tabs={tabs} gridMobile2 />
 
