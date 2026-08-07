@@ -7,6 +7,8 @@ import { useData, type OrdenLaboratorio, type EstadoOrdenLaboratorio } from "@/c
 import { useSession } from "@/components/providers/SessionProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePaginado } from "@/lib/hooks/usePaginado";
 import { DatePicker } from "@/components/calendario/DatePicker";
 import { formatearFecha } from "@/lib/formato/date";
 import { urlWhatsAppContacto } from "@/lib/contacto";
@@ -72,6 +74,7 @@ export default function LaboratorioPage() {
   const filtradas = ordenesLaboratorio
     .filter((o) => filtroEstado === "todos" || o.estado === filtroEstado)
     .sort((a, b) => b.fechaGenerado.localeCompare(a.fechaGenerado));
+  const { pagina, setPagina, totalPaginas, visibles } = usePaginado(filtradas);
 
   const ventasDelCliente = ventas.filter((v) => v.clienteId === form.clienteId);
 
@@ -106,7 +109,7 @@ export default function LaboratorioPage() {
               </tr>
             </thead>
             <tbody>
-              {filtradas.map((o) => {
+              {visibles.map((o) => {
                 const cliente = clientes.find((c) => c.id === o.clienteId);
                 const opcionesEstado = [o.estado, ...TRANSICIONES_VALIDAS[o.estado]];
                 return (
@@ -163,6 +166,7 @@ export default function LaboratorioPage() {
           </table>
         </div>
         </Skeleton>
+        <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
       </div>
 
       <SlideOver abierto={abierto} onClose={cerrar} titulo="Nueva orden de laboratorio">
