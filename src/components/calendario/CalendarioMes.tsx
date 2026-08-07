@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import type { Cita } from "@/components/providers/DataProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
@@ -79,14 +78,6 @@ function construirGrilla(anio: number, mes: number): Date[] {
   });
 }
 
-interface PopoverDia {
-  dia: Date;
-  citas: Cita[];
-  top: number;
-  left: number;
-  ancho: number;
-}
-
 interface Props {
   mesActual: Date;
   onCambiarMes: (delta: number) => void;
@@ -103,54 +94,22 @@ export function CalendarioMes({ mesActual, onCambiarMes, onIrAHoy, citas, nombre
   const grilla = construirGrilla(anio, mes);
   const hoyClave = claveDia(new Date());
 
-  /* Popover "de quién es la cita" — SOLO mobile (los puntitos de arriba no
-     dicen nombres). En un día CON citas, tocarlo abre esta lista corta (hora
-     + nombre, tocar una la edita) en vez de ir directo a "Nueva cita" — un
-     día vacío sigue yendo directo a crear, no hay nada que listar. Se
-     renderiza en un portal (no como hijo normal de la celda) porque el
-     `.card` de arriba tiene `overflow-hidden`: un popover hijo normal se
-     recortaría contra ese borde en vez de flotar libre, mismo problema que
-     ya resuelve DatePicker.tsx con su propio portal. */
-  const [popover, setPopover] = useState<PopoverDia | null>(null);
-  /* Desktop: clickear un evento (o cualquier parte de un día con citas) NO
-     va directo a editar esa cita puntual — abre este sidebar derecho con la
-     lista completa del día (mismo criterio que el popover de mobile, pero
-     como panel fijo en vez de flotante junto al dedo) y desde ahí se elige
-     cuál editar. Antes el clic en el chip de texto editaba directo esa
-     cita: con varias citas el mismo día no había forma de ver "todo" sin
-     adivinar cuál chip tocar (pedido explícito del usuario). */
+  /* Clickear un evento (o cualquier parte de un día con citas) NO va directo
+     a editar esa cita puntual — abre este sidebar derecho con la lista
+     completa del día y desde ahí se elige cuál editar. Antes el clic en el
+     chip de texto editaba directo esa cita: con varias citas el mismo día
+     no había forma de ver "todo" sin adivinar cuál chip tocar (pedido
+     explícito del usuario). Mismo comportamiento en mobile y desktop —
+     antes mobile abría un popover flotante en vez de este panel; se
+     unificó a pedido del usuario. */
   const [sidebarDia, setSidebarDia] = useState<{ dia: Date; citas: Cita[] } | null>(null);
 
-  useEffect(() => {
-    if (!popover) return;
-    function cerrar() { setPopover(null); }
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") cerrar(); }
-    window.addEventListener("scroll", cerrar, true);
-    window.addEventListener("resize", cerrar);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("scroll", cerrar, true);
-      window.removeEventListener("resize", cerrar);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [popover]);
-
-  function alClickDia(e: React.MouseEvent<HTMLButtonElement>, dia: Date, citasDelDia: Cita[]) {
+  function alClickDia(dia: Date, citasDelDia: Cita[]) {
     if (citasDelDia.length === 0) {
       onClickDia(dia);
       return;
     }
-    const esMobile = window.matchMedia("(max-width: 639px)").matches;
-    if (!esMobile) {
-      setSidebarDia({ dia, citas: citasDelDia });
-      return;
-    }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const margen = 8;
-    const ancho = Math.min(260, window.innerWidth - margen * 2);
-    const top = Math.min(rect.bottom + margen, window.innerHeight - margen);
-    const left = Math.min(Math.max(margen, rect.left), window.innerWidth - ancho - margen);
-    setPopover({ dia, citas: citasDelDia, top, left, ancho });
+    setSidebarDia({ dia, citas: citasDelDia });
   }
 
   /* Agrupa TODAS las citas del negocio por día una sola vez por render
@@ -205,7 +164,7 @@ export function CalendarioMes({ mesActual, onCambiarMes, onIrAHoy, citas, nombre
           return (
             <button
               key={i}
-              onClick={(e) => alClickDia(e, dia, citasDelDia)}
+              onClick={() => alClickDia(dia, citasDelDia)}
               aria-label={`${dia.getDate()} de ${MESES[mes]}${
                 citasDelDia.length > 0 ? ` — ${citasDelDia.length} cita${citasDelDia.length === 1 ? "" : "s"}` : ""
               }`}
@@ -271,43 +230,6 @@ export function CalendarioMes({ mesActual, onCambiarMes, onIrAHoy, citas, nombre
           );
         })}
       </div>
-
-      {popover && createPortal(
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setPopover(null)} />
-          <div
-            role="dialog"
-            aria-label={`Citas del ${popover.dia.getDate()} de ${MESES[popover.dia.getMonth()]}`}
-            style={{ top: popover.top, left: popover.left, width: popover.ancho }}
-            className="card fixed z-50 p-1.5 shadow-xl"
-          >
-            <div className="max-h-64 overflow-y-auto">
-              {popover.citas.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => { onClickCita(c); setPopover(null); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-3 text-left text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
-                  <span className="shrink-0 text-xs text-slate-500 dark:text-slate-500" suppressHydrationWarning>
-                    {new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <span className="truncate font-medium text-slate-700 dark:text-slate-200">{nombreCliente(c.clienteId)}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => { onClickDia(popover.dia); setPopover(null); }}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary-light dark:hover:bg-primary/10"
-            >
-              <Plus size={15} /> Nueva cita
-            </button>
-          </div>
-        </>,
-        document.body
-      )}
 
       <SlideOver
         abierto={!!sidebarDia}

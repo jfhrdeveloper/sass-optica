@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import type { Cita } from "@/components/providers/DataProvider";
 import { SlideOver } from "@/components/ui/SlideOver";
@@ -58,9 +57,10 @@ const COLOR_ESTADO: Record<string, string> = {
   cancelada: "border-slate-300 bg-slate-100 text-slate-500 line-through dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400",
   no_asistio: "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400",
 };
-/* Mismo mapeo que COLOR_ESTADO pero como punto sólido — se usa en el
-   popover/sidebar de solapes (ver MAX_COLS_VISIBLE), mismo criterio que
-   COLOR_DOT_ESTADO en CalendarioMes. */
+/* Mismo mapeo que COLOR_ESTADO pero como punto sólido — se usa como
+   indicador chico junto al nombre en el sidebar y en los grupos solapados de
+   mobile (ver MAX_COLS_VISIBLE), mismo criterio que COLOR_DOT_ESTADO en
+   CalendarioMes. */
 const COLOR_DOT_ESTADO: Record<string, string> = {
   programada: "bg-primary",
   atendida: "bg-accent",
@@ -226,36 +226,15 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
   const dragInfoRef = useRef<{ diaIdx: number; startMin: number } | null>(null);
   const [dragVisual, setDragVisual] = useState<{ diaIdx: number; min: number; max: number } | null>(null);
 
-  /* Popover (mobile) / sidebar (desktop) de un grupo de citas solapadas que
-     quedó fuera de MAX_COLS_VISIBLE — mismo patrón (y mismos componentes)
-     que el popover/sidebar de un día cargado en CalendarioMes. */
-  const [popoverAgenda, setPopoverAgenda] = useState<{ dia: Date; citas: Cita[]; top: number; left: number; ancho: number } | null>(null);
+  /* Sidebar con la lista completa de un grupo de citas solapadas que quedó
+     fuera de MAX_COLS_VISIBLE — mismo panel (y mismo componente) en mobile y
+     desktop; antes mobile abría un popover flotante en vez de este panel,
+     se unificó a pedido del usuario. */
   const [sidebarAgenda, setSidebarAgenda] = useState<{ dia: Date; citas: Cita[] } | null>(null);
-
-  useEffect(() => {
-    if (!popoverAgenda) return;
-    function cerrar() { setPopoverAgenda(null); }
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") cerrar(); }
-    window.addEventListener("scroll", cerrar, true);
-    window.addEventListener("resize", cerrar);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("scroll", cerrar, true);
-      window.removeEventListener("resize", cerrar);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [popoverAgenda]);
 
   function alClickOverflow(e: React.MouseEvent<HTMLSpanElement>, dia: Date, grupo: Cita[]) {
     e.stopPropagation();
-    const esMobile = window.matchMedia("(max-width: 639px)").matches;
-    if (!esMobile) { setSidebarAgenda({ dia, citas: grupo }); return; }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const margen = 8;
-    const ancho = Math.min(260, window.innerWidth - margen * 2);
-    const top = Math.min(rect.bottom + margen, window.innerHeight - margen);
-    const left = Math.min(Math.max(margen, rect.left), window.innerWidth - ancho - margen);
-    setPopoverAgenda({ dia, citas: grupo, top, left, ancho });
+    setSidebarAgenda({ dia, citas: grupo });
   }
 
   useEffect(() => {
@@ -307,6 +286,19 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
     const lista = citasPorDia.get(clave) ?? [];
     lista.push(c);
     citasPorDia.set(clave, lista);
+  }
+
+  /* Desktop: clickear CUALQUIER cita visible (columna normal o chip de
+     overflow) abre el sidebar con TODAS las citas de ese día, no solo esa
+     cita puntual ni solo el grupo que no entraba — mismo criterio que
+     CalendarioMes (pedido explícito del usuario: "igual que en mes"). Mobile
+     sigue con su propio comportamiento (chip único edita directo, grupo
+     solapado abre solo ese grupo vía alClickOverflow) — no se tocó, no fue
+     lo que se pidió acá. */
+  function abrirSidebarDia(dia: Date) {
+    const clave = claveDia(dia);
+    const citasOrdenadas = [...(citasPorDia.get(clave) ?? [])].sort((a, b) => a.fechaHora.localeCompare(b.fechaHora));
+    setSidebarAgenda({ dia, citas: citasOrdenadas });
   }
 
   const primero = columnas[0];
@@ -449,7 +441,8 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                  pantalla angosta hasta 2 columnas ya salen ilegibles. Acá se
                  agrupa por SOLAPE REAL de cada franja: una cita sola en su
                  franja queda legible a ancho completo, solo el grupo que de
-                 verdad se solapa colapsa en el cúmulo de puntos. */
+                 verdad se solapa colapsa en el bloque de hasta 2 nombres +
+                 "N más". */
               const gruposDiaMobile = agruparPorSolape(citasPorDia.get(clave) ?? []);
 
               return (
@@ -505,7 +498,7 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         role="button"
                         tabIndex={0}
                         onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); onClickCita(c); }}
+                        onClick={(e) => { e.stopPropagation(); abrirSidebarDia(dia); }}
                         style={{ top, height: alto, left: `${c._col * anchoPctDia}%`, width: `${anchoPctDia}%` }}
                         className={`absolute z-[5] hidden cursor-pointer overflow-hidden truncate rounded-md border-l-2 px-1.5 py-0.5 text-[11px] font-medium leading-tight sm:block ${COLOR_ESTADO[c.estado] ?? "border-slate-300 bg-slate-100 text-slate-600"}`}
                         title={`${new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })} · ${nombreCliente(c.clienteId)}`}
@@ -516,6 +509,9 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                     );
                   })}
 
+                  {/* Antes decía solo "+N más" sin ningún nombre — mismo
+                      tratamiento que el bloque mobile de arriba: hasta 2
+                      nombres y, si sobran, un renglón "+N más". */}
                   {gruposOverflow.map((grupo, gi) => {
                     const inicio = Math.min(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora))));
                     const fin = Math.max(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora)) + (c.duracionMin ?? DURACION_DEFECTO_MIN)));
@@ -528,19 +524,26 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         role="button"
                         tabIndex={0}
                         onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => alClickOverflow(e, dia, grupo)}
+                        onClick={(e) => { e.stopPropagation(); abrirSidebarDia(dia); }}
                         style={{ top, height: alto, left: `${MAX_COLS_VISIBLE * anchoPctDia}%`, width: `${anchoPctDia}%` }}
-                        className="absolute z-[5] hidden cursor-pointer items-center justify-center overflow-hidden truncate rounded-md border-l-2 border-slate-300 bg-slate-100 px-1 py-0.5 text-center text-[11px] font-medium leading-tight text-slate-600 sm:flex dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        className="absolute z-[5] hidden cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-md border-l-2 border-slate-300 bg-slate-100 px-1.5 py-0.5 leading-tight sm:flex dark:border-slate-600 dark:bg-slate-800"
                       >
-                        +{grupo.length} más
+                        {grupo.slice(0, 2).map((c) => (
+                          <span key={c.id} className="flex items-center gap-1 truncate text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
+                            <span className="truncate">{nombreCliente(c.clienteId)}</span>
+                          </span>
+                        ))}
+                        {grupo.length > 2 && (
+                          <span className="text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">+{grupo.length - 2} más</span>
+                        )}
                       </span>
                     );
                   })}
 
-                  {/* Mobile: por franja, o el chip legible (sola) o el
-                      cúmulo de puntos por estado (2+, mismo idioma visual
-                      que CalendarioMes) que abre el panel — ver
-                      gruposDiaMobile arriba. */}
+                  {/* Mobile: por franja, o el chip legible (sola) o hasta 2
+                      nombres + "N más" (2+, ver gruposDiaMobile arriba) que
+                      abre el sidebar con el grupo completo. */}
                   {gruposDiaMobile.map((grupo, gi) => {
                     const inicio = Math.min(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora))));
                     const fin = Math.max(...grupo.map((c) => minutosDesdeInicio(new Date(c.fechaHora)) + (c.duracionMin ?? DURACION_DEFECTO_MIN)));
@@ -566,6 +569,12 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                       );
                     }
 
+                    /* Antes esto era un cúmulo de puntos por estado (no
+                       decían nombres) — pedido explícito del usuario: hasta
+                       2 nombres reales y, si sobran, un renglón "+N más".
+                       Todo el bloque sigue siendo un solo clickeable que
+                       abre el sidebar con el grupo completo (alClickOverflow),
+                       no hace falta un "ver más" aparte. */
                     return (
                       <span
                         key={`mobile-grupo-${clave}-${gi}`}
@@ -575,16 +584,16 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         onClick={(e) => alClickOverflow(e, dia, grupo)}
                         style={{ top, height: alto, left: 0, width: "100%" }}
                         aria-label={`${grupo.length} citas a esta hora`}
-                        className="absolute z-[5] flex cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-md border-l-2 border-slate-300 bg-slate-100 px-1 py-0.5 sm:hidden dark:border-slate-600 dark:bg-slate-800"
+                        className="absolute z-[5] flex cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-md border-l-2 border-slate-300 bg-slate-100 px-1.5 py-0.5 leading-tight sm:hidden dark:border-slate-600 dark:bg-slate-800"
                       >
-                        {grupo.slice(0, 3).map((c) => (
-                          <span key={c.id} className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
+                        {grupo.slice(0, 2).map((c) => (
+                          <span key={c.id} className="flex items-center gap-1 truncate text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
+                            <span className="truncate">{nombreCliente(c.clienteId)}</span>
+                          </span>
                         ))}
-                        {/* Los puntos por sí solos no distinguen "4 citas" de "7, cortadas
-                            en 4" — a partir de la 4ta se reemplaza por el número real en
-                            vez de seguir agregando puntos indistinguibles entre sí. */}
-                        {grupo.length > 3 && (
-                          <span className="text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">+{grupo.length - 3}</span>
+                        {grupo.length > 2 && (
+                          <span className="text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">+{grupo.length - 2} más</span>
                         )}
                       </span>
                     );
@@ -595,36 +604,6 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
           </div>
         </div>
       </div>
-
-      {popoverAgenda && createPortal(
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setPopoverAgenda(null)} />
-          <div
-            role="dialog"
-            aria-label={`Citas del ${popoverAgenda.dia.getDate()} de ${MESES_CORTO[popoverAgenda.dia.getMonth()]}`}
-            style={{ top: popoverAgenda.top, left: popoverAgenda.left, width: popoverAgenda.ancho }}
-            className="card fixed z-50 p-1.5 shadow-xl"
-          >
-            <div className="max-h-64 overflow-y-auto">
-              {popoverAgenda.citas.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => { onClickCita(c); setPopoverAgenda(null); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-3 text-left text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
-                  <span className="shrink-0 text-xs text-slate-500 dark:text-slate-500" suppressHydrationWarning>
-                    {new Date(c.fechaHora).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <span className="truncate font-medium text-slate-700 dark:text-slate-200">{nombreCliente(c.clienteId)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
 
       <SlideOver
         abierto={!!sidebarAgenda}
