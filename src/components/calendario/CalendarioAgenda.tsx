@@ -81,6 +81,13 @@ const COLOR_DOT_ESTADO: Record<string, string> = {
    agruparPorSolape) en un chip "+N más" por franja horaria que abre la
    lista completa de esa franja. */
 const MAX_COLS_VISIBLE = 3;
+/* Piso de alto (px) para el cúmulo mobile de citas solapadas (2+, ver
+   gruposDiaMobile) — sin esto, un cúmulo de duración real corta rendía
+   con el `alto` normal (hasta 18px) y las 2 líneas de nombre no entraban:
+   el contenido se recortaba y solo quedaba visible el "+N más" (reportado
+   por el usuario, tampoco se podía tocar bien de tan chico). Alcanza para
+   2 líneas de texto de 10px + el padding vertical del chip. */
+const ALTO_MIN_GRUPO = 34;
 
 function claveDia(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -579,10 +586,22 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
 
                     /* Antes esto era un cúmulo de puntos por estado (no
                        decían nombres) — pedido explícito del usuario: hasta
-                       2 nombres reales y, si sobran, un renglón "+N más".
-                       Todo el bloque sigue siendo un solo clickeable que
-                       abre el sidebar con el grupo completo (alClickOverflow),
-                       no hace falta un "ver más" aparte. */
+                       2 nombres reales. Con el `alto` real (según duración)
+                       el cúmulo podía quedar de apenas 18px — insuficiente
+                       para 2 líneas de texto, así que el contenido se
+                       recortaba y solo se alcanzaba a ver el "+N más"
+                       (reportado por el usuario, no se podía ni leer ni
+                       tocar bien). ALTO_MIN_GRUPO le da piso propio a este
+                       cúmulo (no toca `alto` del chip de 1 sola cita, que
+                       con 1 línea no lo necesita) y el conteo de sobrantes
+                       se suma al segundo nombre en vez de una 3ra línea
+                       aparte, para no volver a necesitar más alto del que
+                       ya garantiza el piso. Todo el bloque sigue siendo un
+                       solo clickeable que abre el sidebar con el grupo
+                       completo (alClickOverflow), no hace falta un "ver
+                       más" aparte. */
+                    const nombresMostrados = grupo.slice(0, 2);
+                    const restantes = grupo.length - nombresMostrados.length;
                     return (
                       <span
                         key={`mobile-grupo-${clave}-${gi}`}
@@ -590,19 +609,19 @@ export function CalendarioAgenda({ fechaAncla, dias, onNavegar, onIrAHoy, citas,
                         tabIndex={0}
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => alClickOverflow(e, dia, grupo)}
-                        style={{ top, height: alto, left: 0, width: "100%" }}
+                        style={{ top, height: Math.max(alto, ALTO_MIN_GRUPO), left: 0, width: "100%" }}
                         aria-label={`${grupo.length} citas a esta hora`}
                         className="absolute z-[5] flex cursor-pointer flex-col justify-center gap-0.5 overflow-hidden rounded-md border-l-2 border-slate-300 bg-slate-100 px-1.5 py-0.5 leading-tight sm:hidden dark:border-slate-600 dark:bg-slate-800"
                       >
-                        {grupo.slice(0, 2).map((c) => (
+                        {nombresMostrados.map((c, i) => (
                           <span key={c.id} className="flex items-center gap-1 truncate text-[10px] font-medium text-slate-600 dark:text-slate-300">
                             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR_DOT_ESTADO[c.estado] ?? "bg-slate-400"}`} />
-                            <span className="truncate">{nombreCliente(c.clienteId)}</span>
+                            <span className="truncate">
+                              {nombreCliente(c.clienteId)}
+                              {i === nombresMostrados.length - 1 && restantes > 0 ? ` +${restantes}` : ""}
+                            </span>
                           </span>
                         ))}
-                        {grupo.length > 2 && (
-                          <span className="text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">+{grupo.length - 2} más</span>
-                        )}
                       </span>
                     );
                   })}
