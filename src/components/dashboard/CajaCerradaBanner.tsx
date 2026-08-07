@@ -9,8 +9,8 @@ import { Lock } from "lucide-react";
 export function CajaCerradaBanner() {
   return (
     <div className="flex flex-col items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
-      <div className="flex items-start gap-2">
-        <Lock size={16} className="mt-0.5 shrink-0" />
+      <div className="flex items-center gap-2">
+        <Lock size={20} className="shrink-0" />
         <span>Abre la caja para poder registrar ventas o cotizaciones.</span>
       </div>
       <Link

@@ -33,15 +33,15 @@ export function ChangelogBanner({ negocioId }: { negocioId?: string }) {
   if (cerrado) return null;
 
   return (
-    /* pl-4 pr-3 sm:px-4 (no solo px-4): en mobile el padding derecho más
-       chico acerca la X al borde para que quede a la misma distancia que
-       los otros avisos cerrables de esta página (stock bajo/seguimientos,
-       que usan px-3) — antes quedaba más adentro que ellos. El padding
-       izquierdo se mantiene en 16px siempre (no hay motivo para moverlo) y
-       desktop (`sm:`) no se toca. */
-    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent-light pl-4 pr-3 py-2.5 sm:px-4 text-sm text-slate-700 dark:text-slate-200">
-      <div className="flex items-center gap-2">
-        <Sparkles size={16} className="text-accent" />
+    /* Mismo px-3 py-2 + estructura que stock bajo/seguimientos (ver
+       dashboard/page.tsx): antes este banner usaba un padding asimétrico
+       propio (pl-4 pr-3) para acercar la X a los otros avisos, pero eso
+       corrió el ÍCONO unos px a la derecha respecto a los otros dos —
+       mismo padding en los tres lados alinea ícono Y "X" a la vez, sin
+       necesidad de un valor especial por banner. */
+    <div className="mt-4 flex items-center gap-2 rounded-lg border border-accent/20 bg-accent-light px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+      <div className="flex flex-1 items-center gap-2">
+        <Sparkles size={20} className="shrink-0 text-accent" />
         <span>¡Hay novedades! Rediseñamos el panel y ahora puedes darle permisos puntuales a cada empleado.</span>
       </div>
       <button onClick={cerrar} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded text-slate-500 dark:text-slate-500 hover:bg-white/60 dark:hover:bg-white/10" aria-label="Cerrar">

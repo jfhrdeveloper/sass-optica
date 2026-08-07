@@ -151,7 +151,7 @@ export default function DashboardPage() {
            importar cuántas líneas ocupe el texto envuelto. */
         <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
           <Link href="/dashboard/productos" className="flex flex-1 items-center gap-2 transition-colors hover:text-amber-950 dark:hover:text-amber-200">
-            <PackageX size={16} className="shrink-0" />
+            <PackageX size={20} className="shrink-0" />
             <span>
               <strong>{stockBajo.length}</strong> {stockBajo.length === 1 ? "producto está" : "productos están"} con stock bajo:{" "}
               {stockBajo.slice(0, 3).map((p) => p.nombre).join(", ")}
@@ -182,7 +182,7 @@ export default function DashboardPage() {
            y la X queden centrados entre sí. */
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
           <Link href="/dashboard/clientes" className="flex flex-1 items-center gap-2 transition-colors hover:text-sky-950 dark:hover:text-sky-200">
-            <Contact size={16} className="shrink-0" />
+            <Contact size={20} className="shrink-0" />
             <span>
               <strong>{seguimientos.length}</strong> {seguimientos.length === 1 ? "seguimiento" : "seguimientos"} de clientes{" "}
               {seguimientos.some((s) => estaVencido(s.fecha)) ? "vencidos o próximos" : "próximos"}:{" "}
