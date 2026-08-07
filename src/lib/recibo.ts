@@ -28,6 +28,17 @@ export function construirHtmlRecibo({ negocioNombre, negocioRuc, clienteNombre, 
       <td class="num">S/ ${it.subtotal.toFixed(2)}</td>
     </tr>`).join("");
 
+  /* Descuento y recargo por tarjeta no tienen columna propia en `ventas`
+     (ver DataProvider.Venta) — ventas/page.tsx los arma como texto en
+     `venta.notas`, separados por " · ", y acá se despliegan como líneas
+     propias en vez de un párrafo suelto. Antes esta info se calculaba pero
+     nunca llegaba a mostrarse en la boleta impresa. */
+  const lineasNotas = (venta.notas ?? "")
+    .split(" · ")
+    .filter(Boolean)
+    .map((linea) => `<div><span>${escapeHtml(linea)}</span></div>`)
+    .join("");
+
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -59,6 +70,7 @@ export function construirHtmlRecibo({ negocioNombre, negocioRuc, clienteNombre, 
   <div class="totales">
     <div><span>Subtotal</span><span>S/ ${venta.subtotal.toFixed(2)}</span></div>
     <div><span>IGV</span><span>S/ ${venta.igv.toFixed(2)}</span></div>
+    ${lineasNotas}
     <div class="total-final"><span>Total</span><span>S/ ${venta.total.toFixed(2)}</span></div>
     <div><span>Método de pago</span><span style="text-transform:capitalize">${escapeHtml(venta.metodoPago)}</span></div>
   </div>

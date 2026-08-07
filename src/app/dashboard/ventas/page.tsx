@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, Trash2, Printer, ScanBarcode } from "lucide-react";
+import { Receipt, Trash2, Printer, ScanBarcode, ChevronDown, Lock } from "lucide-react";
 import { Skeleton } from "boneyard-js/react";
 import { EscanerCodigoBarras } from "@/components/ui/EscanerCodigoBarras";
+import { ClienteCombobox } from "@/components/clientes/ClienteCombobox";
+import { ProductoCombobox } from "@/components/ventas/ProductoCombobox";
 import { productosRelacionados } from "@/lib/venta-cruzada";
 import { useData, type Venta, type VentaItem, type Producto } from "@/components/providers/DataProvider";
 import { useSession } from "@/components/providers/SessionProvider";
@@ -24,7 +26,6 @@ const IGV = 0.18;
    cliente) — opcional, se suma al total antes del cálculo de IGV solo si el
    usuario marca la casilla y el método de pago es "tarjeta". */
 const RECARGO_TARJETA_PCT = 0.05;
-const CLIENTE_NUEVO = "__nuevo__";
 type ItemForm = Omit<VentaItem, "id" | "ventaId">;
 
 /* Ver el mismo componente en cotizaciones/page.tsx: el placeholder/label
@@ -40,7 +41,7 @@ function Campo({ label, obligatorio, children }: { label: string; obligatorio?: 
 }
 
 export default function VentasPage() {
-  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, sucursales, sucursalFiltro, addVenta, addCliente, anularVenta, updateDescuento, ready } = useData();
+  const { ventas, ventaItems, clientes, productos, descuentos, negocio, suscripcion, cajas, sucursales, sucursalFiltro, addVenta, anularVenta, updateDescuento, ready } = useData();
   const cajaAbierta = cajas.some((c) => c.estado === "abierta");
   const { empleado } = useSession();
   const toast = useToast();
@@ -57,7 +58,6 @@ export default function VentasPage() {
   const ventasEsteMes = useMemo(() => contarVentasDelMes(ventas), [ventas]);
   const alLimiteVentas = suscripcion?.plan === "gratis" && !puedeRegistrarVenta(suscripcion.plan, ventasEsteMes);
   const [clienteId, setClienteId] = useState("");
-  const [nuevoCliente, setNuevoCliente] = useState({ nombres: "", apellidos: "", telefono: "" });
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [recargoTarjeta, setRecargoTarjeta] = useState(false);
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -71,6 +71,11 @@ export default function VentasPage() {
   const [guardando, setGuardando] = useState(false);
   const [confirmarAnular, setConfirmarAnular] = useState<Venta | null>(null);
   const [anulandoId, setAnulandoId] = useState<string | null>(null);
+
+  /* Mobile: fila de la tabla de ventas expandida (ver Método de pago +
+     acciones) — reemplaza el scroll horizontal por un desplegable, la
+     tabla completa (con Método visible) sigue intacta en desktop. */
+  const [filaExpandidaId, setFilaExpandidaId] = useState<string | null>(null);
 
   const [filtroMetodo, setFiltroMetodo] = useState("todos");
   const [desde, setDesde] = useState("");
@@ -184,33 +189,20 @@ export default function VentasPage() {
     if (items.length === 0 || !cajaAbierta) return;
     setGuardando(true);
 
-    let clienteIdFinal = clienteId;
-    if (clienteId === CLIENTE_NUEVO) {
-      if (!nuevoCliente.nombres.trim()) {
-        setGuardando(false);
-        toast("Ingresa al menos el nombre del cliente nuevo.", "error");
-        return;
-      }
-      const idCreado = await addCliente({
-        nombres: nuevoCliente.nombres.trim(),
-        apellidos: nuevoCliente.apellidos.trim() || undefined,
-        telefono: nuevoCliente.telefono.trim() || undefined,
-      });
-      if (!idCreado) {
-        setGuardando(false);
-        toast("No se pudo crear el cliente nuevo.", "error");
-        return;
-      }
-      clienteIdFinal = idCreado;
-    }
+    /* Descuento y recargo no tienen columna propia en `ventas` (ver
+       DataProvider) — se guardan como texto en `notas`, único lugar
+       persistido que el recibo (lib/recibo.ts) puede mostrar. Antes solo
+       viajaba el recargo; el descuento aplicado no quedaba registrado en
+       ningún lado y por eso nunca podía figurar en la boleta. */
+    const notasPartes: string[] = [];
+    if (descuentoAplicado) notasPartes.push(`Descuento (${descuentoAplicado.codigo}): -S/ ${descuentoMonto.toFixed(2)}`);
+    if (aplicaRecargoTarjeta) notasPartes.push(`Recargo tarjeta (${(RECARGO_TARJETA_PCT * 100).toFixed(0)}%): +S/ ${montoRecargoTarjeta.toFixed(2)}`);
+    const notas = notasPartes.length > 0 ? notasPartes.join(" · ") : undefined;
 
-    const notasRecargo = aplicaRecargoTarjeta
-      ? `Incluye recargo por tarjeta (${(RECARGO_TARJETA_PCT * 100).toFixed(0)}%): S/ ${montoRecargoTarjeta.toFixed(2)}`
-      : undefined;
     const { id, error } = await addVenta(
       {
-        clienteId: clienteIdFinal || undefined, empleadoId: empleado?.id, sucursalId: sucursalVentaId || undefined,
-        subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total, notas: notasRecargo,
+        clienteId: clienteId || undefined, empleadoId: empleado?.id, sucursalId: sucursalVentaId || undefined,
+        subtotal, igv, total, metodoPago, estado: "pagada", montoPagado: total, notas,
       },
       items,
     );
@@ -224,7 +216,6 @@ export default function VentasPage() {
     }
     setItems([]);
     setClienteId("");
-    setNuevoCliente({ nombres: "", apellidos: "", telefono: "" });
     setCodigoDescuento("");
     setRecargoTarjeta(false);
     toast("Venta registrada.");
@@ -235,6 +226,10 @@ export default function VentasPage() {
     const c = clientes.find((c) => c.id === id);
     return c ? `${c.nombres} ${c.apellidos}` : "—";
   };
+
+  // "Nuevo" para ClienteCombobox = sin compras previas (a diferencia de
+  // Citas, acá el historial relevante es `ventas`, no `citas`).
+  const esNuevoCliente = (id: string) => !ventas.some((v) => v.clienteId === id);
 
   /* Ventana nueva con `document.write` + `print()` — patrón estándar para un
      recibo de una sola vez sin librería de PDF: el HTML ya trae su propio
@@ -284,90 +279,68 @@ export default function VentasPage() {
 
       <div className="card mt-4 p-4">
         <h2 className="font-medium">Nueva venta</h2>
-        <div className="mt-2">
+
+        <div className="mt-3">
           <Campo label="Cliente">
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="select w-full">
-              <option value="">Sin cliente</option>
-              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombres} {c.apellidos}</option>)}
-              <option value={CLIENTE_NUEVO}>+ Nuevo cliente</option>
-            </select>
+            <ClienteCombobox clientes={clientes} clienteId={clienteId} onChange={setClienteId} esNuevo={esNuevoCliente} />
           </Campo>
-          {/* Antes no había forma de registrar una venta a un cliente que
-              todavía no existía sin salir a /dashboard/clientes y volver — el
-              cliente se crea recién en confirmarVenta() (no al escribir acá),
-              así cancelar la venta no deja un cliente huérfano a medio llenar. */}
-          {clienteId === CLIENTE_NUEVO && (
-            <div className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-2.5 sm:grid-cols-3 dark:bg-slate-900">
-              <Campo label="Nombres" obligatorio>
-                <input placeholder="Ej. María" value={nuevoCliente.nombres} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombres: e.target.value })} className="input w-full" />
+        </div>
+
+        <div className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <div className="flex gap-1">
+            <button
+              type="button" onClick={() => setModoItem("catalogo")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${modoItem === "catalogo" ? "bg-primary-light text-primary" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"}`}
+            >
+              Del catálogo
+            </button>
+            <button
+              type="button" onClick={() => setModoItem("personalizado")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${modoItem === "personalizado" ? "bg-primary-light text-primary" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"}`}
+            >
+              Personalizado
+            </button>
+            <button
+              type="button" onClick={() => setEscanerAbierto(true)}
+              className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              <ScanBarcode size={14} /> Escanear
+            </button>
+          </div>
+
+          {modoItem === "catalogo" ? (
+            <div className="mt-2 space-y-2">
+              <Campo label="Producto" obligatorio>
+                <ProductoCombobox productos={productos} productoId={productoId} onChange={setProductoId} />
               </Campo>
-              <Campo label="Apellidos">
-                <input placeholder="Ej. Gonzáles" value={nuevoCliente.apellidos} onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellidos: e.target.value })} className="input w-full" />
+              <div className="flex items-end gap-2">
+                <Campo label="Cantidad">
+                  <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
+                </Campo>
+                <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
+                  Agregar ítem
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)" obligatorio>
+                <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full" />
               </Campo>
-              <Campo label="Teléfono">
-                <input placeholder="Ej. 987654321" value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} className="input w-full" />
-              </Campo>
-              <p className="col-span-full text-xs text-slate-500 dark:text-slate-500"><span className="text-red-500">*</span> Campo obligatorio · se crea al confirmar la venta.</p>
+              <div className="flex items-end gap-2">
+                <Campo label="Precio unitario (S/)" obligatorio>
+                  <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28" />
+                </Campo>
+                <Campo label="Cantidad">
+                  <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
+                </Campo>
+                <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
+                  Agregar ítem
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        <div className="mt-3 flex gap-1">
-          <button
-            type="button" onClick={() => setModoItem("catalogo")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${modoItem === "catalogo" ? "bg-primary-light text-primary" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"}`}
-          >
-            Del catálogo
-          </button>
-          <button
-            type="button" onClick={() => setModoItem("personalizado")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${modoItem === "personalizado" ? "bg-primary-light text-primary" : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"}`}
-          >
-            Personalizado
-          </button>
-          <button
-            type="button" onClick={() => setEscanerAbierto(true)}
-            className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-          >
-            <ScanBarcode size={14} /> Escanear
-          </button>
-        </div>
-
-        {modoItem === "catalogo" ? (
-          <div className="mt-2 space-y-2">
-            <Campo label="Producto" obligatorio>
-              <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="select w-full">
-                <option value="">Elegir producto…</option>
-                {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre} — S/ {p.precioVenta.toFixed(2)}</option>)}
-              </select>
-            </Campo>
-            <div className="flex items-end gap-2">
-              <Campo label="Cantidad">
-                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
-              </Campo>
-              <button type="button" onClick={agregarItem} disabled={!productoId} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
-                Agregar ítem
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-2 space-y-2">
-            <Campo label="Descripción (ej. montura, luna, antireflejo, UV…)" obligatorio>
-              <input value={descripcionManual} onChange={(e) => setDescripcionManual(e.target.value)} placeholder="Ej. Luna con antireflejo" className="input w-full" />
-            </Campo>
-            <div className="flex items-end gap-2">
-              <Campo label="Precio unitario (S/)" obligatorio>
-                <input type="number" min={0} step="0.01" value={precioManual} onChange={(e) => setPrecioManual(Number(e.target.value))} className="input w-28" />
-              </Campo>
-              <Campo label="Cantidad">
-                <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} className="input w-20" />
-              </Campo>
-              <button type="button" onClick={agregarItemManual} disabled={!descripcionManual.trim() || precioManual <= 0} className="btn-outline mb-0.5 px-3 py-2 text-sm disabled:opacity-50">
-                Agregar ítem
-              </button>
-            </div>
-          </div>
-        )}
 
         {items.length > 0 && (
           <ul className="mt-3 space-y-1 text-sm">
@@ -412,15 +385,27 @@ export default function VentasPage() {
           </Campo>
           {sucursales.length > 0 && (
             <Campo label="Sede">
-              <select
-                value={sucursalVentaId}
-                onChange={(e) => setSucursalVentaId(e.target.value)}
-                disabled={!!empleado?.sucursalId}
-                className="select w-full"
-              >
-                <option value="">Sin sede asignada</option>
-                {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              {/* Empleado con sede fija: antes esto seguía siendo un <select>
+                 (solo disabled), mostrando todas las sedes aunque ninguna
+                 fuera realmente elegible — ahora, con sede fija, ni siquiera
+                 se ve como un desplegable: es una etiqueta bloqueada con la
+                 única sede que aplica. Sin sede fija (ve todas), sigue el
+                 <select> normal. */}
+              {empleado?.sucursalId ? (
+                <div className="input flex w-full items-center gap-2 bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                  <Lock size={13} className="shrink-0" />
+                  <span className="truncate">{sucursales.find((s) => s.id === empleado.sucursalId)?.nombre ?? "Sede fija"}</span>
+                </div>
+              ) : (
+                <select
+                  value={sucursalVentaId}
+                  onChange={(e) => setSucursalVentaId(e.target.value)}
+                  className="select w-full"
+                >
+                  <option value="">Sin sede asignada</option>
+                  {sucursales.filter((s) => s.activo).map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              )}
             </Campo>
           )}
           {metodoPago === "tarjeta" && (
@@ -429,21 +414,23 @@ export default function VentasPage() {
               Incluir recargo por tarjeta ({(RECARGO_TARJETA_PCT * 100).toFixed(0)}%)
             </label>
           )}
-          {items.length > 0 && (
-            <Campo label="Código de descuento (opcional)">
-              <select
-                value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
-                className="select w-full sm:w-48"
-              >
-                <option value="">Sin descuento</option>
-                {descuentosDisponibles.map((d) => (
-                  <option key={d.id} value={d.codigo}>
-                    {d.codigo} — {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
-                  </option>
-                ))}
-              </select>
-            </Campo>
-          )}
+          {/* Antes solo aparecía con items.length > 0 — "a veces sí, a veces
+             no" reportado por el usuario. Siempre visible ahora (un
+             descuento sin ítems simplemente no tiene nada sobre qué
+             aplicarse, pero el campo en sí no depende de eso). */}
+          <Campo label="Código de descuento (opcional)">
+            <select
+              value={codigoDescuento} onChange={(e) => setCodigoDescuento(e.target.value)}
+              className="select w-full sm:w-48"
+            >
+              <option value="">Sin descuento</option>
+              {descuentosDisponibles.map((d) => (
+                <option key={d.id} value={d.codigo}>
+                  {d.codigo} — {d.tipo === "porcentaje" ? `${d.valor}%` : `S/ ${d.valor.toFixed(2)}`}
+                </option>
+              ))}
+            </select>
+          </Campo>
           <div className="text-right sm:ml-auto">
             {descuentoAplicado && (
               <p className="text-accent">
@@ -480,13 +467,14 @@ export default function VentasPage() {
         </div>
 
         <Skeleton name="ventas-tabla" loading={!ready}>
-        <div className="overflow-x-auto">
+        {/* Desktop: tabla completa sin cambios (Método ya visible acá). */}
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr>
                 <th className="table-head-cell">Fecha</th>
                 <th className="table-head-cell">Cliente</th>
-                <th className="table-head-cell hidden md:table-cell">Método</th>
+                <th className="table-head-cell">Método</th>
                 <th className="table-head-cell">Total</th>
                 <th className="table-head-cell">Estado</th>
                 <th className="table-head-cell text-right">Acciones</th>
@@ -504,7 +492,7 @@ export default function VentasPage() {
                       <span className="font-medium text-slate-900 dark:text-slate-100">{nombreCliente(v.clienteId)}</span>
                     </div>
                   </td>
-                  <td className="table-body-cell hidden md:table-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
+                  <td className="table-body-cell capitalize text-slate-600 dark:text-slate-300">{v.metodoPago}</td>
                   <td className="table-body-cell">
                     <span className="font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
                     <div className="text-xs text-slate-500 dark:text-slate-500">
@@ -553,6 +541,72 @@ export default function VentasPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile: sin scroll horizontal — cada venta es una tarjeta
+           colapsada (fecha/cliente/total/estado) y el chevron despliega lo
+           que antes exigía scrollear: Método de pago + Imprimir/Anular. */}
+        <div className="space-y-2 md:hidden">
+          {visibles.map((v) => {
+            const expandida = filaExpandidaId === v.id;
+            return (
+              <div key={v.id} className="card p-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setFilaExpandidaId(expandida ? null : v.id)}
+                  aria-expanded={expandida}
+                  className="flex w-full items-center gap-3 text-left"
+                >
+                  <span className="row-avatar shrink-0"><Receipt size={16} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium text-slate-900 dark:text-slate-100">{nombreCliente(v.clienteId)}</span>
+                      <span className="shrink-0 font-medium text-slate-900 dark:text-slate-100">S/ {v.total.toFixed(2)}</span>
+                    </span>
+                    <span className="mt-0.5 flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-500">
+                      <span suppressHydrationWarning>{new Date(v.fecha).toLocaleString("es-PE", { timeZone: "America/Lima" })}</span>
+                      <span className={`badge shrink-0 ${v.estado === "anulada" ? "badge-neutral" : "badge-success"}`}>
+                        {v.estado === "anulada" ? "Anulada" : "Pagada"}
+                      </span>
+                    </span>
+                  </span>
+                  <ChevronDown size={16} className={`shrink-0 text-slate-400 transition-transform ${expandida ? "rotate-180" : ""}`} />
+                </button>
+
+                {expandida && (
+                  <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <p className="text-xs text-slate-500 dark:text-slate-500">
+                      {ventaItems.filter((it) => it.ventaId === v.id).map((it) => it.descripcion).join(", ")}
+                    </p>
+                    <p className="text-xs capitalize text-slate-600 dark:text-slate-300">Método: {v.metodoPago}</p>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => imprimirRecibo(v)}
+                        className="btn-outline h-11 flex-1 gap-1.5 text-sm"
+                      >
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {v.estado !== "anulada" && (
+                        <button
+                          onClick={() => setConfirmarAnular(v)}
+                          disabled={anulandoId === v.id}
+                          className="btn-outline h-11 flex-1 gap-1.5 text-sm text-red-600 disabled:opacity-50 dark:text-red-400"
+                        >
+                          <Trash2 size={15} /> Anular
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {ordenadas.length === 0 && (
+            <div className="table-empty">
+              <Receipt size={28} className="text-slate-300 dark:text-slate-600" />
+              Sin ventas todavía.
+            </div>
+          )}
         </div>
         </Skeleton>
         <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambiar={setPagina} />
